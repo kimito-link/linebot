@@ -13,6 +13,7 @@
  *   ?redirect=x       — redirect after linking (for wrapped URLs)
  *   ?page=book        — booking page (calendar slot picker, Google Calendar)
  *   ?page=salon-book  — salon booking flow (React, dynamic-imported)
+ *   ?page=affiliate   — affiliate self-serve page (React, dynamic-imported)
  */
 
 import { initBooking } from './booking.js';
@@ -25,6 +26,7 @@ declare const liff: {
   login(opts?: { redirectUri?: string }): void;
   getProfile(): Promise<{ userId: string; displayName: string; pictureUrl?: string; statusMessage?: string }>;
   getIDToken(): string | null;
+  getAccessToken(): string | null;
   getDecodedIDToken(): { sub: string; name?: string; email?: string; picture?: string } | null;
   getFriendship(): Promise<{ friendFlag: boolean }>;
   isInClient(): boolean;
@@ -491,6 +493,73 @@ async function initEventBooking(initialKind: 'detail' | 'history'): Promise<void
   mountEventBooking(container, ctx, initial);
 }
 
+// ─── Affiliate self-serve (React, dynamic-imported) ──────
+
+async function initAffiliate(): Promise<void> {
+  // salon-booking と同じ初期化シーケンス: profile/accessToken/friendship を
+  // 取得し、未友達なら friend-add gate、友達なら React mount。
+  //
+  // booking 系は id_token で verify するが、affiliate API は LINE access token
+  // (liff.getAccessToken()) を /oauth2/v2.1/verify + /v2/profile で検証するため
+  // ここでは accessToken を取り出して mount context に渡す。
+  const [profile, accessToken, friendship] = await Promise.all([
+    liff.getProfile(),
+    Promise.resolve(liff.getAccessToken()),
+    liff.getFriendship(),
+  ]);
+  if (!accessToken) {
+    showError('LINE 認証情報の取得に失敗しました。LINE アプリ内で再度開いてください。');
+    return;
+  }
+
+  const existingUuid = getSavedUuid();
+  const ref = getRef();
+  const affParams = new URLSearchParams(window.location.search);
+
+  // UUID linking (best-effort) — affiliate API は friends 行を要求するので、
+  // 未 link の初回利用者でも friend-add gate 通過後に行が存在するようにする。
+  apiCall('/api/liff/link', {
+    method: 'POST',
+    body: JSON.stringify({
+      idToken: liff.getIDToken(),
+      displayName: profile.displayName,
+      existingUuid,
+      ref: ref || undefined,
+      ig: affParams.get('ig') || undefined,
+      iga: affParams.get('iga') || undefined,
+      igan: affParams.get('igan') || undefined,
+    }),
+  })
+    .then(async (res) => {
+      if (res.ok) {
+        const data = (await res.json()) as { success: boolean; data?: { userId?: string } };
+        if (data?.data?.userId) saveUuid(data.data.userId);
+      }
+    })
+    .catch(() => {
+      /* silent */
+    });
+
+  // 未友達なら friend-add UI に流す。affiliate API は friends 行 (=友だち) を
+  // 要求するので、ここを skip すると /affiliate/me が friend_not_found で詰む。
+  if (!friendship.friendFlag) {
+    showFriendAdd(profile);
+    return;
+  }
+
+  const container = document.getElementById('app');
+  if (!container) {
+    showError('mount target #app が見つかりません');
+    return;
+  }
+  const { mountAffiliate } = await import('./affiliate/main.js');
+  mountAffiliate(container, {
+    liffId: LIFF_ID,
+    lineUserId: profile.userId,
+    lineAccessToken: accessToken,
+  });
+}
+
 // ─── Entry Point ────────────────────────────────────────
 
 async function main() {
@@ -522,6 +591,8 @@ async function main() {
       await initEventBooking('detail');
     } else if (page === 'event-me') {
       await initEventBooking('history');
+    } else if (page === 'affiliate') {
+      await initAffiliate();
     } else if (page === 'form') {
       const params = new URLSearchParams(window.location.search);
       const formId = params.get('id');

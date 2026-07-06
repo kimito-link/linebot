@@ -8,6 +8,9 @@ import {
   getRandomPoolAccount,
   getPoolAccounts,
   getEntryRouteByRefCode,
+  getLineAccountById,
+  getAffiliateLinkByRefCode,
+  incrementAffiliateLinkClick,
 } from '@line-crm/db';
 import { processStepDeliveries } from './services/step-delivery.js';
 import { processScheduledBroadcasts, processQueuedBroadcasts } from './services/broadcast.js';
@@ -38,6 +41,7 @@ import { usersGrouped } from './routes/users-grouped.js';
 import { inbox } from './routes/inbox.js';
 import { openapi } from './routes/openapi.js';
 import { liffRoutes } from './routes/liff.js';
+import { affiliateSelfRoutes } from './routes/affiliate-self.js';
 // Round 3 ルート
 import { webhooks } from './routes/webhooks.js';
 import { calendar } from './routes/calendar.js';
@@ -161,6 +165,7 @@ app.route('/', usersGrouped);
 app.route('/', inbox);
 app.route('/', openapi);
 app.route('/', liffRoutes);
+app.route('/', affiliateSelfRoutes);
 
 // Mount route groups — Round 3
 app.route('/', webhooks);
@@ -252,8 +257,33 @@ app.get('/r/:ref', async (c) => {
     if (candidate?.is_active) pool = candidate;
   }
 
-  // 2 / 3. fallback to URL query or 'main'
-  if (!pool) {
+  // 1b. affiliate_links fallback (ASP). Only when the ref is NOT a known
+  // entry_route: entry_routes owns the ref namespace, so an existing route
+  // (even one whose pool is paused) keeps its behavior unchanged. An affiliate
+  // ref resolves its LINE account directly (no pool) and lands on that
+  // account's LIFF. is_active=0 links still redirect (spec §8) — pausing an
+  // affiliate link only stops NEW attribution, never breaks existing links.
+  // The click is counted here (the landing page hit), and `ref` still rides
+  // through to LIFF state below so the existing ref_tracking flow attributes
+  // the eventual friend-add via /auth/callback + /api/liff/link.
+  let affiliateResolved = false;
+  if (!route) {
+    const affiliateLink = await getAffiliateLinkByRefCode(c.env.DB, ref);
+    if (affiliateLink) {
+      await incrementAffiliateLinkClick(c.env.DB, ref);
+      affiliateResolved = true;
+      if (affiliateLink.line_account_id) {
+        const account = await getLineAccountById(c.env.DB, affiliateLink.line_account_id);
+        if (account?.liff_id) liffUrl = `https://liff.line.me/${account.liff_id}`;
+      }
+      // line_account_id === null → keep the default LIFF_URL (既定アカウント).
+    }
+  }
+
+  // 2 / 3. fallback to URL query or 'main'. Skipped for affiliate refs, whose
+  // account is already resolved above; falling through to the 'main' pool would
+  // override the affiliate's chosen account.
+  if (!pool && !affiliateResolved) {
     const poolSlug = c.req.query('pool') || 'main';
     pool = await getTrafficPoolBySlug(c.env.DB, poolSlug);
   }

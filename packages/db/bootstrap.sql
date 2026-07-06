@@ -71,12 +71,24 @@ CREATE TABLE affiliate_clicks (
   created_at   TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now', '+9 hours'))
 );
 
+CREATE TABLE affiliate_links (
+  id              TEXT PRIMARY KEY,
+  affiliate_id    TEXT NOT NULL REFERENCES affiliates (id),
+  ref_code        TEXT NOT NULL UNIQUE,
+  label           TEXT,
+  line_account_id TEXT REFERENCES line_accounts (id),
+  is_active       INTEGER NOT NULL DEFAULT 1,
+  created_at      TEXT NOT NULL,
+  click_count     INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE affiliates (
   id              TEXT PRIMARY KEY,
   name            TEXT NOT NULL,
   code            TEXT NOT NULL UNIQUE,
   commission_rate REAL NOT NULL DEFAULT 0,
   is_active       INTEGER NOT NULL DEFAULT 1,
+  friend_id       TEXT REFERENCES friends (id),
   created_at      TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now', '+9 hours'))
 );
 
@@ -229,13 +241,15 @@ CREATE TABLE chats (
 , line_account_id TEXT);
 
 CREATE TABLE conversion_events (
-  id                  TEXT PRIMARY KEY,
-  conversion_point_id TEXT NOT NULL REFERENCES conversion_points (id) ON DELETE CASCADE,
-  friend_id           TEXT NOT NULL REFERENCES friends (id) ON DELETE CASCADE,
-  user_id             TEXT,
-  affiliate_code      TEXT,
-  metadata            TEXT,
-  created_at          TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now', '+9 hours'))
+  id                   TEXT PRIMARY KEY,
+  conversion_point_id  TEXT NOT NULL REFERENCES conversion_points (id) ON DELETE CASCADE,
+  friend_id            TEXT NOT NULL REFERENCES friends (id) ON DELETE CASCADE,
+  user_id              TEXT,
+  affiliate_code       TEXT,
+  metadata             TEXT,
+  affiliate_id         TEXT REFERENCES affiliates (id),
+  attributed_ref_code  TEXT,
+  created_at           TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now', '+9 hours'))
 );
 
 CREATE TABLE conversion_points (
@@ -428,6 +442,8 @@ CREATE TABLE friends (
   user_id          TEXT,
   ig_igsid         TEXT,
   score            INTEGER NOT NULL DEFAULT 0,
+  last_ref_code    TEXT,
+  last_ref_at      TEXT,
   created_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now', '+9 hours')),
   updated_at       TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%f', 'now', '+9 hours'))
 , ref_code TEXT, metadata TEXT NOT NULL DEFAULT '{}', line_account_id TEXT REFERENCES line_accounts(id), first_tracked_link_id TEXT REFERENCES tracked_links (id) ON DELETE SET NULL);
@@ -815,6 +831,10 @@ CREATE INDEX idx_ad_conversion_logs_status ON ad_conversion_logs (status);
 
 CREATE INDEX idx_affiliate_clicks_affiliate ON affiliate_clicks (affiliate_id);
 
+CREATE INDEX idx_affiliate_links_affiliate ON affiliate_links (affiliate_id);
+
+CREATE UNIQUE INDEX idx_affiliates_friend ON affiliates (friend_id) WHERE friend_id IS NOT NULL;
+
 CREATE INDEX idx_auto_replies_template_id ON auto_replies(template_id);
 
 CREATE INDEX idx_automation_logs_automation ON automation_logs (automation_id);
@@ -931,7 +951,11 @@ CREATE INDEX idx_notifications_status ON notifications (status);
 
 CREATE INDEX idx_ref_tracking_friend ON ref_tracking (friend_id);
 
+CREATE INDEX idx_ref_tracking_friend_created ON ref_tracking(friend_id, created_at);
+
 CREATE INDEX idx_ref_tracking_ref    ON ref_tracking (ref_code);
+
+CREATE INDEX idx_ref_tracking_ref_created ON ref_tracking(ref_code, created_at);
 
 CREATE INDEX idx_reminder_steps_reminder ON reminder_steps (reminder_id);
 

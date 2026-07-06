@@ -14,6 +14,7 @@ import {
 } from '@/components/accounts/account-form-fields'
 import AccountSetupUrls from '@/components/accounts/account-setup-urls'
 import AccountEditModal from '@/components/accounts/account-edit-modal'
+import LinkBaseUrlSetting from '@/components/accounts/link-base-url-setting'
 
 interface LineAccountListItem {
   id: string
@@ -342,6 +343,10 @@ export default function AccountsPage() {
           ))}
         </div>
       )}
+      <div className="mt-8">
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">グローバル設定</h2>
+        <LinkBaseUrlSetting />
+      </div>
       <CcPromptButton prompts={ccPrompts} />
       {showReorder && (
         <ReorderMode

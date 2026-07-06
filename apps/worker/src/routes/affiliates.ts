@@ -8,12 +8,17 @@ import {
   deleteAffiliate,
   recordAffiliateClick,
   getAffiliateReport,
+  getAffiliateReportV2,
+  getFriendJourney,
+  getAffiliateJourneys,
+  listAffiliateLinks,
 } from '@line-crm/db';
+import { IDENTITY_KEY_SQL } from '../lib/identity-key.js';
 import type { Env } from '../index.js';
 
 const affiliates = new Hono<Env>();
 
-function serializeAffiliate(row: { id: string; name: string; code: string; commission_rate: number; is_active: number; created_at: string }) {
+function serializeAffiliate(row: { id: string; name: string; code: string; commission_rate: number; is_active: number; created_at: string; friend_id?: string | null }) {
   return {
     id: row.id,
     name: row.name,
@@ -21,6 +26,7 @@ function serializeAffiliate(row: { id: string; name: string; code: string; commi
     commissionRate: row.commission_rate,
     isActive: Boolean(row.is_active),
     createdAt: row.created_at,
+    friendId: row.friend_id ?? null,
   };
 }
 
@@ -107,20 +113,70 @@ affiliates.delete('/api/affiliates/:id', async (c) => {
   }
 });
 
-// GET /api/affiliates/:id/report - affiliate performance report
+// GET /api/affiliates/:id/report - affiliate performance report (v2)
+// Extends the legacy report with ref_tracking-based clicks, add-time friendAdds,
+// conversionsByPoint, estimatedCommission and identity-key duplicateFlags.
 affiliates.get('/api/affiliates/:id/report', async (c) => {
   try {
-    const report = await getAffiliateReport(c.env.DB, c.req.param('id'), {
+    const report = await getAffiliateReportV2(c.env.DB, c.req.param('id'), {
       startDate: c.req.query('startDate'),
       endDate: c.req.query('endDate'),
+      identityKeySql: IDENTITY_KEY_SQL,
     });
 
-    if (report.length === 0) {
+    if (!report) {
       return c.json({ success: false, error: 'Affiliate not found' }, 404);
     }
-    return c.json({ success: true, data: report[0] });
+    return c.json({ success: true, data: report });
   } catch (err) {
     console.error('GET /api/affiliates/:id/report error:', err);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+// GET /api/affiliates/:id/journeys - attributed-friend journey summaries
+// Cursor-paginated on (addedAt, friendId), same scheme as GET /api/chats.
+affiliates.get('/api/affiliates/:id/journeys', async (c) => {
+  try {
+    const affiliate = await getAffiliateById(c.env.DB, c.req.param('id'));
+    if (!affiliate) {
+      return c.json({ success: false, error: 'Affiliate not found' }, 404);
+    }
+    const limitParam = Number.parseInt(c.req.query('limit') ?? '', 10);
+    const page = await getAffiliateJourneys(c.env.DB, c.req.param('id'), {
+      limit: Number.isFinite(limitParam) ? limitParam : undefined,
+      beforeAt: c.req.query('beforeAt') || undefined,
+      beforeId: c.req.query('beforeId') || undefined,
+    });
+    return c.json({ success: true, data: page.items, nextCursor: page.nextCursor });
+  } catch (err) {
+    console.error('GET /api/affiliates/:id/journeys error:', err);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+// GET /api/affiliates/:id/links - list all ref_code links for an affiliate
+affiliates.get('/api/affiliates/:id/links', async (c) => {
+  try {
+    const affiliate = await getAffiliateById(c.env.DB, c.req.param('id'));
+    if (!affiliate) {
+      return c.json({ success: false, error: 'Affiliate not found' }, 404);
+    }
+    const links = await listAffiliateLinks(c.env.DB, c.req.param('id'));
+    return c.json({ success: true, data: links });
+  } catch (err) {
+    console.error('GET /api/affiliates/:id/links error:', err);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+// GET /api/friends/:id/journey - time-ordered event journey for one friend
+affiliates.get('/api/friends/:id/journey', async (c) => {
+  try {
+    const events = await getFriendJourney(c.env.DB, c.req.param('id'));
+    return c.json({ success: true, data: { events } });
+  } catch (err) {
+    console.error('GET /api/friends/:id/journey error:', err);
     return c.json({ success: false, error: 'Internal server error' }, 500);
   }
 });

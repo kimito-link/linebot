@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getLinkBaseUrl, setLinkBaseUrl } from '@line-crm/db';
 import type { Env } from '../index.js';
 
 const accountSettings = new Hono<Env>();
@@ -50,6 +51,39 @@ accountSettings.put('/api/account-settings/test-recipients', async (c) => {
   ).run();
 
   return c.json({ success: true });
+});
+
+// ── link_base_url (global setting, stored under sentinel '__global__') ─────────
+
+/**
+ * GET /api/account-settings/link-base-url
+ * Returns the configured short-link base URL (or null if not set).
+ */
+accountSettings.get('/api/account-settings/link-base-url', async (c) => {
+  const value = await getLinkBaseUrl(c.env.DB, '__global__');
+  return c.json({ success: true, data: value });
+});
+
+/**
+ * PUT /api/account-settings/link-base-url
+ * Body: { value: string }
+ * - Empty string clears the setting.
+ * - Must start with https:// (if non-empty).
+ * - Trailing slash is stripped before saving.
+ */
+accountSettings.put('/api/account-settings/link-base-url', async (c) => {
+  const body = await c.req
+    .json<{ value?: string }>()
+    .catch((): { value?: string } => ({}));
+  const value = typeof body.value === 'string' ? body.value : '';
+
+  try {
+    await setLinkBaseUrl(c.env.DB, '__global__', value);
+    return c.json({ success: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Validation error';
+    return c.json({ success: false, error: message }, 400);
+  }
 });
 
 export { accountSettings };

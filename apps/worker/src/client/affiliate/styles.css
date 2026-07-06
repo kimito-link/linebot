@@ -1,0 +1,112 @@
+/* affiliate 専用 CSS。salon-booking / event-booking と同じパターン。
+ * Tailwind v4: theme + utilities を取り込み、preflight (base reset) は除外。
+ * preflight を含めると既存 form.ts / Calendar booking 用 inline CSS と衝突する
+ * ため、affiliate namespace (body.af-active 配下) にだけ手動 reset を当てる。
+ */
+@import "tailwindcss/theme.css";
+@import "tailwindcss/utilities.css";
+
+/* ─── affiliate namespace の inline 上書き ─────────────
+ * index.html の friend-add 用 inline:
+ *   body { display:flex; align-items:center; min-height:100vh }
+ *   #app  { max-width:480px; padding:24px 16px; width:100% }
+ * は React アプリでは邪魔なので body と #app 双方を上書き。
+ */
+body.af-active {
+  display: block !important;
+  align-items: stretch !important;
+}
+body.af-active #app {
+  max-width: none !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+
+/* ─── 必要最低限の preflight ────────────────────────────────
+ * 全ルールは :where(body.af-active) で wrap して specificity を実質 0 にする。
+ * salon-booking の解説参照: utility クラスが常に勝つようにするため。
+ */
+:where(body.af-active),
+:where(body.af-active) *,
+:where(body.af-active) *::before,
+:where(body.af-active) *::after {
+  box-sizing: border-box;
+}
+:where(body.af-active) h1,
+:where(body.af-active) h2,
+:where(body.af-active) h3,
+:where(body.af-active) h4,
+:where(body.af-active) h5,
+:where(body.af-active) h6 {
+  font-size: inherit;
+  font-weight: inherit;
+  margin: 0;
+}
+:where(body.af-active) p,
+:where(body.af-active) dl,
+:where(body.af-active) dd,
+:where(body.af-active) dt,
+:where(body.af-active) ol,
+:where(body.af-active) ul,
+:where(body.af-active) figure,
+:where(body.af-active) blockquote {
+  margin: 0;
+}
+:where(body.af-active) ol,
+:where(body.af-active) ul {
+  list-style: none;
+  padding: 0;
+}
+:where(body.af-active) button {
+  font-family: inherit;
+  font-size: 100%;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+  padding: 0;
+  background-color: transparent;
+  background-image: none;
+  border: 0;
+  cursor: pointer;
+}
+:where(body.af-active) button:disabled {
+  cursor: not-allowed;
+}
+:where(body.af-active) input,
+:where(body.af-active) textarea,
+:where(body.af-active) select {
+  font-family: inherit;
+  font-size: 100%;
+  line-height: inherit;
+  color: inherit;
+  margin: 0;
+}
+:where(body.af-active) img,
+:where(body.af-active) svg,
+:where(body.af-active) video,
+:where(body.af-active) canvas {
+  display: block;
+  max-width: 100%;
+}
+:where(body.af-active) a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+/* fade-in アニメーション (salon-booking と同じ言語) */
+@keyframes af-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.af-fade-in { animation: af-fade-in 0.25s ease both; }
+
+/* spinner */
+@keyframes af-spin { to { transform: rotate(360deg); } }
+.af-spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top-color: #06C755;
+  border-radius: 9999px;
+  animation: af-spin 0.8s linear infinite;
+}

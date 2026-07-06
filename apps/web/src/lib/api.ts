@@ -388,6 +388,13 @@ export const api = {
         method: 'PUT',
         body: JSON.stringify({ accountId, friendIds }),
       }),
+    getLinkBaseUrl: () =>
+      fetchApi<{ success: boolean; data: string | null }>('/api/account-settings/link-base-url'),
+    updateLinkBaseUrl: (value: string) =>
+      fetchApi<{ success: boolean; error?: string }>('/api/account-settings/link-base-url', {
+        method: 'PUT',
+        body: JSON.stringify({ value }),
+      }),
   },
 
   // ── Round 2 APIs ─────────────────────────────────────────────────────────
@@ -524,6 +531,69 @@ export const api = {
       fetchApi<ApiResponse<{ affiliateId: string; affiliateName: string; code: string; commissionRate: number; totalClicks: number; totalConversions: number; totalRevenue: number }>>(
         `/api/affiliates/${id}/report?` + new URLSearchParams(params as Record<string, string>),
       ),
+    /** v2 report: clicks, friendAdds, conversionsByPoint, estimatedCommission, duplicateFlags */
+    reportV2: (id: string, params?: { startDate?: string; endDate?: string }) =>
+      fetchApi<ApiResponse<{
+        affiliateId: string;
+        affiliateName: string;
+        code: string;
+        commissionRate: number;
+        clicks: number;
+        linkClicks: number;
+        friendAdds: number;
+        conversions: number;
+        conversionsByPoint: Array<{ conversionPointId: string; name: string; count: number; value: number }>;
+        revenue: number;
+        estimatedCommission: number;
+        duplicateFlags: Array<{ friendId: string; identityKey: string }>;
+      }>>(`/api/affiliates/${id}/report?` + new URLSearchParams(params as Record<string, string>)),
+    /** Cursor-paginated attributed-friend journey summaries */
+    journeys: (id: string, params?: { limit?: number; beforeAt?: string; beforeId?: string }) => {
+      const query = new URLSearchParams();
+      if (params?.limit !== undefined) query.set('limit', String(params.limit));
+      if (params?.beforeAt) query.set('beforeAt', params.beforeAt);
+      if (params?.beforeId) query.set('beforeId', params.beforeId);
+      const qs = query.toString();
+      return fetchApi<{
+        success: boolean;
+        data: Array<{
+          friendId: string;
+          displayName: string | null;
+          addedAt: string;
+          refCode: string | null;
+          touchCount: number;
+          formCount: number;
+          conversionCount: number;
+          lastEventAt: string;
+        }>;
+        nextCursor: { beforeAt: string; beforeId: string } | null;
+      }>(`/api/affiliates/${id}/journeys${qs ? `?${qs}` : ''}`);
+    },
+    /** List ref_code links for an affiliate (loaded on detail expand) */
+    links: (id: string) =>
+      fetchApi<ApiResponse<Array<{
+        id: string;
+        affiliate_id: string;
+        ref_code: string;
+        label: string | null;
+        line_account_id: string | null;
+        is_active: number;
+        created_at: string;
+        click_count: number;
+      }>>>(`/api/affiliates/${id}/links`),
+    /** All-affiliates aggregate report (single-pass, no N+1) */
+    allReport: (params?: { startDate?: string; endDate?: string }) =>
+      fetchApi<ApiResponse<Array<{
+        affiliateId: string;
+        affiliateName: string;
+        code: string;
+        commissionRate: number;
+        totalClicks: number;
+        totalConversions: number;
+        totalRevenue: number;
+        linkCount: number;
+        friendAdds: number;
+      }>>>('/api/affiliates-report?' + new URLSearchParams(params as Record<string, string>)),
   },
   templates: {
     list: (category?: string) =>

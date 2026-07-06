@@ -1,4 +1,5 @@
 import { jstNow } from './utils.js';
+import { resolveAffiliateAttribution } from './affiliate-attribution.js';
 // =============================================================================
 // Conversion Points & Events — CV Tracking
 // =============================================================================
@@ -19,6 +20,8 @@ export interface ConversionEvent {
   affiliate_code: string | null;
   metadata: string | null;
   created_at: string;
+  affiliate_id: string | null;
+  attributed_ref_code: string | null;
 }
 
 // ── Conversion Points CRUD ──────────────────────────────────────────────────
@@ -88,10 +91,13 @@ export async function trackConversion(
   const id = crypto.randomUUID();
   const now = jstNow();
 
+  // Resolve last-touch affiliate attribution before inserting the event.
+  const attr = await resolveAffiliateAttribution(db, input.friendId);
+
   await db
     .prepare(
-      `INSERT INTO conversion_events (id, conversion_point_id, friend_id, user_id, affiliate_code, metadata, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO conversion_events (id, conversion_point_id, friend_id, user_id, affiliate_code, metadata, created_at, affiliate_id, attributed_ref_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -101,6 +107,8 @@ export async function trackConversion(
       input.affiliateCode ?? null,
       input.metadata ?? null,
       now,
+      attr?.affiliateId ?? null,
+      attr?.refCode ?? null,
     )
     .run();
 
