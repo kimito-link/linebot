@@ -30,6 +30,7 @@ export function expandVariables(
   content: string,
   friend: { id: string; display_name: string | null; user_id: string | null; ref_code?: string | null; metadata?: Record<string, unknown> | string | null },
   apiOrigin?: string,
+  messageType?: string,
 ): string {
   let result = content;
   result = result.replace(/\{\{name\}\}/g, friend.display_name || '');
@@ -53,10 +54,14 @@ export function expandVariables(
     if (val == null || val === '') return '';
     return inner;
   });
-  // Clean up broken JSON commas from removed conditional blocks (e.g. ",," or "[," or ",]")
-  result = result.replace(/,\s*,/g, ',');
-  result = result.replace(/\[\s*,/g, '[');
-  result = result.replace(/,\s*\]/g, ']');
+  // Clean up broken JSON commas from removed conditional blocks (e.g. ",," or "[," or ",]").
+  // Flex only: this is JSON repair — running it on plain text silently rewrote
+  // user-authored bodies containing ",," / "[," / ",]" (bug present since initial release).
+  if (messageType === 'flex') {
+    result = result.replace(/,\s*,/g, ',');
+    result = result.replace(/\[\s*,/g, '[');
+    result = result.replace(/,\s*\]/g, ']');
+  }
   result = result.replace(/\{\{metadata\.([^}]+)\}\}/g, (_match, key) => {
     const val = meta[key];
     if (val == null) return '';
@@ -191,7 +196,11 @@ async function processSingleDelivery(
         const jumpStep = steps.find((s) => s.step_order === currentStep.next_step_on_false);
         if (jumpStep) {
           const jitteredDate = jitterDeliveryTime(nextDeliveryFor(jumpStep));
-          await advanceFriendScenario(db, fs.id, currentStep.step_order, jitteredDate.toISOString().slice(0, -1) + '+09:00');
+          // Advance to just before the jump target so the next tick's
+          // `find(step_order > current_step_order)` selects jumpStep itself.
+          // Passing currentStep.step_order here (pre-fix) delivered the
+          // sequentially-next step and silently ignored next_step_on_false.
+          await advanceFriendScenario(db, fs.id, jumpStep.step_order - 1, jitteredDate.toISOString().slice(0, -1) + '+09:00');
           return false;
         }
       }
@@ -213,7 +222,7 @@ async function processSingleDelivery(
   // Expand template variables ({{name}}, {{uid}}, {{auth_url:CHANNEL_ID}}, {{metadata.KEY}}, etc.)
   const resolvedMeta = await resolveMetadata(db, { user_id: (friend as unknown as Record<string, string | null>).user_id, metadata: (friend as unknown as Record<string, string | null>).metadata });
   const friendWithMeta = { ...friend, metadata: resolvedMeta } as Parameters<typeof expandVariables>[1];
-  const expandedContent = expandVariables(resolved.messageContent, friendWithMeta, workerUrl);
+  const expandedContent = expandVariables(resolved.messageContent, friendWithMeta, workerUrl, resolved.messageType);
   // Auto-wrap URLs with tracking links (text with URLs → Flex with button)
   let trackedType: string = resolved.messageType;
   let trackedContent = expandedContent;
