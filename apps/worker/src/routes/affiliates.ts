@@ -4,16 +4,21 @@ import {
   getAffiliateById,
   getAffiliateByCode,
   createAffiliate,
+  createAffiliateWithRandomCode,
+  createAffiliateLink,
   updateAffiliate,
   deleteAffiliate,
   recordAffiliateClick,
   getAffiliateReport,
   getAffiliateReportV2,
+  getFriendById,
   getFriendJourney,
+  getAffiliateByFriendId,
   getAffiliateJourneys,
   listAffiliateLinks,
 } from '@line-crm/db';
 import { IDENTITY_KEY_SQL } from '../lib/identity-key.js';
+import { resolveLinkBaseUrl } from '../lib/link-base-url.js';
 import type { Env } from '../index.js';
 
 const affiliates = new Hono<Env>();
@@ -55,21 +60,133 @@ affiliates.get('/api/affiliates/:id', async (c) => {
   }
 });
 
-// POST /api/affiliates - create
+// POST /api/affiliates - create (admin-side)
+//
+// Three call shapes, all backward compatible:
+//   1. Random-code create:  { name?, commissionRate?, friendId?, issueInitialLink? }
+//        - `code` is auto-generated (unguessable base62 slug). No manual entry.
+//        - `friendId` binds the affiliate 1:1 to a LINE friend (migration 046
+//          partial UNIQUE index enforces one affiliate per friend).
+//        - When friendId is given, `name` defaults to the friend's display_name
+//          and an initial link is issued by default (issueInitialLink=true).
+//   2. Legacy explicit create: { name, code, commissionRate? }
+//        - OSS back-compat. `code` must be >= 4 chars, alphanumeric only.
+const CODE_RE = /^[A-Za-z0-9]{4,}$/;
+
 affiliates.post('/api/affiliates', async (c) => {
   try {
     const body = await c.req.json<{
-      name: string;
-      code: string;
+      name?: string;
+      code?: string;
       commissionRate?: number;
+      friendId?: string;
+      issueInitialLink?: boolean;
     }>();
 
-    if (!body.name || !body.code) {
-      return c.json({ success: false, error: 'name and code are required' }, 400);
+    const name = typeof body.name === 'string' ? body.name.trim() : '';
+    const code = typeof body.code === 'string' ? body.code.trim() : '';
+    const friendId = typeof body.friendId === 'string' ? body.friendId.trim() : '';
+
+    // Require at least one of name / code / friendId to identify the affiliate.
+    if (!name && !code && !friendId) {
+      return c.json(
+        { success: false, error: 'name, code, or friendId is required' },
+        400,
+      );
     }
 
-    const item = await createAffiliate(c.env.DB, body);
-    return c.json({ success: true, data: serializeAffiliate(item) }, 201);
+    // Resolve the friend (if binding) up front: 404 on unknown friend, and use
+    // its display_name when the caller did not supply a name.
+    let resolvedName = name;
+    if (friendId) {
+      const friend = await getFriendById(c.env.DB, friendId);
+      if (!friend) {
+        return c.json({ success: false, error: 'Friend not found' }, 404);
+      }
+      if (!resolvedName) {
+        resolvedName = (friend.display_name || 'Affiliate').trim();
+      }
+    }
+
+    // ── Legacy explicit-code path (OSS back-compat) ─────────────────────────
+    // Only taken when a code was supplied AND no friend binding is requested.
+    if (code && !friendId) {
+      if (!CODE_RE.test(code)) {
+        return c.json(
+          {
+            success: false,
+            error: 'code must be at least 4 alphanumeric characters',
+          },
+          400,
+        );
+      }
+      if (!resolvedName) {
+        return c.json({ success: false, error: 'name is required' }, 400);
+      }
+      try {
+        const item = await createAffiliate(c.env.DB, {
+          name: resolvedName,
+          code,
+          commissionRate: body.commissionRate,
+        });
+        return c.json({ success: true, data: serializeAffiliate(item) }, 201);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/UNIQUE constraint failed/i.test(msg) && /affiliates\.code/i.test(msg)) {
+          return c.json(
+            { success: false, error: 'このコードは既に使われています' },
+            409,
+          );
+        }
+        throw err;
+      }
+    }
+
+    // ── Random-code path (admin default) ────────────────────────────────────
+    if (!resolvedName) {
+      resolvedName = 'Affiliate';
+    }
+
+    let item;
+    try {
+      item = await createAffiliateWithRandomCode(c.env.DB, {
+        name: resolvedName,
+        commissionRate: body.commissionRate,
+        friendId: friendId || null,
+      });
+    } catch (err) {
+      // The friend_id partial UNIQUE index throws when the friend already has an
+      // affiliate. Confirm and return 409 with a friendly message.
+      const msg = err instanceof Error ? err.message : String(err);
+      if (friendId && /UNIQUE constraint failed/i.test(msg)) {
+        const existing = await getAffiliateByFriendId(c.env.DB, friendId);
+        if (existing) {
+          return c.json(
+            { success: false, error: 'この友だちは既にアフィリエイターです' },
+            409,
+          );
+        }
+      }
+      throw err;
+    }
+
+    // Issue an initial link. Defaults to true when a friend is bound.
+    const shouldIssueLink =
+      body.issueInitialLink !== undefined
+        ? body.issueInitialLink
+        : Boolean(friendId);
+
+    let link: { refCode: string; url: string } | undefined;
+    if (shouldIssueLink) {
+      const created = await createAffiliateLink(c.env.DB, { affiliateId: item.id });
+      const baseUrl = await resolveLinkBaseUrl(c.env.DB, c.env);
+      link = { refCode: created.ref_code, url: `${baseUrl}/${created.ref_code}` };
+    }
+
+    return c.json(
+      { success: true, data: serializeAffiliate(item), link: link ?? null },
+      201,
+    );
   } catch (err) {
     console.error('POST /api/affiliates error:', err);
     return c.json({ success: false, error: 'Internal server error' }, 500);

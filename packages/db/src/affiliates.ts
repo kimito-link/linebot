@@ -1,5 +1,6 @@
 import { jstNow } from './utils.js';
 import { FRIEND_ADD_WINNER_SUBQUERY } from './affiliate-report.js';
+import { generateRefSlug } from './affiliate-links.js';
 // =============================================================================
 // Affiliates — Affiliate & Tracking System
 // =============================================================================
@@ -75,6 +76,65 @@ export async function createAffiliate(
     .run();
 
   return (await getAffiliateById(db, id))!;
+}
+
+export interface CreateAffiliateWithRandomCodeInput {
+  name: string;
+  commissionRate?: number;
+  /** Optional LINE friend UUID to bind (enforced 1:1 by the partial UNIQUE index). */
+  friendId?: string | null;
+}
+
+/**
+ * Create an affiliate whose `code` is a random, unguessable base62 slug.
+ *
+ * Collision retry strategy mirrors createAffiliateLink:
+ *  - Attempt 1..3: 6-char slug
+ *  - Attempt 4+  : 8-char slug (virtually collision-free)
+ *
+ * Only a UNIQUE collision on `affiliates.code` triggers a retry. A collision on
+ * the `friend_id` partial UNIQUE index (friend already an affiliate) is NOT a
+ * code collision, so it is re-thrown for the caller to map to a 409.
+ *
+ * `_slugGen` is injectable so tests can force a deterministic collision path.
+ */
+export async function createAffiliateWithRandomCode(
+  db: D1Database,
+  input: CreateAffiliateWithRandomCodeInput,
+  _slugGen: (len: number) => string = generateRefSlug,
+): Promise<Affiliate> {
+  const id = crypto.randomUUID();
+  const now = jstNow();
+
+  let attempt = 0;
+  while (true) {
+    attempt++;
+    const len = attempt <= 3 ? 6 : 8;
+    const code = _slugGen(len);
+
+    try {
+      await db
+        .prepare(
+          `INSERT INTO affiliates (id, name, code, commission_rate, is_active, created_at, friend_id)
+           VALUES (?, ?, ?, ?, 1, ?, ?)`,
+        )
+        .bind(id, input.name, code, input.commissionRate ?? 0, now, input.friendId ?? null)
+        .run();
+
+      return (await getAffiliateById(db, id))!;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // Retry ONLY on a code collision. Any other UNIQUE violation (notably the
+      // friend_id partial index) must propagate so the caller can return 409.
+      if (
+        /UNIQUE constraint failed/i.test(msg) &&
+        /affiliates\.code/i.test(msg)
+      ) {
+        continue;
+      }
+      throw err;
+    }
+  }
 }
 
 export type UpdateAffiliateInput = Partial<

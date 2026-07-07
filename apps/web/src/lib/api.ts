@@ -515,11 +515,24 @@ export const api = {
       fetchApi<ApiResponse<Affiliate[]>>('/api/affiliates'),
     get: (id: string) =>
       fetchApi<ApiResponse<Affiliate>>(`/api/affiliates/${id}`),
-    create: (data: { name: string; code: string; commissionRate?: number }) =>
-      fetchApi<ApiResponse<Affiliate>>('/api/affiliates', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
+    // Admin-side create. Codes are auto-generated (random) — no manual `code`
+    // needed. Pass `friendId` to bind 1:1 to a LINE friend; the response then
+    // includes an issued `link` (refCode + url) unless issueInitialLink=false.
+    // The legacy explicit `code` form still works for OSS back-compat.
+    create: (data: {
+      name?: string
+      code?: string
+      commissionRate?: number
+      friendId?: string
+      issueInitialLink?: boolean
+    }) =>
+      fetchApi<ApiResponse<Affiliate> & { link?: { refCode: string; url: string } | null }>(
+        '/api/affiliates',
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        },
+      ),
     update: (id: string, data: Partial<Pick<Affiliate, 'name' | 'commissionRate' | 'isActive'>>) =>
       fetchApi<ApiResponse<Affiliate>>(`/api/affiliates/${id}`, {
         method: 'PUT',

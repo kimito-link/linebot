@@ -113,6 +113,9 @@ export default function AffiliatesPage() {
   const [report, setReport] = useState<ReportV2 | null>(null)
   const [links, setLinks] = useState<AffiliateLink[]>([])
 
+  // ── create modal ────────────────────────────────────────────────────────────
+  const [createOpen, setCreateOpen] = useState(false)
+
   // ── journeys (cursor-paginated) ────────────────────────────────────────────
   const [journeys, setJourneys] = useState<JourneySummary[]>([])
   const [journeyLoading, setJourneyLoading] = useState(false)
@@ -238,6 +241,22 @@ export default function AffiliatesPage() {
         title="ASP アフィリエイト"
         description="アフィリエイター別の成果・コミッション・帰属ジャーニー管理"
       />
+
+      <div className="mb-4 flex justify-end">
+        <button
+          onClick={() => setCreateOpen(true)}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md"
+        >
+          + 新規作成
+        </button>
+      </div>
+
+      {createOpen && (
+        <CreateAffiliateModal
+          onClose={() => setCreateOpen(false)}
+          onCreated={() => { void loadList() }}
+        />
+      )}
 
       {error && (
         <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
@@ -487,6 +506,244 @@ export default function AffiliatesPage() {
           </table>
         </div>
       )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Create modal — friend-bound affiliate with an auto-generated (random) code
+// ─────────────────────────────────────────────────────────────────────────────
+
+interface FriendOption {
+  id: string
+  displayName: string | null
+}
+
+function CreateAffiliateModal({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void
+  onCreated: () => void
+}) {
+  const [search, setSearch] = useState('')
+  const [options, setOptions] = useState<FriendOption[]>([])
+  const [searching, setSearching] = useState(false)
+  const [selected, setSelected] = useState<FriendOption | null>(null)
+  const [commissionRate, setCommissionRate] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [issuedUrl, setIssuedUrl] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  // Incremental friend search (debounced). Skipped once a friend is selected.
+  useEffect(() => {
+    if (selected) return
+    const term = search.trim()
+    if (!term) { setOptions([]); return }
+    let cancelled = false
+    setSearching(true)
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.friends.list({ search: term, limit: 20, includeTags: false })
+        if (cancelled) return
+        if (res.success) {
+          setOptions(
+            res.data.items.map((f) => ({ id: f.id, displayName: f.displayName })),
+          )
+        }
+      } catch { /* silent */ }
+      finally { if (!cancelled) setSearching(false) }
+    }, 250)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [search, selected])
+
+  const handleSubmit = useCallback(async () => {
+    if (submitting) return
+    setFormError(null)
+    if (!selected) {
+      setFormError('友だちを選択してください')
+      return
+    }
+    const rate = commissionRate.trim() === '' ? undefined : Number(commissionRate)
+    if (rate !== undefined && (Number.isNaN(rate) || rate < 0)) {
+      setFormError('報酬率は0以上の数値で入力してください')
+      return
+    }
+    setSubmitting(true)
+    try {
+      const res = await api.affiliates.create({
+        friendId: selected.id,
+        commissionRate: rate,
+      })
+      if (!res.success) {
+        // 409 → friend already an affiliate; surface the server message.
+        setFormError(res.error ?? '作成に失敗しました')
+        setSubmitting(false)
+        return
+      }
+      onCreated()
+      if (res.link?.url) {
+        setIssuedUrl(res.link.url)
+      } else {
+        onClose()
+      }
+    } catch (e) {
+      setFormError(e instanceof Error ? e.message : '作成に失敗しました')
+    } finally {
+      setSubmitting(false)
+    }
+  }, [submitting, selected, commissionRate, onCreated, onClose])
+
+  const handleCopy = useCallback(async () => {
+    if (!issuedUrl) return
+    try {
+      await navigator.clipboard.writeText(issuedUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch { /* clipboard unavailable — user can select manually */ }
+  }, [issuedUrl])
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-md bg-white rounded-lg shadow-xl p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          アフィリエイター新規作成
+        </h2>
+
+        {issuedUrl ? (
+          // ── Success state: show issued link with a copy button ────────────
+          <div className="space-y-4">
+            <p className="text-sm text-gray-700">
+              アフィリエイターを作成し、初期リンクを発行しました。
+            </p>
+            <div className="flex items-stretch gap-2">
+              <input
+                readOnly
+                value={issuedUrl}
+                className="flex-1 px-3 py-2 text-sm font-mono border border-gray-300 rounded-md bg-gray-50 text-gray-800"
+              />
+              <button
+                onClick={() => { void handleCopy() }}
+                className="px-3 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-md whitespace-nowrap"
+              >
+                {copied ? 'コピー済' : 'コピー'}
+              </button>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+        ) : (
+          // ── Form state ────────────────────────────────────────────────────
+          <div className="space-y-4">
+            {/* Friend selector */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                LINE 友だち <span className="text-red-500">*</span>
+              </label>
+              {selected ? (
+                <div className="flex items-center justify-between px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+                  <span className="text-sm text-gray-800">
+                    {selected.displayName ?? <span className="text-gray-400 italic">不明</span>}
+                  </span>
+                  <button
+                    onClick={() => { setSelected(null); setSearch('') }}
+                    className="text-xs text-blue-600 hover:underline"
+                  >
+                    変更
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="名前で検索..."
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  />
+                  {(searching || options.length > 0) && search.trim() && (
+                    <div className="absolute z-10 mt-1 w-full max-h-56 overflow-y-auto bg-white border border-gray-200 rounded-md shadow-lg">
+                      {searching ? (
+                        <div className="px-3 py-2 text-sm text-gray-400">検索中...</div>
+                      ) : options.length === 0 ? (
+                        <div className="px-3 py-2 text-sm text-gray-400">該当なし</div>
+                      ) : (
+                        options.map((f) => (
+                          <button
+                            key={f.id}
+                            onClick={() => { setSelected(f); setOptions([]) }}
+                            className="block w-full text-left px-3 py-2 text-sm text-gray-800 hover:bg-blue-50"
+                          >
+                            {f.displayName ?? <span className="text-gray-400 italic">不明</span>}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Commission rate */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                報酬率（%・省略可）
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={commissionRate}
+                  onChange={(e) => setCommissionRate(e.target.value)}
+                  placeholder="例: 10"
+                  className="w-full px-3 py-2 pr-8 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-gray-400">%</span>
+              </div>
+            </div>
+
+            {/* Random-code notice */}
+            <p className="text-xs text-gray-500">
+              アフィリコードは推測されないよう自動でランダム生成されます（手入力は不要）。
+            </p>
+
+            {formError && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+                {formError}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-md"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => { void handleSubmit() }}
+                disabled={submitting || !selected}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded-md"
+              >
+                {submitting ? '作成中...' : '作成'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
