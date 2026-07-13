@@ -10,6 +10,7 @@ export interface Friend {
   line_account_id: string | null;
   metadata: string;
   first_tracked_link_id: string | null;
+  ai_reply_mode: string;
   created_at: string;
   updated_at: string;
 }

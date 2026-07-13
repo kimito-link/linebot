@@ -23,6 +23,7 @@ import {
 import type { EntryRoute, Friend } from '@line-crm/db';
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
+import { generateLlmReply, switchToHumanMode } from '../services/llm-reply.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -164,7 +165,7 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL, c.env.IMAGES);
+        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL, c.env.IMAGES, c.env.ANTHROPIC_API_KEY);
       } catch (err) {
         console.error('Error handling webhook event:', err);
       }
@@ -185,6 +186,7 @@ async function handleEvent(
   workerUrl?: string,
   liffUrl?: string,
   r2?: R2Bucket,
+  anthropicApiKey?: string,
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -667,16 +669,64 @@ async function handleEvent(
       }
     }
 
-    // auto_replies にマッチしなかった = 自発メッセージ → unread にする
-    if (!matched) {
+    // auto_replies にマッチしなかった = 自発メッセージ
+    // オペレーターが引き継ぎ済み(ai_reply_mode='human')でなければ、LLM フォールバックを試みる。
+    // llmHandled=true は「人間の unread 対応が不要になった」ことを意味する
+    // （エスカレーション自体は unread が必要なので false のまま扱う）。
+    let llmHandled = false;
+    if (!matched && anthropicApiKey && (friend as unknown as { ai_reply_mode?: string }).ai_reply_mode !== 'human') {
+      try {
+        const llmResult = await generateLlmReply({
+          db,
+          apiKey: anthropicApiKey,
+          lineAccountId,
+          friendId: friend.id,
+          incomingText,
+        });
+
+        if (llmResult.kind === 'reply' && llmResult.text) {
+          await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: llmResult.text }]);
+          replyTokenConsumed = true;
+          await db
+            .prepare(
+              `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
+               VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', 'llm_reply', ?)`,
+            )
+            .bind(crypto.randomUUID(), friend.id, llmResult.text, jstNow())
+            .run();
+          llmHandled = true;
+        } else if (llmResult.kind === 'escalate') {
+          await switchToHumanMode(db, friend.id);
+          if (llmResult.text) {
+            await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: llmResult.text }]);
+            replyTokenConsumed = true;
+            await db
+              .prepare(
+                `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
+                 VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', 'llm_reply', ?)`,
+              )
+              .bind(crypto.randomUUID(), friend.id, llmResult.text, jstNow())
+              .run();
+          }
+          // llmHandled は false のまま — 下の unread 処理で Conversation Inbox に乗せる
+        }
+        // kind === 'disabled' | 'error' の場合も llmHandled=false のまま同様にフォールスルー
+      } catch (err) {
+        console.error('LLM reply failed', err);
+      }
+    }
+
+    // auto_replies にも LLM 通常応答にもマッチ/対応しなかった = 人間対応が必要 → unread にする
+    // (LLM がエスカレーションした場合もここを通る。upsertChatOnMessage は冪等なので二重呼び出し安全)
+    if (!matched && !llmHandled) {
       await upsertChatOnMessage(db, friend.id);
     }
 
     // イベントバス発火: message_received
-    // Pass replyToken only when auto_reply didn't actually consume it
+    // Pass replyToken only when auto_reply / LLM reply didn't actually consume it
     await fireEvent(db, 'message_received', {
       friendId: friend.id,
-      eventData: { text: incomingText, matched },
+      eventData: { text: incomingText, matched: matched || llmHandled },
       replyToken: replyTokenConsumed ? undefined : event.replyToken,
     }, lineAccessToken, lineAccountId);
 
