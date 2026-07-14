@@ -11,6 +11,8 @@ export interface Friend {
   metadata: string;
   first_tracked_link_id: string | null;
   ai_reply_mode: string;
+  /** First-touch entry route ref_code; used to resolve which product bot answers this friend. */
+  ref_code: string | null;
   created_at: string;
   updated_at: string;
 }

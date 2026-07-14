@@ -34,6 +34,7 @@ import { scenarios } from './routes/scenarios.js';
 import { broadcasts } from './routes/broadcasts.js';
 import { users } from './routes/users.js';
 import { lineAccounts } from './routes/line-accounts.js';
+import { organizations } from './routes/organizations.js';
 import { conversions } from './routes/conversions.js';
 import { affiliates } from './routes/affiliates.js';
 import { affiliateOffers } from './routes/affiliate-offers.js';
@@ -114,6 +115,11 @@ export type Env = {
     // opt-in/prompt lives in account_settings (key='llm_reply_enabled' /
     // 'llm_system_prompt'); this secret just supplies the API credential.
     ANTHROPIC_API_KEY?: string;
+    // Optional: Groq-based free-text support (services/groq-pipeline.ts).
+    // Per-account opt-in via account_settings key='groq_reply_enabled'.
+    // When set, takes priority over ANTHROPIC_API_KEY; fail-closed does NOT
+    // fall back to Claude (cost guard).
+    GROQ_API_KEY?: string;
     // Phase 5 self-update — consumed by /admin/update/*. Defaults live in
     // wrangler.toml [vars]; secrets (CF_API_TOKEN, ADMIN_API_KEY) come from
     // `wrangler secret put`. All are optional at the type level so the rest
@@ -164,6 +170,7 @@ app.route('/', scenarios);
 app.route('/', broadcasts);
 app.route('/', users);
 app.route('/', lineAccounts);
+app.route('/', organizations);
 app.route('/', conversions);
 app.route('/', affiliates);
 app.route('/', affiliateOffers);
