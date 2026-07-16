@@ -764,11 +764,15 @@ async function handleEvent(
             llmHandled = true;
           } else if (groqResult.kind === 'escalate') {
             await switchToHumanMode(db, friend.id);
-            if (groqResult.text) {
-              await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: groqResult.text }]);
-              replyTokenConsumed = true;
-              await logOutgoingGroq(groqResult.text, 'groq_reply');
-            }
+            // エスカレーション時は無言にしない。groqResult.text（[ESCALATE]除去後の本文）が
+            // 空でも、ユーザーには必ず「担当者につなぐ」ことが分かる一言を返す。
+            // これが無いと human モードへの切替えだけが起きて「既読無視」に見える
+            // （2026-07-16 実障害: 著作権相談の会話が続いた末にテキスト無しでエスカレートし、
+            // 以降そのユーザーへのAI応答が完全に止まった）。
+            const escalationNotice = groqResult.text || 'ちょっと待っててね、中の人につなぐね。';
+            await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: escalationNotice }]);
+            replyTokenConsumed = true;
+            await logOutgoingGroq(escalationNotice, 'groq_reply');
           } else if (groqResult.kind === 'fail_closed') {
             await lineClient.replyMessage(event.replyToken, [
               { type: 'text', text: groqResult.escalationText },
