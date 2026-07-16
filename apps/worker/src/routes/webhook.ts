@@ -23,6 +23,15 @@ import {
 import type { EntryRoute, Friend } from '@line-crm/db';
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
+import { generateLlmReply, switchToHumanMode } from '../services/llm-reply.js';
+import { runGroqSupportPipeline } from '../services/groq-pipeline.js';
+import { resolveBotProject } from '../services/bot-project.js';
+import {
+  isTaskMessage,
+  isAuthorizedTaskSender,
+  extractTaskBody,
+  createAiShainTask,
+} from '../services/ai-shain-worker-task.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -164,9 +173,21 @@ webhook.post('/webhook', async (c) => {
   const processingPromise = (async () => {
     for (const event of body.events) {
       try {
-        await handleEvent(db, lineClient, event, channelAccessToken, matchedAccountId, c.env.WORKER_URL || new URL(c.req.url).origin, c.env.LIFF_URL, c.env.IMAGES);
+        await handleEvent(
+          db,
+          lineClient,
+          event,
+          channelAccessToken,
+          matchedAccountId,
+          c.env.WORKER_URL || new URL(c.req.url).origin,
+          c.env.LIFF_URL,
+          c.env.IMAGES,
+          c.env.ANTHROPIC_API_KEY,
+          c.env.GROQ_API_KEY,
+          c.env.GITHUB_TOKEN,
+        );
       } catch (err) {
-        console.error('Error handling webhook event:', err);
+        console.error('Error handling webhook event:', err instanceof Error ? err.stack : String(err));
       }
     }
   })();
@@ -185,6 +206,9 @@ async function handleEvent(
   workerUrl?: string,
   liffUrl?: string,
   r2?: R2Bucket,
+  anthropicApiKey?: string,
+  groqApiKey?: string,
+  githubToken?: string,
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -667,16 +691,161 @@ async function handleEvent(
       }
     }
 
-    // auto_replies にマッチしなかった = 自発メッセージ → unread にする
-    if (!matched) {
+    // auto_replies にマッチしなかった = 自発メッセージ
+    // オペレーターが引き継ぎ済み(ai_reply_mode='human')でなければ、LLM フォールバックを試みる。
+    // llmHandled=true は「人間の unread 対応が不要になった」ことを意味する
+    // （エスカレーション自体は unread が必要なので false のまま扱う）。
+    let llmHandled = false;
+    const aiReplyMode = (friend as unknown as { ai_reply_mode?: string }).ai_reply_mode;
+    if (!matched && aiReplyMode !== 'human') {
+      const logOutgoingGroq = async (text: string, source: 'groq_reply' | 'groq_canned') => {
+        await db
+          .prepare(
+            `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
+             VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', ?, ?)`,
+          )
+          .bind(crypto.randomUUID(), friend.id, text, source, jstNow())
+          .run();
+      };
+
+      // "個人AI社員" タスクキュー入口: "タスク:" で始まるメッセージは、
+      // 許可された送信者（開発者本人）からのものだけ GitHub Issue 化する。
+      // 未許可の送信者からの同一文言は素通りさせ、下の通常GROQフローに委ねる
+      // （＝顧客が偶然「タスク:」と打っても何も特別なことは起きない）。
+      if (isTaskMessage(incomingText) && isAuthorizedTaskSender(userId)) {
+        try {
+          const taskBody = extractTaskBody(incomingText);
+          const result = await createAiShainTask(githubToken, taskBody, friend.display_name);
+          const replyText = result.created
+            ? `タスクを登録しました。\n${result.issueUrl}`
+            : `タスク登録に失敗しました: ${result.error ?? '不明なエラー'}`;
+          await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: replyText }]);
+          replyTokenConsumed = true;
+          await logOutgoingGroq(replyText, 'groq_reply');
+          llmHandled = true;
+        } catch (err) {
+          console.error('ai-shain-worker task creation failed', err instanceof Error ? err.stack : String(err));
+          if (!replyTokenConsumed) {
+            try {
+              const fallbackText = 'すみません、タスク登録処理でエラーが発生しました。';
+              await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: fallbackText }]);
+              replyTokenConsumed = true;
+              await logOutgoingGroq(fallbackText, 'groq_reply');
+            } catch (replyErr) {
+              console.error('Task creation failure fallback reply also failed', replyErr instanceof Error ? replyErr.stack : String(replyErr));
+            }
+          }
+        }
+      } else if (groqApiKey) {
+        try {
+          const project = await resolveBotProject(db, friend);
+          const groqResult = await runGroqSupportPipeline({
+            db,
+            apiKey: groqApiKey,
+            lineAccountId,
+            friendId: friend.id,
+            incomingText,
+            project,
+          });
+
+          if (groqResult.kind === 'canned' || groqResult.kind === 'reply') {
+            const replyText = groqResult.text;
+            const replyMessages: Array<{ type: 'text'; text: string } | { type: 'image'; originalContentUrl: string; previewImageUrl: string }> = [
+              { type: 'text', text: replyText },
+            ];
+            const imageKey = groqResult.kind === 'canned' ? groqResult.imageUrl : undefined;
+            if (imageKey && workerUrl) {
+              const imageUrl = `${workerUrl}/images/${imageKey}`;
+              replyMessages.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl });
+            }
+            await lineClient.replyMessage(event.replyToken, replyMessages);
+            replyTokenConsumed = true;
+            await logOutgoingGroq(replyText, groqResult.kind === 'canned' ? 'groq_canned' : 'groq_reply');
+            llmHandled = true;
+          } else if (groqResult.kind === 'escalate') {
+            await switchToHumanMode(db, friend.id);
+            if (groqResult.text) {
+              await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: groqResult.text }]);
+              replyTokenConsumed = true;
+              await logOutgoingGroq(groqResult.text, 'groq_reply');
+            }
+          } else if (groqResult.kind === 'fail_closed') {
+            await lineClient.replyMessage(event.replyToken, [
+              { type: 'text', text: groqResult.escalationText },
+            ]);
+            replyTokenConsumed = true;
+            await logOutgoingGroq(groqResult.escalationText, 'groq_reply');
+          }
+        } catch (err) {
+          // runGroqSupportPipeline自体が想定外の例外を投げた場合（ネットワーク断・D1エラー・
+          // コードバグ等）。ここまでの各分岐(canned/reply/escalate/fail_closed)はすべて
+          // pipeline内部で吸収済みの正常系なので、この catch に来るのは本当に予期しない失敗のみ。
+          // 何も返さずに終わるとユーザーには「既読無視」に見えるため、最終防波堤として
+          // 固定の詫び文言だけは必ず返す（replyTokenが既に使用済みなら黙って諦める）。
+          console.error('Groq support pipeline failed', err instanceof Error ? err.stack : String(err));
+          if (!replyTokenConsumed) {
+            try {
+              const fallbackText = 'すみません、うまく応答できませんでした。少し時間をおいて、もう一度お試しください。';
+              await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: fallbackText }]);
+              replyTokenConsumed = true;
+              await logOutgoingGroq(fallbackText, 'groq_reply');
+            } catch (replyErr) {
+              console.error('Groq failure fallback reply also failed', replyErr instanceof Error ? replyErr.stack : String(replyErr));
+            }
+          }
+        }
+      } else if (anthropicApiKey) {
+        try {
+          const llmResult = await generateLlmReply({
+            db,
+            apiKey: anthropicApiKey,
+            lineAccountId,
+            friendId: friend.id,
+            incomingText,
+          });
+
+          if (llmResult.kind === 'reply' && llmResult.text) {
+            await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: llmResult.text }]);
+            replyTokenConsumed = true;
+            await db
+              .prepare(
+                `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
+                 VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', 'llm_reply', ?)`,
+              )
+              .bind(crypto.randomUUID(), friend.id, llmResult.text, jstNow())
+              .run();
+            llmHandled = true;
+          } else if (llmResult.kind === 'escalate') {
+            await switchToHumanMode(db, friend.id);
+            if (llmResult.text) {
+              await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: llmResult.text }]);
+              replyTokenConsumed = true;
+              await db
+                .prepare(
+                  `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
+                   VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', 'llm_reply', ?)`,
+                )
+                .bind(crypto.randomUUID(), friend.id, llmResult.text, jstNow())
+                .run();
+            }
+          }
+        } catch (err) {
+          console.error('LLM reply failed', err);
+        }
+      }
+    }
+
+    // auto_replies にも LLM 通常応答にもマッチ/対応しなかった = 人間対応が必要 → unread にする
+    // (LLM がエスカレーションした場合もここを通る。upsertChatOnMessage は冪等なので二重呼び出し安全)
+    if (!matched && !llmHandled) {
       await upsertChatOnMessage(db, friend.id);
     }
 
     // イベントバス発火: message_received
-    // Pass replyToken only when auto_reply didn't actually consume it
+    // Pass replyToken only when auto_reply / LLM reply didn't actually consume it
     await fireEvent(db, 'message_received', {
       friendId: friend.id,
-      eventData: { text: incomingText, matched },
+      eventData: { text: incomingText, matched: matched || llmHandled },
       replyToken: replyTokenConsumed ? undefined : event.replyToken,
     }, lineAccessToken, lineAccountId);
 
