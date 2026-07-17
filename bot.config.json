@@ -12,7 +12,15 @@
       { "provider": "groq", "model": "llama-3.3-70b-versatile", "timeoutMs": 8000 },
       { "provider": "gemini", "model": "gemini-2.5-flash-lite", "timeoutMs": 10000 },
       { "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "timeoutMs": 8000 }
-    ]
+    ],
+    "vision": {
+      "enabled": true,
+      "maxDescriptionTokens": 250,
+      "chain": [
+        { "provider": "groq", "model": "qwen/qwen3.6-27b", "timeoutMs": 10000 },
+        { "provider": "gemini", "model": "gemini-2.5-flash-lite", "timeoutMs": 10000 }
+      ]
+    }
   },
   "line": {
     "channelSecretName": "LINE_CHANNEL_SECRET",
@@ -28,6 +36,12 @@
   "retrieval": {
     "topK": 3,
     "minScore": 0.0
+  },
+  "urlContext": {
+    "enabled": true,
+    "timeoutMs": 6000,
+    "maxContentBytes": 524288,
+    "maxExtractChars": 2000
   },
   "projects": {
     "ai-shain-link": { "knowledgePack": "./knowledge-packs/ai-shain" },

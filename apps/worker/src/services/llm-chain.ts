@@ -27,9 +27,10 @@ export interface LlmChainParams {
 // webhook受信からreplyTokenが失効するまでの目安(60秒)に対し、安全マージンを
 // 見込んで「この時刻を過ぎたら以降の段は試さない」という締切。
 const SEND_MARGIN_MS = 15_000;
-const REPLY_DEADLINE_MS = 60_000 - SEND_MARGIN_MS; // 45秒
+export const REPLY_DEADLINE_MS = 60_000 - SEND_MARGIN_MS; // 45秒
 
-function remainingMs(receivedAt: number): number {
+/** 残り時間(ms)。vision-describe.tsも同じ締切を共有する（2026-07-17画像認識機能追加）。 */
+export function remainingMs(receivedAt: number): number {
   return REPLY_DEADLINE_MS - (Date.now() - receivedAt);
 }
 

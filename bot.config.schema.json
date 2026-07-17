@@ -26,6 +26,26 @@
               "timeoutMs": { "type": "integer", "minimum": 1000 }
             }
           }
+        },
+        "vision": {
+          "type": "object",
+          "description": "画像認識のvisionチェーン（2026-07-17追加）。省略可: 未指定ならdisabled。workers-aiは許可しない（品質・提供状況の理由）。",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "maxDescriptionTokens": { "type": "integer", "minimum": 32 },
+            "chain": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["provider", "model", "timeoutMs"],
+                "properties": {
+                  "provider": { "enum": ["groq", "gemini"] },
+                  "model": { "type": "string" },
+                  "timeoutMs": { "type": "integer", "minimum": 1000 }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -65,6 +85,16 @@
         "properties": {
           "knowledgePack": { "type": "string" }
         }
+      }
+    },
+    "urlContext": {
+      "type": "object",
+      "description": "ユーザーがLINEで共有したURLの本文を安全fetch+抽出してsystem promptに注入する機能（2026-07-17追加）。省略可: 未指定ならdisabled。",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "timeoutMs": { "type": "integer", "minimum": 1000 },
+        "maxContentBytes": { "type": "integer", "minimum": 1024 },
+        "maxExtractChars": { "type": "integer", "minimum": 100 }
       }
     }
   },

@@ -121,6 +121,111 @@ export async function callGemini(apiKey: string, model: string, params: LlmCallP
   );
 }
 
+// vision-describe.ts専用の型（2026-07-17画像認識機能追加）。既存ChatMessageは
+// 3番手Workers AI（@cf/meta/llama-3.3-70b-instruct-fp8-fast）がcontent配列を
+// 解さないため絶対に触らない。vision呼び出しはこの別型・別関数に隔離する。
+export type VisionContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } };
+
+export interface VisionCallParams {
+  /** describe指示文（人格プロンプトは不要）。 */
+  prompt: string;
+  /** data URI（data:image/...;base64,xxx）または公開URL。 */
+  imageUrl: string;
+  maxOutputTokens: number;
+  timeoutMs: number;
+}
+
+/**
+ * OpenAI互換chat/completionsのvision呼び出し（Groq/Gemini共用）。fail-closedでnull。
+ * describe段はユーザー向け返信ではないため、ESCALATION_MARKERが混入しても無視して
+ * 除去するのみ（stripThinkingは適用する）。
+ */
+export async function callVisionOpenAiCompatible(
+  url: string,
+  apiKey: string,
+  model: string,
+  params: VisionCallParams,
+): Promise<string | null> {
+  const { prompt, imageUrl, maxOutputTokens, timeoutMs } = params;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      signal: controller.signal,
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxOutputTokens,
+        temperature: 0.3,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: imageUrl } },
+            ] satisfies VisionContentPart[],
+          },
+        ],
+      }),
+    });
+  } catch (err) {
+    clearTimeout(timer);
+    console.warn('[llm-providers] vision fetch failed', err);
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+
+  if (response.status === 429) {
+    console.warn('[llm-providers] vision rate limited (429)');
+    return null;
+  }
+  if (!response.ok) {
+    console.warn('[llm-providers] vision API error', response.status, await response.text().catch(() => ''));
+    return null;
+  }
+
+  let data: { choices?: Array<{ message?: { content?: string; reasoning_content?: string; reasoning?: string } }> };
+  try {
+    data = await response.json();
+  } catch {
+    return null;
+  }
+
+  const msg = data.choices?.[0]?.message;
+  const rawText = (msg?.content || msg?.reasoning_content || msg?.reasoning || '').trim();
+  if (!rawText) return null;
+
+  // vision describe段はESCALATION_MARKERの意味的判定（escalate扱い）をしない（§4/§11-7）。
+  // 混入した場合は単に文字列除去して無視する。
+  const cleaned = stripThinking(rawText).replace(ESCALATION_MARKER, '').trim();
+  return cleaned || null;
+}
+
+/** Groq visionモデル向けchat/completions。 */
+export async function callGroqVision(apiKey: string, model: string, params: VisionCallParams): Promise<string | null> {
+  return callVisionOpenAiCompatible('https://api.groq.com/openai/v1/chat/completions', apiKey, model, params);
+}
+
+/** Gemini visionモデル向け（OpenAI互換エンドポイント）。 */
+export async function callGeminiVision(apiKey: string, model: string, params: VisionCallParams): Promise<string | null> {
+  return callVisionOpenAiCompatible(
+    'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+    apiKey,
+    model,
+    params,
+  );
+}
+
 /** Cloudflare Workers AI（Workerバインディング経由。外部ネットワークegressが無く障害ドメインが独立）。 */
 export async function callWorkersAi(
   ai: Ai,

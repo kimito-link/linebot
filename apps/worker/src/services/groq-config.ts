@@ -6,6 +6,19 @@ export interface BotLlmChainStage {
   timeoutMs: number;
 }
 
+/** visionチェーンはgroq/geminiのみ許可（Workers AIのvisionモデルは§6の理由で使用禁止）。 */
+export interface BotVisionChainStage {
+  provider: 'groq' | 'gemini';
+  model: string;
+  timeoutMs: number;
+}
+
+export interface BotVisionConfig {
+  enabled: boolean;
+  chain: BotVisionChainStage[];
+  maxDescriptionTokens: number;
+}
+
 export interface BotLlmConfig {
   provider: 'groq';
   model: string;
@@ -19,6 +32,8 @@ export interface BotLlmConfig {
    * templates/line-bot 等）の後方互換を壊さない。
    */
   chain: BotLlmChainStage[];
+  /** 画像認識のvisionチェーン設定（2026-07-17追加）。未指定時はdisabled（後方互換）。 */
+  vision?: BotVisionConfig;
 }
 
 export interface BotCacheConfig {
@@ -35,6 +50,13 @@ export interface BotProjectEntry {
   knowledgePack: string;
 }
 
+export interface BotUrlContextConfig {
+  enabled: boolean;
+  timeoutMs: number;
+  maxContentBytes: number;
+  maxExtractChars: number;
+}
+
 export interface BotConfig {
   /** @deprecated use defaultProject. Kept for callers that still read `.project`. */
   project: string;
@@ -43,9 +65,13 @@ export interface BotConfig {
   llm: BotLlmConfig;
   cache: BotCacheConfig;
   retrieval: BotRetrievalConfig;
+  urlContext: BotUrlContextConfig;
 }
 
-type RawBotLlmConfig = Omit<BotLlmConfig, 'chain'> & { chain?: BotLlmChainStage[] };
+type RawBotLlmConfig = Omit<BotLlmConfig, 'chain' | 'vision'> & {
+  chain?: BotLlmChainStage[];
+  vision?: Partial<BotVisionConfig>;
+};
 
 type RawBotConfig = {
   // Legacy single-project shape.
@@ -57,6 +83,7 @@ type RawBotConfig = {
   llm: RawBotLlmConfig;
   cache?: Partial<BotCacheConfig>;
   retrieval?: Partial<BotRetrievalConfig>;
+  urlContext?: Partial<BotUrlContextConfig>;
 };
 
 /** Runtime defaults from bot.config.json (project-specific values live there, not in code). */
@@ -75,11 +102,18 @@ export function getBotConfig(): BotConfig {
     { provider: raw.llm.provider, model: raw.llm.model, timeoutMs: raw.llm.timeoutMs },
   ];
 
+  // vision未指定時はdisabled（既存bot.config.jsonの後方互換。2026-07-17画像認識機能追加）。
+  const vision: BotVisionConfig = {
+    enabled: raw.llm.vision?.enabled ?? false,
+    chain: raw.llm.vision?.chain ?? [],
+    maxDescriptionTokens: raw.llm.vision?.maxDescriptionTokens ?? 250,
+  };
+
   return {
     project: defaultProject,
     defaultProject,
     projects,
-    llm: { ...raw.llm, chain },
+    llm: { ...raw.llm, chain, vision },
     cache: {
       enabled: raw.cache?.enabled ?? true,
       ttlHours: raw.cache?.ttlHours ?? 72,
@@ -87,6 +121,14 @@ export function getBotConfig(): BotConfig {
     retrieval: {
       topK: raw.retrieval?.topK ?? 3,
       minScore: raw.retrieval?.minScore ?? 0,
+    },
+    // 未指定時はdisabled（既存bot.config.json、web-ios-androidのtemplates/line-bot等の
+    // 後方互換。2026-07-17追加）。
+    urlContext: {
+      enabled: raw.urlContext?.enabled ?? false,
+      timeoutMs: raw.urlContext?.timeoutMs ?? 6000,
+      maxContentBytes: raw.urlContext?.maxContentBytes ?? 524288,
+      maxExtractChars: raw.urlContext?.maxExtractChars ?? 2000,
     },
   };
 }

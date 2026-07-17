@@ -46,6 +46,50 @@ vi.mock('../services/step-delivery.js', () => ({
   expandVariables: vi.fn(),
 }));
 
+const fetchAndStoreIncomingImageMock = vi.fn();
+vi.mock('../services/incoming-image.js', () => ({
+  fetchAndStoreIncomingImage: (...args: unknown[]) => fetchAndStoreIncomingImageMock(...args),
+}));
+
+const describeImageMock = vi.fn();
+vi.mock('../services/vision-describe.js', () => ({
+  describeImage: (...args: unknown[]) => describeImageMock(...args),
+}));
+
+const runGroqSupportPipelineMock = vi.fn();
+vi.mock('../services/groq-pipeline.js', () => ({
+  runGroqSupportPipeline: (...args: unknown[]) => runGroqSupportPipelineMock(...args),
+}));
+
+const getGroqReplyConfigMock = vi.fn();
+const buildGroqHistoryMock = vi.fn().mockResolvedValue([]);
+vi.mock('../services/groq-reply.js', () => ({
+  ESCALATION_MARKER: '[ESCALATE]',
+  getGroqReplyConfig: (...args: unknown[]) => getGroqReplyConfigMock(...args),
+  buildGroqHistory: (...args: unknown[]) => buildGroqHistoryMock(...args),
+}));
+
+const isGroqBudgetExceededMock = vi.fn();
+vi.mock('../services/kb-search.js', () => ({
+  isGroqBudgetExceeded: (...args: unknown[]) => isGroqBudgetExceededMock(...args),
+}));
+
+const botConfigMock = vi.fn();
+vi.mock('../services/groq-config.js', () => ({
+  getBotConfig: () => botConfigMock(),
+}));
+
+const extractFirstUrlMock = vi.fn();
+const fetchUrlContextMock = vi.fn();
+vi.mock('../services/url-context.js', () => ({
+  extractFirstUrl: (...args: unknown[]) => extractFirstUrlMock(...args),
+  fetchUrlContext: (...args: unknown[]) => fetchUrlContextMock(...args),
+}));
+
+vi.mock('../services/bot-project.js', () => ({
+  resolveBotProject: vi.fn().mockResolvedValue('ai-shain-link'),
+}));
+
 import { verifySignature } from '@line-crm/line-sdk';
 import {
   addTagToFriend,
@@ -86,9 +130,16 @@ const baseExecutionCtx = {
   props: {},
 } as unknown as ExecutionContext;
 
+const DEFAULT_BOT_CONFIG = {
+  llm: { vision: { enabled: false, chain: [], maxDescriptionTokens: 250 } },
+  urlContext: { enabled: false, timeoutMs: 6000, maxContentBytes: 524288, maxExtractChars: 2000 },
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getLineAccounts).mockResolvedValue([]);
+  botConfigMock.mockReturnValue(DEFAULT_BOT_CONFIG);
+  buildGroqHistoryMock.mockResolvedValue([]);
 });
 
 describe('POST /webhook — DoS defenses (#104)', () => {
@@ -297,5 +348,300 @@ describe('POST /webhook — first-contact existing friends', () => {
     expect(addTagToFriend).not.toHaveBeenCalled();
     expect(getEntryRouteByRefCode).not.toHaveBeenCalled();
     expect(getMessageTemplateById).not.toHaveBeenCalled();
+  });
+});
+
+describe('POST /webhook — image message vision pipeline', () => {
+  function makeDb() {
+    const stmt = {
+      bind: vi.fn(),
+      run: vi.fn().mockResolvedValue({}),
+      all: vi.fn().mockResolvedValue({ results: [] }),
+      first: vi.fn().mockResolvedValue(null),
+    };
+    stmt.bind.mockReturnValue(stmt);
+    return { prepare: vi.fn().mockReturnValue(stmt) } as unknown as D1Database;
+  }
+
+  const EXISTING_FRIEND = {
+    id: 'friend-1',
+    line_user_id: 'U-existing',
+    display_name: 'Existing Friend',
+    picture_url: null,
+    status_message: null,
+    is_following: 1,
+    user_id: null,
+    line_account_id: null,
+    metadata: '{}',
+    first_tracked_link_id: null,
+    ai_reply_mode: 'bot',
+    ref_code: null,
+    created_at: '2026-07-17T00:00:00.000+09:00',
+    updated_at: '2026-07-17T00:00:00.000+09:00',
+  };
+
+  function imageWebhookBody() {
+    return JSON.stringify({
+      destination: 'bot',
+      events: [
+        {
+          type: 'message',
+          replyToken: 'reply-token',
+          message: { type: 'image', id: 'msg-image-1' },
+          timestamp: Date.now(),
+          source: { type: 'user', userId: 'U-existing' },
+          webhookEventId: 'event-1',
+          deliveryContext: { isRedelivery: false },
+          mode: 'active',
+        },
+      ],
+    });
+  }
+
+  async function sendImageWebhook(db: D1Database, env: Record<string, unknown> = {}) {
+    vi.mocked(verifySignature).mockResolvedValue(true);
+    vi.mocked(getFriendByLineUserId).mockResolvedValue(EXISTING_FRIEND as never);
+    vi.mocked(jstNow).mockReturnValue('2026-07-17T12:00:00.000+09:00');
+    vi.mocked(upsertChatOnMessage).mockResolvedValue({} as never);
+
+    const executionCtx = {
+      waitUntil: vi.fn(),
+      passThroughOnException: vi.fn(),
+      props: {},
+    } as unknown as ExecutionContext;
+
+    const app = setupApp();
+    const validShapedSignature = 'A'.repeat(43) + '=';
+    const res = await app.request(
+      '/webhook',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Line-Signature': validShapedSignature },
+        body: imageWebhookBody(),
+      },
+      {
+        ...baseEnv,
+        DB: db,
+        GROQ_API_KEY: 'gsk-test',
+        WORKER_URL: 'https://worker.example.workers.dev',
+        IMAGES: {} as R2Bucket,
+        ...env,
+      },
+      executionCtx,
+    );
+
+    const processing = vi.mocked(executionCtx.waitUntil).mock.calls[0]?.[0] as Promise<unknown>;
+    await processing;
+    return res;
+  }
+
+  test('vision disabled: records the image and marks unread, no describe/pipeline call', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: { vision: { enabled: false, chain: [], maxDescriptionTokens: 250 } },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+
+    const db = makeDb();
+    const res = await sendImageWebhook(db);
+
+    expect(res.status).toBe(200);
+    expect(describeImageMock).not.toHaveBeenCalled();
+    expect(runGroqSupportPipelineMock).not.toHaveBeenCalled();
+    expect(upsertChatOnMessage).toHaveBeenCalledWith(db, 'friend-1');
+  });
+
+  test('vision enabled + describe succeeds + pipeline replies: sends reply and skips unread', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: {
+        vision: {
+          enabled: true,
+          chain: [{ provider: 'groq', model: 'qwen/qwen3.6-27b', timeoutMs: 10000 }],
+          maxDescriptionTokens: 250,
+        },
+      },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(false);
+    describeImageMock.mockResolvedValue('猫が写っている写真です。');
+    runGroqSupportPipelineMock.mockResolvedValue({ kind: 'reply', text: 'かわいい猫ちゃんですね！', cacheable: false });
+
+    const db = makeDb();
+    const res = await sendImageWebhook(db);
+
+    expect(res.status).toBe(200);
+    expect(describeImageMock).toHaveBeenCalledTimes(1);
+    expect(runGroqSupportPipelineMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        incomingText: '[ユーザーが画像を送信。画像の内容: 猫が写っている写真です。]',
+        cachePolicy: 'skip',
+      }),
+    );
+    expect(lineClientMocks.replyMessage).toHaveBeenCalledWith('reply-token', [
+      { type: 'text', text: 'かわいい猫ちゃんですね！' },
+    ]);
+    // AI応答成功 → unread化はスキップされる（§7.3）。
+    expect(upsertChatOnMessage).not.toHaveBeenCalled();
+  });
+
+  test('vision enabled but groq_reply_enabled=false: skips describe entirely (§11 地雷#14)', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: {
+        vision: {
+          enabled: true,
+          chain: [{ provider: 'groq', model: 'qwen/qwen3.6-27b', timeoutMs: 10000 }],
+          maxDescriptionTokens: 250,
+        },
+      },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: false });
+
+    const db = makeDb();
+    const res = await sendImageWebhook(db);
+
+    expect(res.status).toBe(200);
+    expect(describeImageMock).not.toHaveBeenCalled();
+    expect(runGroqSupportPipelineMock).not.toHaveBeenCalled();
+    expect(upsertChatOnMessage).toHaveBeenCalledWith(db, 'friend-1');
+  });
+
+  test('vision enabled but daily budget exceeded: skips describe (cost guard)', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: {
+        vision: {
+          enabled: true,
+          chain: [{ provider: 'groq', model: 'qwen/qwen3.6-27b', timeoutMs: 10000 }],
+          maxDescriptionTokens: 250,
+        },
+      },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(true);
+
+    const db = makeDb();
+    const res = await sendImageWebhook(db);
+
+    expect(res.status).toBe(200);
+    expect(describeImageMock).not.toHaveBeenCalled();
+    expect(runGroqSupportPipelineMock).not.toHaveBeenCalled();
+    expect(upsertChatOnMessage).toHaveBeenCalledWith(db, 'friend-1');
+  });
+
+  test('describe returns null (chain fully failed): falls back to current behavior (record + unread, no reply)', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: {
+        vision: {
+          enabled: true,
+          chain: [{ provider: 'groq', model: 'qwen/qwen3.6-27b', timeoutMs: 10000 }],
+          maxDescriptionTokens: 250,
+        },
+      },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(false);
+    describeImageMock.mockResolvedValue(null);
+
+    const db = makeDb();
+    const res = await sendImageWebhook(db);
+
+    expect(res.status).toBe(200);
+    expect(describeImageMock).toHaveBeenCalledTimes(1);
+    expect(runGroqSupportPipelineMock).not.toHaveBeenCalled();
+    expect(lineClientMocks.replyMessage).not.toHaveBeenCalled();
+    expect(lineClientMocks.pushMessage).not.toHaveBeenCalled();
+    expect(upsertChatOnMessage).toHaveBeenCalledWith(db, 'friend-1');
+  });
+
+  test('pipeline escalates: sends escalation notice, switches to human mode, still marks unread', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: {
+        vision: {
+          enabled: true,
+          chain: [{ provider: 'groq', model: 'qwen/qwen3.6-27b', timeoutMs: 10000 }],
+          maxDescriptionTokens: 250,
+        },
+      },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(false);
+    describeImageMock.mockResolvedValue('不適切な内容の画像です。');
+    runGroqSupportPipelineMock.mockResolvedValue({ kind: 'escalate', text: undefined });
+
+    const db = makeDb();
+    const res = await sendImageWebhook(db);
+
+    expect(res.status).toBe(200);
+    expect(lineClientMocks.replyMessage).toHaveBeenCalledWith('reply-token', [
+      { type: 'text', text: 'ちょっと待っててね、中の人につなぐね。' },
+    ]);
+    // エスカレーションは人間対応が必要 → unread化する。
+    expect(upsertChatOnMessage).toHaveBeenCalledWith(db, 'friend-1');
+  });
+
+  test('image bytes are never persisted to messages_log content JSON', async () => {
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: { vision: { enabled: false, chain: [], maxDescriptionTokens: 250 } },
+    });
+    fetchAndStoreIncomingImageMock.mockResolvedValue({
+      originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      previewImageUrl: 'https://worker.example.workers.dev/images/incoming-x.jpg',
+      bytes: new ArrayBuffer(10),
+      contentType: 'image/jpeg',
+    });
+
+    const db = makeDb();
+    await sendImageWebhook(db);
+
+    const prepareCalls = vi.mocked(db.prepare).mock.calls;
+    const insertCall = prepareCalls.find(([sql]) => sql.includes('INSERT INTO messages_log') && sql.includes("'incoming'"));
+    expect(insertCall).toBeDefined();
+    const stmt = vi.mocked(db.prepare).mock.results[prepareCalls.indexOf(insertCall!)].value;
+    const boundArgs = stmt.bind.mock.calls[0];
+    const contentArg = boundArgs[3] as string;
+    expect(() => JSON.parse(contentArg)).not.toThrow();
+    const parsed = JSON.parse(contentArg);
+    expect(parsed.bytes).toBeUndefined();
+    expect(parsed.originalContentUrl).toBe('https://worker.example.workers.dev/images/incoming-x.jpg');
   });
 });

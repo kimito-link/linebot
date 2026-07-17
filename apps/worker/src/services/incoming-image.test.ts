@@ -43,6 +43,8 @@ describe('fetchAndStoreIncomingImage', () => {
     expect(opts.httpMetadata?.contentType).toBe('image/jpeg');
     expect(result?.originalContentUrl).toBe('https://worker.example.com/images/incoming-acc-1-msg-xyz.jpg');
     expect(result?.previewImageUrl).toBe(result?.originalContentUrl);
+    expect(result?.contentType).toBe('image/jpeg');
+    expect(result?.bytes.byteLength).toBe(100);
   });
 
   test('Content API が非 200 を返したら null', async () => {

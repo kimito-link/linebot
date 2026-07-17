@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getGroqReplyConfig } from './groq-reply.js';
+import { getGroqReplyConfig, buildGroqHistory } from './groq-reply.js';
 
 function fakeDb(settings: Array<{ value: string }> = []): D1Database {
   return {
@@ -39,3 +39,67 @@ describe('getGroqReplyConfig', () => {
 
 // Groq本体へのHTTP呼び出しテストは llm-providers.test.ts に移設済み
 // （2026-07-17: generateGroqReply を llm-providers.ts の callGroq() に統合したため）。
+
+function fakeHistoryDb(rows: Array<{ direction: string; content: string; message_type: string }>): D1Database {
+  return {
+    prepare(_sql: string) {
+      return {
+        bind(..._args: unknown[]) {
+          return this;
+        },
+        async all<T>(): Promise<{ results: T[] }> {
+          return { results: rows as unknown as T[] };
+        },
+      };
+    },
+  } as unknown as D1Database;
+}
+
+describe('buildGroqHistory', () => {
+  it('maps text rows directly and reverses to chronological order', async () => {
+    // DB returns DESC (newest first); function should reverse to oldest-first.
+    const db = fakeHistoryDb([
+      { direction: 'outgoing', content: '2番目のメッセージ', message_type: 'text' },
+      { direction: 'incoming', content: '1番目のメッセージ', message_type: 'text' },
+    ]);
+    const history = await buildGroqHistory(db, 'friend-1');
+    expect(history).toEqual([
+      { role: 'user', content: '1番目のメッセージ' },
+      { role: 'assistant', content: '2番目のメッセージ' },
+    ]);
+  });
+
+  it('converts an image row with visionSummary to a bracketed history entry', async () => {
+    const db = fakeHistoryDb([
+      {
+        direction: 'incoming',
+        content: JSON.stringify({
+          originalContentUrl: 'https://x/images/a.jpg',
+          previewImageUrl: 'https://x/images/a.jpg',
+          visionSummary: '猫が写っている写真です。',
+        }),
+        message_type: 'image',
+      },
+    ]);
+    const history = await buildGroqHistory(db, 'friend-1');
+    expect(history).toEqual([{ role: 'user', content: '[画像: 猫が写っている写真です。]' }]);
+  });
+
+  it('falls back to [画像] when the image row has no visionSummary', async () => {
+    const db = fakeHistoryDb([
+      {
+        direction: 'incoming',
+        content: JSON.stringify({ originalContentUrl: 'https://x/images/a.jpg', previewImageUrl: 'https://x/images/a.jpg' }),
+        message_type: 'image',
+      },
+    ]);
+    const history = await buildGroqHistory(db, 'friend-1');
+    expect(history).toEqual([{ role: 'user', content: '[画像]' }]);
+  });
+
+  it('falls back to [画像] when the image row content is the legacy label string (not JSON)', async () => {
+    const db = fakeHistoryDb([{ direction: 'incoming', content: '[画像]', message_type: 'image' }]);
+    const history = await buildGroqHistory(db, 'friend-1');
+    expect(history).toEqual([{ role: 'user', content: '[画像]' }]);
+  });
+});

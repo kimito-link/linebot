@@ -36,6 +36,20 @@ export async function getGroqReplyConfig(
 
 const MAX_HISTORY_MESSAGES = 6;
 
+/**
+ * image行のcontent JSONを履歴用テキストに変換する（2026-07-17画像認識機能追加、§7.2）。
+ * visionSummaryがあれば`[画像: <説明>]`、無ければ（describe失敗行・旧ラベル文字列行）
+ * `[画像]`にフォールバックする。
+ */
+function imageRowToHistoryText(content: string): string {
+  try {
+    const parsed = JSON.parse(content) as { visionSummary?: string };
+    return parsed.visionSummary ? `[画像: ${parsed.visionSummary}]` : '[画像]';
+  } catch {
+    return '[画像]';
+  }
+}
+
 export async function buildGroqHistory(
   db: D1Database,
   friendId: string,
@@ -43,7 +57,7 @@ export async function buildGroqHistory(
   const rows = await db
     .prepare(
       `SELECT direction, content, message_type FROM messages_log
-       WHERE friend_id = ? AND message_type = 'text'
+       WHERE friend_id = ? AND message_type IN ('text', 'image')
        ORDER BY created_at DESC LIMIT ?`,
     )
     .bind(friendId, MAX_HISTORY_MESSAGES)
@@ -53,6 +67,6 @@ export async function buildGroqHistory(
     .reverse()
     .map((row) => ({
       role: row.direction === 'incoming' ? ('user' as const) : ('assistant' as const),
-      content: row.content,
+      content: row.message_type === 'image' ? imageRowToHistoryText(row.content) : row.content,
     }));
 }

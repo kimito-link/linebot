@@ -26,6 +26,11 @@ import { buildMessage, expandVariables } from '../services/step-delivery.js';
 import { generateLlmReply, switchToHumanMode } from '../services/llm-reply.js';
 import { runGroqSupportPipeline } from '../services/groq-pipeline.js';
 import { resolveBotProject } from '../services/bot-project.js';
+import { getBotConfig } from '../services/groq-config.js';
+import { extractFirstUrl, fetchUrlContext, type UrlContextEnv } from '../services/url-context.js';
+import { describeImage } from '../services/vision-describe.js';
+import { getGroqReplyConfig } from '../services/groq-reply.js';
+import { isGroqBudgetExceeded } from '../services/kb-search.js';
 import {
   isTaskMessage,
   isAuthorizedTaskSender,
@@ -41,6 +46,51 @@ const webhook = new Hono<Env>();
 // bursty batched deliveries (~100 events × ~5 KB) while still well below the
 // 128 MB Cloudflare Workers memory ceiling.
 const MAX_WEBHOOK_BODY_SIZE = 1024 * 1024; // 1 MiB
+
+/**
+ * replyToken失効（発行から約60秒）対策の送信保険。45秒以内かつ未消費ならreplyMessageを
+ * 試み、失敗（トークン失効・二重消費等）した場合はpushMessageに切り替える。
+ * pushMessageはreplyTokenを不要でいつでも届くため、これが効くケースは従来なら
+ * 「例外を握りつぶして完全に無言化」していたはずの経路（2026-07-17 Fable設計
+ * 「無応答ゼロ化アーキテクチャ」）。テキスト分岐・画像分岐の両方から共用する
+ * （§11地雷#5: 画像分岐にはこのヘルパーが元々無く、image messageイベントにも
+ * replyTokenがある——現在未使用なだけ）。
+ */
+async function sendSafeText(
+  lineClient: LineClient,
+  replyToken: string,
+  lineUserId: string,
+  text: string,
+  receivedAt: number,
+  replyTokenConsumed: boolean,
+): Promise<boolean> {
+  const withinDeadline = !replyTokenConsumed && Date.now() - receivedAt < 45_000;
+  if (withinDeadline) {
+    try {
+      await lineClient.replyMessage(replyToken, [{ type: 'text', text }]);
+      return true;
+    } catch (err) {
+      console.warn('[safe-send] replyMessage failed, falling back to pushMessage', err instanceof Error ? err.message : String(err));
+    }
+  }
+  await lineClient.pushMessage(lineUserId, [{ type: 'text', text }]);
+  return false;
+}
+
+async function logOutgoingGroqMessage(
+  db: D1Database,
+  friendId: string,
+  text: string,
+  source: 'groq_reply' | 'groq_canned',
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
+       VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', ?, ?)`,
+    )
+    .bind(crypto.randomUUID(), friendId, text, source, jstNow())
+    .run();
+}
 
 async function ensureFriendFromWebhookUser(
   db: D1Database,
@@ -190,6 +240,12 @@ webhook.post('/webhook', async (c) => {
           receivedAt,
           c.env.GEMINI_API_KEY,
           c.env.AI,
+          {
+            WORKER_URL: c.env.WORKER_URL,
+            WORKER_PUBLIC_URL: c.env.WORKER_PUBLIC_URL,
+            ADMIN_PUBLIC_URL: c.env.ADMIN_PUBLIC_URL,
+            LIFF_PUBLIC_URL: c.env.LIFF_PUBLIC_URL,
+          },
         );
       } catch (err) {
         console.error('Error handling webhook event:', err instanceof Error ? err.stack : String(err));
@@ -217,6 +273,7 @@ async function handleEvent(
   receivedAt: number = Date.now(),
   geminiApiKey?: string,
   workersAi?: Ai,
+  urlContextEnv: UrlContextEnv = {},
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -520,6 +577,11 @@ async function handleEvent(
     // image の場合は LINE Content API でバイナリを取得 → R2 → JSON URL に置換。
     // 失敗時は labels[msg.type] のラベル文字列のまま (フォールバック)。
     let finalContent = content;
+    // vision describe用（§7.1: INSERTは先に行い、describe完了後にUPDATEする）。
+    let imageBytes: ArrayBuffer | undefined;
+    let imageContentType: string | undefined;
+    let imageOriginalContentUrl: string | undefined;
+    let imagePreviewImageUrl: string | undefined;
     if (msg.type === 'sticker') {
       const stickerContent = createStickerMessageContent(msg);
       if (stickerContent) {
@@ -537,22 +599,112 @@ async function handleEvent(
         messageId: lineMessageId,
       });
       if (refs) {
-        finalContent = JSON.stringify(refs);
+        // bytesはDBに保存しない（R2二度読み回避のためメモリ内でのみ引き回す）。
+        imageOriginalContentUrl = refs.originalContentUrl;
+        imagePreviewImageUrl = refs.previewImageUrl;
+        finalContent = JSON.stringify({
+          originalContentUrl: imageOriginalContentUrl,
+          previewImageUrl: imagePreviewImageUrl,
+        });
+        imageBytes = refs.bytes;
+        imageContentType = refs.contentType;
       }
     }
 
+    const imageLogId = crypto.randomUUID();
     await db
       .prepare(
         `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, source, created_at)
          VALUES (?, ?, 'incoming', ?, ?, NULL, NULL, 'user', ?)`,
       )
-      .bind(crypto.randomUUID(), friend.id, msg.type, finalContent, jstNow())
+      .bind(imageLogId, friend.id, msg.type, finalContent, jstNow())
       .run();
+
+    // 画像認識（2026-07-17 Fable設計「画像認識・URL認識機能」§2.1）。
+    // groq_reply_enabled/予算超過ゲートはdescribe（コスト発生点）の前に通す
+    // （§11地雷#14: 順序を間違えるとAI応答無効アカウントでもvision APIが叩かれる）。
+    let imageLlmHandled = false;
+    const visionConfig = getBotConfig().llm.vision;
+    if (msg.type === 'image' && imageBytes && imageContentType && groqApiKey && visionConfig?.enabled) {
+      const groqConfig = await getGroqReplyConfig(db, lineAccountId);
+      const budgetExceeded = groqConfig.enabled && (await isGroqBudgetExceeded(db, lineAccountId));
+      if (groqConfig.enabled && !budgetExceeded) {
+        try {
+          const description = await describeImage({
+            bytes: imageBytes,
+            contentType: imageContentType,
+            publicImageUrl: imageOriginalContentUrl,
+            publicUrlUnreachable: !!workerUrl && /localhost|127\.0\.0\.1/.test(workerUrl),
+            vision: visionConfig,
+            groqApiKey,
+            geminiApiKey,
+            receivedAt,
+          });
+
+          if (description) {
+            try {
+              await db
+                .prepare(`UPDATE messages_log SET content = ? WHERE id = ?`)
+                .bind(
+                  JSON.stringify({
+                    originalContentUrl: imageOriginalContentUrl,
+                    previewImageUrl: imagePreviewImageUrl,
+                    visionSummary: description,
+                  }),
+                  imageLogId,
+                )
+                .run();
+            } catch (err) {
+              console.error('[webhook] visionSummary UPDATE failed', err);
+            }
+
+            const project = await resolveBotProject(db, friend);
+            const groqResult = await runGroqSupportPipeline({
+              db,
+              apiKey: groqApiKey,
+              geminiApiKey,
+              workersAi,
+              receivedAt,
+              lineAccountId,
+              friendId: friend.id,
+              incomingText: `[ユーザーが画像を送信。画像の内容: ${description}]`,
+              project,
+              cachePolicy: 'skip',
+            });
+
+            if (groqResult.kind === 'canned' || groqResult.kind === 'reply') {
+              await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.text, receivedAt, false);
+              await logOutgoingGroqMessage(db, friend.id, groqResult.text, groqResult.kind === 'canned' ? 'groq_canned' : 'groq_reply');
+              imageLlmHandled = true;
+            } else if (groqResult.kind === 'escalate') {
+              await switchToHumanMode(db, friend.id);
+              const escalationNotice = groqResult.text || 'ちょっと待っててね、中の人につなぐね。';
+              await sendSafeText(lineClient, event.replyToken, friend.line_user_id, escalationNotice, receivedAt, false);
+              await logOutgoingGroqMessage(db, friend.id, escalationNotice, 'groq_reply');
+              // エスカレーションは人間対応が必要なのでimageLlmHandledはfalseのまま
+              // （下のunread化に進ませる）。
+            } else if (groqResult.kind === 'fail_closed') {
+              await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.escalationText, receivedAt, false);
+              await logOutgoingGroqMessage(db, friend.id, groqResult.escalationText, 'groq_reply');
+            }
+          }
+          // description === null（チェーン全滅・画像サイズ超過等）→ 現状動作
+          // （記録済み+unread、返信なし）に静かに戻る。fail-closed。
+        } catch (err) {
+          console.error('[webhook] image vision pipeline failed', err instanceof Error ? err.stack : String(err));
+        }
+      }
+    }
+
     // text と同様、非 text の自発メッセージ (画像/スタンプ等) でも chat を unread に戻す。
     // これが無いと resolved 除外 (unanswered-inbox CANDIDATES_SQL) が「解決済み後に
     // 画像だけ送ってきた友だち」をバッジ・未対応一覧から永久に落としてしまう。
     // 非 text は auto_reply keyword にマッチし得ないので常に要対応扱いで正しい。
-    await upsertChatOnMessage(db, friend.id);
+    // 画像へのAI返信が成功した場合はテキスト経路のllmHandled=trueと同じ扱いで
+    // unread化をスキップする（§7.3）。
+    if (!imageLlmHandled) {
+      await upsertChatOnMessage(db, friend.id);
+    }
     return;
   }
 
@@ -706,33 +858,12 @@ async function handleEvent(
     let llmHandled = false;
     const aiReplyMode = (friend as unknown as { ai_reply_mode?: string }).ai_reply_mode;
     if (!matched && aiReplyMode !== 'human') {
-      const logOutgoingGroq = async (text: string, source: 'groq_reply' | 'groq_canned') => {
-        await db
-          .prepare(
-            `INSERT INTO messages_log (id, friend_id, direction, message_type, content, broadcast_id, scenario_step_id, delivery_type, source, created_at)
-             VALUES (?, ?, 'outgoing', 'text', ?, NULL, NULL, 'reply', ?, ?)`,
-          )
-          .bind(crypto.randomUUID(), friend.id, text, source, jstNow())
-          .run();
-      };
+      const logOutgoingGroq = (text: string, source: 'groq_reply' | 'groq_canned') =>
+        logOutgoingGroqMessage(db, friend.id, text, source);
 
-      // replyToken失効（発行から約60秒）対策の送信保険。45秒以内かつ未消費なら
-      // replyMessageを試み、失敗（トークン失効・二重消費等）した場合はpushMessageに
-      // 切り替える。pushMessageはreplyTokenを必要とせずいつでも届くため、これが
-      // 効くケースは従来なら「例外を握りつぶして完全に無言化」していたはずの経路
-      // （2026-07-17 Fable設計「無応答ゼロ化アーキテクチャ」）。
       const safeSendText = async (text: string): Promise<void> => {
-        const withinDeadline = !replyTokenConsumed && Date.now() - receivedAt < 45_000;
-        if (withinDeadline) {
-          try {
-            await lineClient.replyMessage(event.replyToken, [{ type: 'text', text }]);
-            replyTokenConsumed = true;
-            return;
-          } catch (err) {
-            console.warn('[safe-send] replyMessage failed, falling back to pushMessage', err instanceof Error ? err.message : String(err));
-          }
-        }
-        await lineClient.pushMessage(friend.line_user_id, [{ type: 'text', text }]);
+        const replied = await sendSafeText(lineClient, event.replyToken, friend.line_user_id, text, receivedAt, replyTokenConsumed);
+        if (replied) replyTokenConsumed = true;
       };
 
       // "個人AI社員" タスクキュー入口: "タスク:" で始まるメッセージは、
@@ -766,6 +897,24 @@ async function handleEvent(
       } else if (groqApiKey) {
         try {
           const project = await resolveBotProject(db, friend);
+
+          // URL認識（2026-07-17 Fable設計「画像認識・URL認識機能」§2.2）: ガード不通過・
+          // fetch失敗・タイムアウトはすべてnullになり、通常のテキスト応答に静かに
+          // フォールバックする（fail-closed。URLを知らないふりをして応答する）。
+          const urlContextConfig = getBotConfig().urlContext;
+          let externalContext: string | undefined;
+          if (urlContextConfig.enabled) {
+            const firstUrl = extractFirstUrl(incomingText);
+            if (firstUrl) {
+              const extracted = await fetchUrlContext(firstUrl, urlContextEnv, {
+                timeoutMs: urlContextConfig.timeoutMs,
+                maxContentBytes: urlContextConfig.maxContentBytes,
+                maxExtractChars: urlContextConfig.maxExtractChars,
+              });
+              if (extracted) externalContext = extracted;
+            }
+          }
+
           const groqResult = await runGroqSupportPipeline({
             db,
             apiKey: groqApiKey,
@@ -776,6 +925,8 @@ async function handleEvent(
             friendId: friend.id,
             incomingText,
             project,
+            externalContext,
+            cachePolicy: externalContext ? 'skip' : 'normal',
           });
 
           if (groqResult.kind === 'canned' || groqResult.kind === 'reply') {

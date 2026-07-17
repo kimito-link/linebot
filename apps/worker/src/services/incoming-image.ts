@@ -22,6 +22,9 @@ export interface FetchAndStoreOptions {
 export interface IncomingImageRefs {
   originalContentUrl: string;
   previewImageUrl: string;
+  /** vision describe用にR2二度読みを避けるため、取得済みバイナリをそのまま返す（2026-07-17画像認識機能追加）。 */
+  bytes: ArrayBuffer;
+  contentType: string;
 }
 
 /**
@@ -77,5 +80,5 @@ export async function fetchAndStoreIncomingImage(
 
   const base = opts.workerUrl.replace(/\/$/, '');
   const url = `${base}/images/${key}`;
-  return { originalContentUrl: url, previewImageUrl: url };
+  return { originalContentUrl: url, previewImageUrl: url, bytes: data, contentType };
 }
