@@ -485,10 +485,15 @@ describe('POST /webhook — image message vision pipeline', () => {
     expect(describeImageMock).toHaveBeenCalledTimes(1);
     expect(runGroqSupportPipelineMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        incomingText: '[ユーザーが画像を送信。画像の内容: 猫が写っている写真です。]',
+        incomingText: expect.stringContaining('猫が写っている写真です。'),
         cachePolicy: 'skip',
       }),
     );
+    // メタ記法「[ユーザーが画像を送信...]」だとLLMがpersonaを離れて客観描写タスクだと
+    // 誤認識する事故があったため、会話的な文面になっていることを明示的に確認する。
+    const calledIncomingText = runGroqSupportPipelineMock.mock.calls[0][0].incomingText as string;
+    expect(calledIncomingText).not.toMatch(/^\[ユーザーが画像を送信/);
+    expect(calledIncomingText).toContain('あなたらしく反応してください');
     expect(lineClientMocks.replyMessage).toHaveBeenCalledWith('reply-token', [
       { type: 'text', text: 'かわいい猫ちゃんですね！' },
     ]);

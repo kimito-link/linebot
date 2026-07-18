@@ -667,7 +667,11 @@ async function handleEvent(
               receivedAt,
               lineAccountId,
               friendId: friend.id,
-              incomingText: `[ユーザーが画像を送信。画像の内容: ${description}]`,
+              // 「画像の内容を報告せよ」という指示に読めるメタ記法を避け、ユーザーが
+              // 画像を見せてきたという会話的な状況として渡す。カギ括弧のメタ記法だと
+              // LLMがpersonaを離れて客観描写タスクだと誤認識し、素っ気ない説明文を
+              // そのまま返す事故が起きた（2026-07-18 実障害）。
+              incomingText: `（画像を送ってきました。写っているのは次の内容です: ${description}）この画像を見て、あなたらしく反応してください。`,
               project,
               cachePolicy: 'skip',
             });
