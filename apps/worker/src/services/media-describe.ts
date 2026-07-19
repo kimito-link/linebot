@@ -78,13 +78,18 @@ export interface DescribeAudioParams {
 // wav/mp3等の識別子を期待するため、既知のcontentTypeをformat識別子にマップする。
 // 未知のcontentTypeはfail-closed（describeを諦める）。
 const CONTENT_TYPE_TO_AUDIO_FORMAT: Record<string, string> = {
-  'audio/mp4': 'mp3', // LINEはm4aコンテナをaudio/mp4で送ることがある。Gemini側はコンテナ差異を吸収する（実機で要確認、非対応ならfail-closedのまま実害なし）
+  // 2026-07-20実機検証で確定: LINEアプリの音声メッセージは audio/x-m4a を返す
+  // （audio/mp4ではない）。これが欠けていたため全件unsupported content-typeで
+  // fail-closedし、音声にだけ一切反応しない実障害が発生した。
+  'audio/x-m4a': 'mp3',
+  'audio/mp4': 'mp3', // 一部クライアント/将来のLINE側変更向けの保険として残す
   'audio/m4a': 'mp3',
   'audio/mp3': 'mp3',
   'audio/mpeg': 'mp3',
   'audio/wav': 'wav',
   'audio/x-wav': 'wav',
   'audio/aac': 'aac',
+  'audio/x-aac': 'aac',
   'audio/ogg': 'ogg',
   'audio/flac': 'flac',
 };

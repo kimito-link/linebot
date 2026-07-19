@@ -132,6 +132,13 @@ describe('describeAudio', () => {
     expect(callParams.format).toBe('wav');
   });
 
+  it('maps audio/x-m4a (the actual content-type LINE sends, confirmed 2026-07-20) to mp3', async () => {
+    callGeminiAudioMock.mockResolvedValue('説明');
+    await describeAudio({ ...baseAudioParams, contentType: 'audio/x-m4a' });
+    const [, , callParams] = callGeminiAudioMock.mock.calls[0];
+    expect(callParams.format).toBe('mp3');
+  });
+
   it('skips when remaining time is under timeout + margin', async () => {
     callGeminiAudioMock.mockResolvedValue('should not be reached');
     const receivedAt = Date.now() - 36_000;

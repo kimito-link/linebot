@@ -619,7 +619,7 @@ async function handleEvent(
     if ((msg.type === 'video' || msg.type === 'audio') && r2 && workerUrl) {
       const lineMessageId = msg.id;
       const { fetchAndStoreIncomingMedia } = await import('../services/incoming-media.js');
-      const refs = await fetchAndStoreIncomingMedia({
+      const { refs, failureReason } = await fetchAndStoreIncomingMedia({
         r2,
         workerUrl,
         channelAccessToken: lineAccessToken,
@@ -632,6 +632,11 @@ async function handleEvent(
         finalContent = JSON.stringify({ originalContentUrl: mediaOriginalContentUrl });
         mediaBytes = refs.bytes;
         mediaContentType = refs.contentType;
+      } else if (failureReason) {
+        // 失敗理由をmessages_logのcontentフォールバックに残す（ユーザーには見えない
+        // DB上のログのみ）。console.errorしか見られない環境でもD1クエリだけで
+        // 実測content-type等を確認できるようにする（2026-07-20原因調査用の一時計装）。
+        finalContent = `${content} (${failureReason})`;
       }
     }
 
