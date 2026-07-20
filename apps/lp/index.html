@@ -239,15 +239,15 @@
 
     <div class="trio-panel">
       <div class="trio-line">
-        <img class="trio-avatar" src="/assets/characters/konta.png" alt="こん太">
+        <video class="trio-avatar" src="/assets/video/konta-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/konta.png"></video>
         <div class="trio-bubble konta">「人格って、結局どこまで自由に決められるのだ？」って最初は半信半疑だったのだ。</div>
       </div>
       <div class="trio-line">
-        <img class="trio-avatar" src="/assets/characters/link.png" alt="りんく">
+        <video class="trio-avatar" src="/assets/video/link-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/link.png"></video>
         <div class="trio-bubble link">口調も、距離感も、呼び方も。言葉で伝えるだけで、ちゃんとその通りに話してくれるのだ。恋人みたいな距離感にも、コンサルみたいな話し方にもできるのだ。</div>
       </div>
       <div class="trio-line">
-        <img class="trio-avatar" src="/assets/characters/tanunee.png" alt="たぬ姉">
+        <video class="trio-avatar" src="/assets/video/tanunee-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/tanunee.png"></video>
         <div class="trio-bubble tanunee">写真を見せても、動画を送っても、その人格のまま反応してくれるのだ。作ったその日から、ちゃんと"その人"として話しかけてくれるのだ。</div>
       </div>
     </div>
@@ -327,7 +327,7 @@
     <p class="section-lead">写真を送れば"その子の目"で見て、声を送れば"その子の耳"で聴く。</p>
     <div class="trio-panel">
       <div class="trio-line">
-        <img class="trio-avatar" src="/assets/characters/link.png" alt="りんく">
+        <video class="trio-avatar" src="/assets/video/link-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/link.png"></video>
         <div class="trio-bubble link">写真を送ると、写ってるものをちゃんと見て、その人格らしく感想を言ってくれるのだ。</div>
       </div>
       <div class="trio-line">
@@ -336,11 +336,11 @@
         </div>
       </div>
       <div class="trio-line">
-        <img class="trio-avatar" src="/assets/characters/tanunee.png" alt="たぬ姉">
+        <video class="trio-avatar" src="/assets/video/tanunee-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/tanunee.png"></video>
         <div class="trio-bubble tanunee">声のメッセージも、動画も同じなのだ。声のトーンや映ってる空気まで汲み取って、その人格のまま返してくれるのだ。</div>
       </div>
       <div class="trio-line">
-        <img class="trio-avatar" src="/assets/characters/konta.png" alt="こん太">
+        <video class="trio-avatar" src="/assets/video/konta-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/konta.png"></video>
         <div class="trio-bubble konta">30秒くらい話しかけてみたのだ。「AIだから簡単に作れるんでしょ」って言われがちだけど、それは違うのだ。思考して、設計して、試行錯誤を重ねてやっと形になる——って話したら、ちゃんと最後まで聞いて、丁寧に返してくれたのだ。</div>
       </div>
     </div>
@@ -442,6 +442,12 @@
   </div>
 </footer>
 
+<script>
+  document.querySelectorAll('video.trio-avatar').forEach(function (v) {
+    var p = v.play();
+    if (p && p.catch) p.catch(function () {});
+  });
+</script>
 
 </body>
 </html>
