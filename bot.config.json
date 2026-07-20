@@ -31,7 +31,7 @@
     "audio": {
       "enabled": true,
       "model": "gemini-2.5-flash-lite",
-      "timeoutMs": 15000,
+      "timeoutMs": 28000,
       "maxDescriptionTokens": 250,
       "maxInputBytes": 15728640
     }
