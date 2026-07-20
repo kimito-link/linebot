@@ -28,6 +28,12 @@ database_id = "YOUR_DEV_D1_DATABASE_ID"
 binding = "IMAGES"
 bucket_name = "line-harness-images"
 
+# テスト環境にもWorkers Logsを有効化（2026-07-20追加）。以前はproduction環境のみに
+# 設定があり、テスト/本番のどちらのダッシュボードを見ているか混同して「有効化した
+# はずが無効に見える」現象の原因になった（_docs/BEST-IN-CLASS-DESIGN.md §3.3）。
+[observability]
+enabled = true
+
 # 無応答ゼロ化チェーンの3番手（2026-07-17追加）。Worker内バインディングなので
 # 外部ネットワークegressが無く、Groq/Geminiの障害から独立している。
 [ai]

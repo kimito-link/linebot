@@ -326,18 +326,28 @@ export interface VideoCallParams {
   timeoutMs: number;
 }
 
+// media-describe.ts側で503限定リトライを行うため、失敗理由を判別できる型で返す
+// （2026-07-20 BEST-IN-CLASS-DESIGN.md C-2）。'http'のときのみstatusを持つ。
+export type VideoCallResult =
+  | { ok: true; text: string }
+  | { ok: false; reason: 'http' | 'fetch' | 'timeout' | 'empty' | 'parse'; status?: number };
+
 /**
  * Gemini動画モデル向け（ネイティブgenerateContent APIのinline_data）。
  * OpenAI互換chat/completionsはvideo_url content typeを拒否する（400 Invalid content
  * part type）ことを実機検証済みのため、動画のみこのネイティブAPI経路を使う
  * （2026-07-19動画・音声認識機能追加）。レスポンス形式がOpenAI互換と異なるため
- * 専用パーサーを持つ。fail-closedでnull。
+ * 専用パーサーを持つ。fail-closedで{ok: false}（例外は投げない）。
  */
-export async function callGeminiVideo(apiKey: string, model: string, params: VideoCallParams): Promise<string | null> {
+export async function callGeminiVideo(apiKey: string, model: string, params: VideoCallParams): Promise<VideoCallResult> {
   const { prompt, videoBase64, mimeType, maxOutputTokens, timeoutMs } = params;
 
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, timeoutMs);
 
   let response: Response;
   try {
@@ -366,31 +376,32 @@ export async function callGeminiVideo(apiKey: string, model: string, params: Vid
   } catch (err) {
     clearTimeout(timer);
     console.warn('[llm-providers] video fetch failed', err);
-    return null;
+    return { ok: false, reason: timedOut ? 'timeout' : 'fetch' };
   } finally {
     clearTimeout(timer);
   }
 
   if (response.status === 429) {
     console.warn('[llm-providers] video rate limited (429)');
-    return null;
+    return { ok: false, reason: 'http', status: 429 };
   }
   if (!response.ok) {
     console.warn('[llm-providers] video API error', response.status, await response.text().catch(() => ''));
-    return null;
+    return { ok: false, reason: 'http', status: response.status };
   }
 
   let data: { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
   try {
     data = await response.json();
   } catch {
-    return null;
+    return { ok: false, reason: 'parse' };
   }
 
   const rawText = (data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '').trim();
-  if (!rawText) return null;
+  if (!rawText) return { ok: false, reason: 'empty' };
   const cleaned = stripThinking(rawText).replace(ESCALATION_MARKER, '').trim();
-  return cleaned || null;
+  if (!cleaned) return { ok: false, reason: 'empty' };
+  return { ok: true, text: cleaned };
 }
 
 /** Cloudflare Workers AI（Workerバインディング経由。外部ネットワークegressが無く障害ドメインが独立）。 */

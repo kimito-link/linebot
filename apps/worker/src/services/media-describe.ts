@@ -19,6 +19,17 @@ import { remainingMs } from './llm-chain.js';
 import type { BotMediaConfig } from './groq-config.js';
 
 const POST_DESCRIBE_MARGIN_MS = 15_000;
+// Gemini動画APIの503（過負荷）は一時的な事象であることが多く、本Botのトラフィック規模
+// （個人運用・低頻度）では追い打ちリトライが429クォータを誘発するリスクは無い。
+// 429（クォータ超過）へは絶対にリトライしない。予算チェックがタイムアウト後の
+// 危険な再試行を自動的に締め出すため、バックオフより先に残り時間を見る
+// （2026-07-20 BEST-IN-CLASS-DESIGN.md C-2）。
+const RETRY_BACKOFF_MS = 2000;
+const RETRY_BACKOFF_JITTER_MS = 500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
 function bytesToBase64(bytes: ArrayBuffer): string {
   const arr = new Uint8Array(bytes);
@@ -57,13 +68,32 @@ export async function describeVideo(params: DescribeVideoParams): Promise<string
     return null;
   }
 
-  return callGeminiVideo(geminiApiKey, config.model, {
+  const callParams = {
     prompt: DESCRIBE_VIDEO_PROMPT,
     videoBase64: bytesToBase64(bytes),
     mimeType: contentType,
     maxOutputTokens: config.maxDescriptionTokens,
     timeoutMs: config.timeoutMs,
-  });
+  };
+
+  const first = await callGeminiVideo(geminiApiKey, config.model, callParams);
+  if (first.ok) return first.text;
+
+  // 503のみ最大1回リトライ。429・timeout・fetch失敗・空応答は即座にnull（追い打ちしない）。
+  if (first.reason === 'http' && first.status === 503) {
+    const remainingAfterFirst = remainingMs(receivedAt);
+    if (remainingAfterFirst >= config.timeoutMs + POST_DESCRIBE_MARGIN_MS + RETRY_BACKOFF_MS) {
+      console.warn('[media-describe] video 503, retrying once');
+      await sleep(RETRY_BACKOFF_MS + Math.random() * RETRY_BACKOFF_JITTER_MS);
+      const second = await callGeminiVideo(geminiApiKey, config.model, callParams);
+      if (second.ok) return second.text;
+      console.warn('[media-describe] video retry also failed', second.reason);
+      return null;
+    }
+    console.warn('[media-describe] video 503 but insufficient budget to retry');
+  }
+
+  return null;
 }
 
 export interface DescribeAudioParams {

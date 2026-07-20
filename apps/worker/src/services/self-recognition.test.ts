@@ -45,4 +45,29 @@ describe('matchSelfCharacter', () => {
     expect(result).not.toBeNull();
     expect(result?.character).toBe('りんく');
   });
+
+  it('matches こん太 on the actual Gemini paraphrase "猫のような耳" + orange hair (2026-07-20実機再現)', () => {
+    const result = matchSelfCharacter(
+      'オレンジ色の髪と猫のような耳がついたキャラクターの笑顔が、本当に愛らしいです！',
+    );
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('こん太');
+    expect(result?.confidence).toBe('high');
+  });
+
+  it('returns null for kemomimi phrase alone without a hair-color tiebreaker', () => {
+    const result = matchSelfCharacter('猫のような耳がついたキャラクターです。');
+    expect(result).toBeNull();
+  });
+
+  it('returns null for a real cat description (no "のような耳" paraphrase)', () => {
+    const result = matchSelfCharacter('オレンジ色の猫が毛づくろいをしながら、耳をぴくぴくさせています。');
+    expect(result).toBeNull();
+  });
+
+  it('matches たぬ姉 on kemomimi + brown hair', () => {
+    const result = matchSelfCharacter('獣耳と茶色い髪を持つキャラクターがしっぽを揺らしています。');
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('たぬ姉');
+  });
 });

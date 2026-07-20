@@ -712,12 +712,27 @@ async function handleEvent(
           await logOutgoingGroqMessage(db, friend.id, tooLargeNotice, 'groq_reply');
           imageLlmHandled = true;
         } else if (groqConfig.enabled && !budgetExceeded) {
+          // 診断用の構造化ログ（2026-07-20 BEST-IN-CLASS-DESIGN.md C-4）。今日「たぬ姉は503か
+          // 未確定」で終わった反省から、outcome/describe理由を1行のJSONで必ず残す。
+          // sha256はSprint 2で検討するBot送信済み動画との完全一致判定（Tier 0）の実験データも兼ねる。
+          let mediaOutcome: 'replied' | 'fail_notice' = 'fail_notice';
+          let describeOutcome: 'ok' | 'null' = 'null';
+          let mediaSelfMatchLog: string | null = null;
+          let mediaSha256 = '';
+          try {
+            const digest = await crypto.subtle.digest('SHA-256', mediaBytes);
+            mediaSha256 = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+          } catch (err) {
+            console.warn('[webhook] media sha256 hash failed', err);
+          }
+
           try {
             const { describeVideo, describeAudio } = await import('../services/media-describe.js');
             const description =
               msg.type === 'video'
                 ? await describeVideo({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt })
                 : await describeAudio({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt });
+            describeOutcome = description ? 'ok' : 'null';
 
             if (description) {
               try {
@@ -739,6 +754,7 @@ async function handleEvent(
               const selfMatch = msg.type === 'video' ? matchSelfCharacter(description) : null;
               if (selfMatch) {
                 console.log('[self-recognition] matched', JSON.stringify(selfMatch));
+                mediaSelfMatchLog = selfMatch.character;
               }
               let mediaIncomingText: string;
               if (selfMatch?.character === 'りんく' && selfMatch.confidence === 'high') {
@@ -770,20 +786,41 @@ async function handleEvent(
                 await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.text, receivedAt, false);
                 await logOutgoingGroqMessage(db, friend.id, groqResult.text, groqResult.kind === 'canned' ? 'groq_canned' : 'groq_reply');
                 imageLlmHandled = true;
+                mediaOutcome = 'replied';
               } else if (groqResult.kind === 'escalate') {
                 await switchToHumanMode(db, friend.id);
                 const escalationNotice = groqResult.text || 'ちょっと待っててね、中の人につなぐね。';
                 await sendSafeText(lineClient, event.replyToken, friend.line_user_id, escalationNotice, receivedAt, false);
                 await logOutgoingGroqMessage(db, friend.id, escalationNotice, 'groq_reply');
+                mediaOutcome = 'replied';
               } else if (groqResult.kind === 'fail_closed') {
                 await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.escalationText, receivedAt, false);
                 await logOutgoingGroqMessage(db, friend.id, groqResult.escalationText, 'groq_reply');
+                mediaOutcome = 'replied';
               }
+            } else {
+              // description === null（Gemini障害・タイムアウト予算切れ・未対応フォーマット等）。
+              // 以前は完全に無言だったが、「既読無視された」ように見える実害があるため、
+              // tooLargeNoticeと同じ流儀（LLM非経由の定型文）で一言返す（2026-07-20 BEST-IN-CLASS-DESIGN.md C-1）。
+              const mediaLabel = msg.type === 'video' ? '動画' : '音声';
+              const failNotice = `ごめんね、いまこの${mediaLabel}をうまく見られなかったみたい…。少し時間をおいてもう一回送ってみてくれる？`;
+              await sendSafeText(lineClient, event.replyToken, friend.line_user_id, failNotice, receivedAt, false);
+              await logOutgoingGroqMessage(db, friend.id, failNotice, 'groq_reply');
+              imageLlmHandled = true;
+              mediaOutcome = 'fail_notice';
             }
-            // description === null（チェーン失敗・サイズ超過・未対応フォーマット等）→
-            // 現状動作（記録済み+unread、返信なし）に静かに戻る。fail-closed。
           } catch (err) {
             console.error('[webhook] media describe pipeline failed', err instanceof Error ? err.stack : String(err));
+          } finally {
+            console.log('[media-pipeline]', JSON.stringify({
+              type: msg.type,
+              bytes: mediaBytes.byteLength,
+              sha256: mediaSha256,
+              outcome: mediaOutcome,
+              describe: describeOutcome,
+              selfMatch: mediaSelfMatchLog,
+              elapsedMs: Date.now() - receivedAt,
+            }));
           }
         }
       }
