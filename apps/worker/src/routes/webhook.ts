@@ -23,6 +23,7 @@ import { resolveBotProject } from '../services/bot-project.js';
 import { getBotConfig } from '../services/groq-config.js';
 import { extractFirstUrl, fetchUrlContext, type UrlContextEnv } from '../services/url-context.js';
 import { describeImage } from '../services/vision-describe.js';
+import { matchSelfCharacter } from '../services/self-recognition.js';
 import { getGroqReplyConfig } from '../services/groq-reply.js';
 import { isGroqBudgetExceeded } from '../services/kb-search.js';
 import {
@@ -733,6 +734,24 @@ async function handleEvent(
 
               const project = await resolveBotProject(db, friend);
               const mediaLabel = msg.type === 'video' ? '動画' : '音声';
+              // 動画のみ自己言及判定（キャラの外見特徴は動画にしか乗らない）。判定はWorker側の
+              // 決定的な文字列マッチングで行い、LLMの推論には委ねない（_docs/SELF-RECOGNITION-DESIGN.md参照）。
+              const selfMatch = msg.type === 'video' ? matchSelfCharacter(description) : null;
+              if (selfMatch) {
+                console.log('[self-recognition] matched', JSON.stringify(selfMatch));
+              }
+              let mediaIncomingText: string;
+              if (selfMatch?.character === 'りんく' && selfMatch.confidence === 'high') {
+                mediaIncomingText = `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}に写っているのは、あなた自身（りんく）です。ファンが作ってくれたあなたの${mediaLabel}を見せてもらった場面として、一人称で、照れ・喜び・ツッコミなど自分の姿を見たときの感情を素直に伝えてください。${mediaLabel}の中の動き（まばたき・笑顔など）に1つだけ具体的に触れてください。`;
+              } else if (selfMatch?.character === 'りんく') {
+                mediaIncomingText = `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}に写っているのは、おそらくあなた自身（りんく）です。「わたし…だよね？」と軽く確かめつつ、一人称で嬉しさを伝えてください。`;
+              } else if (selfMatch) {
+                mediaIncomingText = `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}に写っているのは、あなたの仲間の${selfMatch.character}です。仲間が${mediaLabel}に登場して嬉しい、というあなたらしい反応をしてください。`;
+              } else {
+                // imageと同じくメタ記法（客観描写タスクだと誤認識させる書き方）を避け、
+                // ユーザーが動画/音声を見せてきたという会話的状況として渡す（2026-07-18実障害の教訓）。
+                mediaIncomingText = `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}を見て、あなたらしく反応してください。`;
+              }
               const groqResult = await runGroqSupportPipeline({
                 db,
                 apiKey: groqApiKey,
@@ -741,9 +760,7 @@ async function handleEvent(
                 receivedAt,
                 lineAccountId,
                 friendId: friend.id,
-                // imageと同じくメタ記法（客観描写タスクだと誤認識させる書き方）を避け、
-                // ユーザーが動画/音声を見せてきたという会話的状況として渡す（2026-07-18実障害の教訓）。
-                incomingText: `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}を見て、あなたらしく反応してください。`,
+                incomingText: mediaIncomingText,
                 project,
                 cachePolicy: 'skip',
                 excludeLogId: imageLogId,
