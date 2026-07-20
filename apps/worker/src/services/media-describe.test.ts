@@ -27,49 +27,49 @@ describe('describeVideo', () => {
     callGeminiVideoMock.mockReset();
   });
 
-  it('returns null immediately when disabled (no calls made)', async () => {
+  it('returns text:null immediately when disabled (no calls made)', async () => {
     const result = await describeVideo({ ...baseVideoParams, config: { ...baseVideoConfig, enabled: false } });
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).not.toHaveBeenCalled();
   });
 
-  it('returns null immediately when geminiApiKey is missing', async () => {
+  it('returns text:null immediately when geminiApiKey is missing', async () => {
     const result = await describeVideo({ ...baseVideoParams, geminiApiKey: undefined });
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).not.toHaveBeenCalled();
   });
 
   it('calls callGeminiVideo and returns its result on success', async () => {
     callGeminiVideoMock.mockResolvedValue({ ok: true, text: '猫が歩いている動画です。' });
     const result = await describeVideo(baseVideoParams);
-    expect(result).toBe('猫が歩いている動画です。');
+    expect(result).toEqual({ text: '猫が歩いている動画です。', rateLimited: false });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(1);
   });
 
   it('fails closed (no call) for videos over maxInputBytes', async () => {
     const result = await describeVideo({ ...baseVideoParams, bytes: LARGE_VIDEO });
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).not.toHaveBeenCalled();
   });
 
-  it('returns null (fail-closed) when the API call fails with a non-503 error', async () => {
+  it('returns text:null (fail-closed) when the API call fails with a non-503 error', async () => {
     callGeminiVideoMock.mockResolvedValue({ ok: false, reason: 'http', status: 500 });
     const result = await describeVideo(baseVideoParams);
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not retry on 429 (rate limit)', async () => {
+  it('does not retry on 429 (rate limit), and flags rateLimited:true', async () => {
     callGeminiVideoMock.mockResolvedValue({ ok: false, reason: 'http', status: 429 });
     const result = await describeVideo(baseVideoParams);
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: true });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(1);
   });
 
   it('does not retry on timeout', async () => {
     callGeminiVideoMock.mockResolvedValue({ ok: false, reason: 'timeout' });
     const result = await describeVideo(baseVideoParams);
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(1);
   });
 
@@ -78,14 +78,23 @@ describe('describeVideo', () => {
       .mockResolvedValueOnce({ ok: false, reason: 'http', status: 503 })
       .mockResolvedValueOnce({ ok: true, text: '2回目で成功しました。' });
     const result = await describeVideo(baseVideoParams);
-    expect(result).toBe('2回目で成功しました。');
+    expect(result).toEqual({ text: '2回目で成功しました。', rateLimited: false });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(2);
   });
 
-  it('retries once on 503 and returns null if the retry also fails', async () => {
+  it('retries once on 503 and returns text:null if the retry also fails', async () => {
     callGeminiVideoMock.mockResolvedValue({ ok: false, reason: 'http', status: 503 });
     const result = await describeVideo(baseVideoParams);
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
+    expect(callGeminiVideoMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('flags rateLimited:true if the 503 retry then hits 429', async () => {
+    callGeminiVideoMock
+      .mockResolvedValueOnce({ ok: false, reason: 'http', status: 503 })
+      .mockResolvedValueOnce({ ok: false, reason: 'http', status: 429 });
+    const result = await describeVideo(baseVideoParams);
+    expect(result).toEqual({ text: null, rateLimited: true });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(2);
   });
 
@@ -95,7 +104,7 @@ describe('describeVideo', () => {
     // receivedAt 14000ms ago -> remaining ~31000ms -> insufficient for retry (but enough for the first call).
     const receivedAt = Date.now() - 14_000;
     const result = await describeVideo({ ...baseVideoParams, receivedAt });
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).toHaveBeenCalledTimes(1);
   });
 
@@ -105,7 +114,7 @@ describe('describeVideo', () => {
     callGeminiVideoMock.mockResolvedValue({ ok: true, text: 'should not be reached' });
     const receivedAt = Date.now() - 36_000;
     const result = await describeVideo({ ...baseVideoParams, receivedAt });
-    expect(result).toBeNull();
+    expect(result).toEqual({ text: null, rateLimited: false });
     expect(callGeminiVideoMock).not.toHaveBeenCalled();
   });
 

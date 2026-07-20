@@ -719,6 +719,7 @@ async function handleEvent(
           let describeOutcome: 'ok' | 'null' = 'null';
           let mediaSelfMatchLog: string | null = null;
           let mediaSha256 = '';
+          let mediaRateLimited = false;
           try {
             const digest = await crypto.subtle.digest('SHA-256', mediaBytes);
             mediaSha256 = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -752,7 +753,10 @@ async function handleEvent(
             const description = exactMatch
               ? `${exactMatch.character}の公式アニメーション動画（まばたきや笑顔の表情が動く）`
               : msg.type === 'video'
-                ? await describeVideo({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt })
+                ? await describeVideo({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt }).then((r) => {
+                    mediaRateLimited = r.rateLimited;
+                    return r.text;
+                  })
                 : await describeAudio({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt });
             describeOutcome = description ? 'ok' : 'null';
 
@@ -829,8 +833,12 @@ async function handleEvent(
               // description === null（Gemini障害・タイムアウト予算切れ・未対応フォーマット等）。
               // 以前は完全に無言だったが、「既読無視された」ように見える実害があるため、
               // tooLargeNoticeと同じ流儀（LLM非経由の定型文）で一言返す（2026-07-20 BEST-IN-CLASS-DESIGN.md C-1）。
+              // 429（クォータ超過）はユーザー側の問題ではなくBot運営側の一時的な混雑なので、
+              // 「もう一回送って」と促す通常文言だと誤解を招く。専用文言で区別する（2026-07-21）。
               const mediaLabel = msg.type === 'video' ? '動画' : '音声';
-              const failNotice = `ごめんね、いまこの${mediaLabel}をうまく見られなかったみたい…。少し時間をおいてもう一回送ってみてくれる？`;
+              const failNotice = mediaRateLimited
+                ? `ごめんね、いまみんなが動画や音声を送ってくれてて処理が混み合ってるみたい…。少し時間をおいてからもう一回送ってみてくれる？`
+                : `ごめんね、いまこの${mediaLabel}をうまく見られなかったみたい…。少し時間をおいてもう一回送ってみてくれる？`;
               await sendSafeText(lineClient, event.replyToken, friend.line_user_id, failNotice, receivedAt, false);
               await logOutgoingGroqMessage(db, friend.id, failNotice, 'groq_reply');
               imageLlmHandled = true;
@@ -845,6 +853,7 @@ async function handleEvent(
               sha256: mediaSha256,
               outcome: mediaOutcome,
               describe: describeOutcome,
+              rateLimited: mediaRateLimited,
               selfMatch: mediaSelfMatchLog,
               elapsedMs: Date.now() - receivedAt,
             }));

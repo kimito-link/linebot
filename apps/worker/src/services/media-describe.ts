@@ -52,20 +52,26 @@ export interface DescribeVideoParams {
   receivedAt: number;
 }
 
-/** サイズ超過・GEMINI_API_KEY未設定・disabledはnull（fail-closed）。 */
-export async function describeVideo(params: DescribeVideoParams): Promise<string | null> {
+export interface DescribeVideoResult {
+  text: string | null;
+  /** 429（クォータ超過）で失敗した場合のみtrue。呼び出し側が専用の案内文を出し分けるためのフラグ。 */
+  rateLimited: boolean;
+}
+
+/** サイズ超過・GEMINI_API_KEY未設定・disabledはtext:null（fail-closed）。 */
+export async function describeVideo(params: DescribeVideoParams): Promise<DescribeVideoResult> {
   const { bytes, contentType, config, geminiApiKey, receivedAt } = params;
-  if (!config.enabled) return null;
-  if (!geminiApiKey) return null;
+  if (!config.enabled) return { text: null, rateLimited: false };
+  if (!geminiApiKey) return { text: null, rateLimited: false };
   if (bytes.byteLength > config.maxInputBytes) {
     console.warn('[media-describe] video too large', { bytes: bytes.byteLength, max: config.maxInputBytes });
-    return null;
+    return { text: null, rateLimited: false };
   }
 
   const remaining = remainingMs(receivedAt);
   if (remaining < config.timeoutMs + POST_DESCRIBE_MARGIN_MS) {
     console.warn(`[media-describe] skip video reason=deadline remainingMs=${remaining}`);
-    return null;
+    return { text: null, rateLimited: false };
   }
 
   const callParams = {
@@ -77,7 +83,7 @@ export async function describeVideo(params: DescribeVideoParams): Promise<string
   };
 
   const first = await callGeminiVideo(geminiApiKey, config.model, callParams);
-  if (first.ok) return first.text;
+  if (first.ok) return { text: first.text, rateLimited: false };
 
   // 503のみ最大1回リトライ。429・timeout・fetch失敗・空応答は即座にnull（追い打ちしない）。
   if (first.reason === 'http' && first.status === 503) {
@@ -86,14 +92,14 @@ export async function describeVideo(params: DescribeVideoParams): Promise<string
       console.warn('[media-describe] video 503, retrying once');
       await sleep(RETRY_BACKOFF_MS + Math.random() * RETRY_BACKOFF_JITTER_MS);
       const second = await callGeminiVideo(geminiApiKey, config.model, callParams);
-      if (second.ok) return second.text;
+      if (second.ok) return { text: second.text, rateLimited: false };
       console.warn('[media-describe] video retry also failed', second.reason);
-      return null;
+      return { text: null, rateLimited: second.reason === 'http' && second.status === 429 };
     }
     console.warn('[media-describe] video 503 but insufficient budget to retry');
   }
 
-  return null;
+  return { text: null, rateLimited: first.reason === 'http' && first.status === 429 };
 }
 
 export interface DescribeAudioParams {
