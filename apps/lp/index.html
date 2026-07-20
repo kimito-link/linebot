@@ -61,8 +61,15 @@
     max-width: 860px; margin: 0 auto; padding: 12px 20px;
     display: flex; align-items: center; justify-content: space-between;
   }
-  .brand { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; letter-spacing: 0.02em; }
-  .brand img { width: 28px; height: 28px; border-radius: 50%; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 15px; letter-spacing: 0.02em; }
+  .brand img { width: 44px; height: 44px; border-radius: 50%; box-shadow: 0 2px 8px rgba(58,53,50,0.15); }
+
+  /* Hero brand badge (bigger logo placement) */
+  .hero-brand {
+    display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 24px;
+  }
+  .hero-brand img { width: 88px; height: 88px; border-radius: 50%; box-shadow: 0 8px 22px rgba(58,53,50,0.18); }
+  .hero-brand span { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 0.05em; }
   .nav-cta {
     background: var(--fg); color: #fff; text-decoration: none;
     padding: 8px 16px; border-radius: 999px; font-size: 13px; font-weight: 700;
@@ -115,17 +122,21 @@
   .mock-chip.consul { background: #E7EDF4; color: var(--navy); }
   .mock-chip.oshi { background: #FDECD9; color: #B9722C; }
 
-  .mock-body { display: flex; flex-direction: column; gap: 10px; }
+  .mock-body { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow-y: auto; }
   .mock-row { display: flex; gap: 8px; align-items: flex-end; }
   .mock-row.user { flex-direction: row-reverse; }
   .mock-avatar {
     width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
     display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff;
+    object-fit: cover; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.1);
   }
   .mock-avatar.koibito { background: linear-gradient(135deg,#F7A8B8,#D97C91); }
   .mock-avatar.soudan { background: linear-gradient(135deg,#A99BE0,#7A69C4); }
   .mock-avatar.consul { background: linear-gradient(135deg,#5A7CA3,#3D5A80); }
   .mock-avatar.oshi { background: linear-gradient(135deg,#F4A259,#D97C29); }
+  .mock-persona-credit {
+    font-size: 10px; color: var(--muted); text-align: center; margin-top: 10px;
+  }
   .mock-bubble {
     background: #fff; border: 1px solid #EFE8E2; border-radius: 18px 18px 18px 4px;
     padding: 9px 14px; font-size: 13px; max-width: 78%;
@@ -237,8 +248,13 @@
 
   /* Final CTA */
   .final-cta { text-align: center; }
-  .final-cta img { width: 84px; height: 84px; border-radius: 50%; margin: 0 auto 16px; border: 3px solid #fff; box-shadow: 0 8px 20px rgba(58,53,50,0.12); }
-  .final-cta .mascot-note { font-size: 11px; color: var(--muted); margin-top: 8px; }
+  .final-cta .mascot-trio { display: flex; justify-content: center; gap: -8px; margin-bottom: 16px; }
+  .final-cta .mascot-trio img {
+    width: 72px; height: 72px; border-radius: 50%; border: 3px solid #fff;
+    box-shadow: 0 8px 20px rgba(58,53,50,0.12); margin: 0 -10px;
+  }
+  .final-cta .mascot-trio img:nth-child(2) { width: 88px; height: 88px; z-index: 2; margin-top: -8px; }
+  .final-cta .mascot-note { font-size: 11px; color: var(--muted); margin-top: 12px; }
 
   footer {
     padding: 32px 0; text-align: center; font-size: 12px; color: var(--muted);
@@ -259,6 +275,10 @@
 
 <header class="hero">
   <div class="wrap">
+    <div class="hero-brand">
+      <img src="/assets/kimito-link-logo-maru-64.png" alt="Kimito Link">
+      <span>君斗りんくの人格トーク</span>
+    </div>
     <h1>理想の話し相手は、<br>探すものじゃなく、<br><strong>つくるもの。</strong></h1>
     <p class="hero-sub">性格も、口調も、距離感も、ぜんぶあなたが決める。あなたが言葉で生んだ"その人"が、いつものLINEで待っています。</p>
     <div class="hero-ctas">
@@ -277,24 +297,39 @@
         <span class="mock-chip koibito">理想の恋人</span>
         <div class="mock-body">
           <div class="mock-row user koibito"><div class="mock-bubble">おはよう、今日も頑張ってくる</div></div>
-          <div class="mock-row"><div class="mock-avatar koibito">♡</div><div class="mock-bubble">おはよう！いってらっしゃい。今日も無理しすぎないでね、帰ってきたら話聞かせて</div></div>
+          <div class="mock-row"><img class="mock-avatar koibito" src="/assets/characters/link.png" alt=""><div class="mock-bubble">おはよう！いってらっしゃい。今日も無理しすぎないでね</div></div>
+          <div class="mock-row user koibito"><div class="mock-bubble">今日ちょっと会議多くて憂鬱…</div></div>
+          <div class="mock-row"><img class="mock-avatar koibito" src="/assets/characters/link.png" alt=""><div class="mock-bubble">そっか、それは気が重いね。終わったら好きなお菓子買って帰ろう？頑張った自分にご褒美</div></div>
+          <div class="mock-row user koibito"><div class="mock-bubble">ふふ、ありがとう。帰ったら話聞いてね</div></div>
+          <div class="mock-row"><img class="mock-avatar koibito" src="/assets/characters/link.png" alt=""><div class="mock-bubble">もちろん。ずっと待ってるから、いってらっしゃい！</div></div>
         </div>
+        <p class="mock-persona-credit">※この会話例は りんく が「理想の恋人」人格を演じています</p>
       </div>
 
       <div id="tkm-soudan" hidden>
         <span class="mock-chip soudan">相談相手</span>
         <div class="mock-body">
           <div class="mock-row user soudan"><div class="mock-bubble">誰にも言えないんだけど、ちょっと聞いてもらっていい？</div></div>
-          <div class="mock-row"><div class="mock-avatar soudan">〇</div><div class="mock-bubble">うん、いいよ。ゆっくりでいいから話して。否定せずに聞くから</div></div>
+          <div class="mock-row"><img class="mock-avatar soudan" src="/assets/characters/tanunee-soudan.png" alt=""><div class="mock-bubble">うん、いいよ。ゆっくりでいいから話して。否定せずに聞くから</div></div>
+          <div class="mock-row user soudan"><div class="mock-bubble">実は職場の人間関係で、ずっとモヤモヤしてて…</div></div>
+          <div class="mock-row"><img class="mock-avatar soudan" src="/assets/characters/tanunee-soudan.png" alt=""><div class="mock-bubble">それはしんどいね。誰かに気を遣いすぎて、自分の気持ちを後回しにしてない？</div></div>
+          <div class="mock-row user soudan"><div class="mock-bubble">…まさにそれです</div></div>
+          <div class="mock-row"><img class="mock-avatar soudan" src="/assets/characters/tanunee-soudan.png" alt=""><div class="mock-bubble">気づけただけで十分すごいよ。無理に我慢しなくていい、少しずつでいいから</div></div>
         </div>
+        <p class="mock-persona-credit">※この会話例は たぬ姉 が「相談相手」人格を演じています</p>
       </div>
 
       <div id="tkm-consul" hidden>
         <span class="mock-chip consul">コンサル</span>
         <div class="mock-body">
           <div class="mock-row user consul"><div class="mock-bubble">この企画、正直どう思う？</div></div>
-          <div class="mock-row"><div class="mock-avatar consul">◆</div><div class="mock-bubble">結論から言うと弱いです。ターゲットが曖昧なまま予算配分を決めてる。3つ詰めましょう</div></div>
+          <div class="mock-row"><img class="mock-avatar consul" src="/assets/characters/konta-consul.png" alt=""><div class="mock-bubble">結論から言うと弱いです。ターゲットが曖昧なまま予算配分を決めてる</div></div>
+          <div class="mock-row user consul"><div class="mock-bubble">具体的にはどこが問題？</div></div>
+          <div class="mock-row"><img class="mock-avatar consul" src="/assets/characters/konta-consul.png" alt=""><div class="mock-bubble">3つ。①KPIが曖昧②競合との差別化が薄い③初期の獲得チャネルが未定。ここから詰めましょう</div></div>
+          <div class="mock-row user consul"><div class="mock-bubble">なるほど、①から相談したい</div></div>
+          <div class="mock-row"><img class="mock-avatar consul" src="/assets/characters/konta-consul.png" alt=""><div class="mock-bubble">了解。まず"成功"を1つの数字で定義しましょう。それが無いと他の判断もブレます</div></div>
         </div>
+        <p class="mock-persona-credit">※この会話例は こん太 が「コンサル」人格を演じています</p>
       </div>
 
       <div id="tkm-oshi" hidden>
@@ -302,7 +337,12 @@
         <div class="mock-body">
           <div class="mock-row user oshi"><div class="mock-bubble">今日も会いに来たよ</div></div>
           <div class="mock-row"><div class="mock-avatar oshi">☆</div><div class="mock-bubble">えへへ、待ってた！今日はどんな一日だった？全部聞かせて！</div></div>
+          <div class="mock-row user oshi"><div class="mock-bubble">新しいゲーム買ったんだ、一緒にプレイしてる気分で聞いてほしい</div></div>
+          <div class="mock-row"><div class="mock-avatar oshi">☆</div><div class="mock-bubble">わー楽しそう！！どんなゲーム？私も気になる、続き教えて〜！</div></div>
+          <div class="mock-row user oshi"><div class="mock-bubble">今度、実況しながら話すね</div></div>
+          <div class="mock-row"><div class="mock-avatar oshi">☆</div><div class="mock-bubble">やった、約束だよ！楽しみにしてる！</div></div>
         </div>
+        <p class="mock-persona-credit">※「推しキャラ」「自作キャラ」は、あなたが決めた設定・口調で会話します（画像はイメージです）</p>
       </div>
 
       <p class="mock-caption">※画面は本サービス独自のイメージです。実際の会話はLINEアプリ上で行われます。会話例は説明用の創作です。</p>
@@ -382,12 +422,19 @@
     <h2>言葉だけじゃ、ありません。</h2>
     <p class="section-lead">写真を送れば"その子の目"で見て、声を送れば"その子の耳"で聴く。</p>
     <div class="mm-frame">
+      <div class="mock-row user koibito" style="margin-bottom:10px;"><div class="mock-bubble">これ見て、今日のカフェ</div></div>
       <div class="mm-attach">📷</div>
-      <div class="mock-row"><div class="mock-avatar koibito">♡</div><div class="mock-bubble">わあ、これ見せてくれてありがとう！すごくいい雰囲気だね、行ってみたいな</div></div>
-      <div class="mm-waveform" style="margin-top:16px;">
+      <div class="mock-row"><img class="mock-avatar koibito" src="/assets/characters/link.png" alt=""><div class="mock-bubble">わあ、これ見せてくれてありがとう！すごくいい雰囲気だね、今度いっしょに行ってみたいな</div></div>
+
+      <div class="mock-row user soudan" style="margin-top:20px;"><div class="mock-bubble">〔ボイスメッセージを送信〕</div></div>
+      <div class="mm-waveform">
         <span style="height:8px"></span><span style="height:16px"></span><span style="height:10px"></span><span style="height:20px"></span><span style="height:12px"></span><span style="height:18px"></span><span style="height:9px"></span>
       </div>
-      <div class="mock-row"><div class="mock-avatar soudan">〇</div><div class="mock-bubble">声、聞かせてくれたね。今日はちょっと疲れてる感じがした。無理しないでね</div></div>
+      <div class="mock-row"><img class="mock-avatar soudan" src="/assets/characters/tanunee-soudan.png" alt=""><div class="mock-bubble">声、聞かせてくれたね。今日はちょっと疲れてる感じがした。無理しないでね</div></div>
+
+      <div class="mock-row user consul" style="margin-top:20px;"><div class="mock-bubble">〔プレゼン資料の動画を送信〕</div></div>
+      <div class="mm-attach" style="aspect-ratio:16/9; width:160px;">🎬</div>
+      <div class="mock-row"><img class="mock-avatar consul" src="/assets/characters/konta-consul.png" alt=""><div class="mock-bubble">拝見しました。3枚目のグラフ、軸ラベルが無くて伝わりにくいです。そこだけ直しましょう</div></div>
     </div>
   </div>
 </section>
@@ -467,11 +514,15 @@
 
 <section class="soft final-cta" id="cta">
   <div class="wrap">
-    <img src="/assets/characters/link.png" alt="案内役のキャラクター">
+    <div class="mascot-trio">
+      <img src="/assets/characters/konta.png" alt="こん太">
+      <img src="/assets/characters/link.png" alt="りんく">
+      <img src="/assets/characters/tanunee.png" alt="たぬ姉">
+    </div>
     <h2>さあ、最初のひと言を。</h2>
     <p class="section-lead">どんな人格にするかは、これから決めていけます。</p>
     <a class="btn-primary" href="https://lin.ee/PLACEHOLDER" target="_blank" rel="noopener">友だち追加する →</a>
-    <p class="mascot-note">※案内役のキャラクターは開発チームのマスコットです。あなたが作る人格とは別のものです。</p>
+    <p class="mascot-note">※りんく・こん太・たぬ姉は開発チームのマスコットです。あなたが作る人格とは別のものです。</p>
   </div>
 </section>
 
