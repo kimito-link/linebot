@@ -18,7 +18,7 @@ export interface SelfMatchResult {
 }
 
 interface FeatureGroup {
-  weight: 1 | 2;
+  weight: 1 | 2 | 3;
   pattern: RegExp;
   label: string;
 }
@@ -37,7 +37,10 @@ const FEATURE_TABLE: Record<SelfMatchCharacter, FeatureGroup[]> = {
   こん太: [
     { weight: 2, pattern: /狐|きつね|キツネ/, label: 'fox' },
     { weight: 2, pattern: KEMOMIMI, label: 'kemomimi' },
-    { weight: 1, pattern: /オレンジ(色)?の?髪/, label: 'orange_hair' },
+    // オレンジ髪はりんく(金髪)・たぬ姉(茶髪)と衝突しないこん太固有の色。単独でも
+    // probableに届くようweight3に格上げ（2026-07-20実機: 耳に触れない描写で
+    // オレンジ髪だけが唯一の手がかりになるケースを確認したため）。
+    { weight: 3, pattern: /オレンジ(色)?の?髪/, label: 'orange_hair' },
     { weight: 1, pattern: /尻尾|しっぽ|シッポ/, label: 'tail' },
     { weight: 1, pattern: /耳/, label: 'ears' },
   ],

@@ -29,10 +29,11 @@ describe('matchSelfCharacter', () => {
     expect(result?.character).toBe('こん太');
   });
 
-  it('returns null when りんく and こん太 tie in score', () => {
-    // headphones(2)+blonde(1) for りんく = 3, fox(2)+orange_hair(1) for こん太 = 3 → tie
+  it('picks こん太 when りんく and こん太 both score (no tie, orange_hair is weight 2)', () => {
+    // headphones(2)+blonde(1) for りんく = 3, fox(2)+orange_hair(2) for こん太 = 4 → こん太 wins
     const result = matchSelfCharacter('ヘッドホンをつけ金髪の狐がオレンジ色の髪をなびかせています。');
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('こん太');
   });
 
   it('returns null for unrelated description (landscape)', () => {
@@ -69,5 +70,20 @@ describe('matchSelfCharacter', () => {
     const result = matchSelfCharacter('獣耳と茶色い髪を持つキャラクターがしっぽを揺らしています。');
     expect(result).not.toBeNull();
     expect(result?.character).toBe('たぬ姉');
+  });
+
+  it('matches こん太 on orange hair alone, no ear mention (2026-07-20実機再現: 耳に触れない描写)', () => {
+    const result = matchSelfCharacter(
+      'オレンジ色の髪と大きな黒い目が、本当に素敵なアクセントになっています！頬の赤みがかったチークが、本当に愛らしいです！',
+    );
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('こん太');
+    expect(result?.confidence).toBe('probable');
+  });
+
+  it('does not confuse りんく orange ribbon with こん太 orange hair', () => {
+    const result = matchSelfCharacter('ヘッドホンをつけ金髪でオレンジのリボンをしたキャラクターが笑っています。');
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('りんく');
   });
 });
