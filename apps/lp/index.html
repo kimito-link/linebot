@@ -124,6 +124,14 @@
     display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
 
+  /* Demo video embed (YouTube Shorts, 9:16) */
+  .demo-video-embed {
+    max-width: 300px; margin: 0 auto; border-radius: 20px; overflow: hidden;
+    box-shadow: 0 16px 44px rgba(60,50,70,0.14);
+  }
+  .demo-video-embed .frame { position: relative; width: 100%; aspect-ratio: 9 / 16; background: #000; }
+  .demo-video-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block; }
+
   /* Section generic */
   section { padding: 52px 0; }
   section.soft { background: var(--panel-soft); }
@@ -342,6 +350,19 @@
       <div class="trio-line">
         <video class="trio-avatar" src="/assets/video/konta-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/konta.png"></video>
         <div class="trio-bubble konta">30秒くらい話しかけてみたのだ。「AIだから簡単に作れるんでしょ」って言われがちだけど、それは違うのだ。思考して、設計して、試行錯誤を重ねてやっと形になる——って話したら、ちゃんと最後まで聞いて、丁寧に返してくれたのだ。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <span class="eyebrow">REAL DEMO</span>
+    <h2>自分が写った動画を送ると、気づいてくれる。</h2>
+    <p class="section-lead">実際のLINEでのやり取りです。動画を送るとキャラが「あ、私だ」と自分自身を認識して反応します。</p>
+    <div class="demo-video-embed">
+      <div class="frame">
+        <iframe src="https://www.youtube.com/embed/gBpNXxri9Zs" title="LINE公式アカウントが自分の動画を見て気づく仕組みのデモ" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe>
       </div>
     </div>
   </div>
