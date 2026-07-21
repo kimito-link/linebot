@@ -576,6 +576,10 @@ async function handleEvent(
     let mediaBytes: ArrayBuffer | undefined;
     let mediaContentType: string | undefined;
     let mediaOriginalContentUrl: string | undefined;
+    // Tier 0.5（dHash）用のサムネイルハッシュ。動画のみ計算、fail-openでnull許容
+    // （2026-07-21実機検証: LINE再エンコード後でもintra距離2〜8/inter距離18〜28で
+    // 分離可能と確認。_docs/HANDOFF-RESUME-2026-07-21.md参照）。
+    let mediaThumbnailDhash: string | null = null;
     if ((msg.type === 'video' || msg.type === 'audio') && r2 && workerUrl) {
       const lineMessageId = msg.id;
       const { fetchAndStoreIncomingMedia } = await import('../services/incoming-media.js');
@@ -599,9 +603,6 @@ async function handleEvent(
         finalContent = `${content} (${failureReason})`;
       }
 
-      // Tier 0.5実験（2026-07-21）: dHash較正のための観測ログのみ。判定にはまだ
-      // 使わない（Fable設計書 Phase C 較正プロトコル §1）。動画のみ対象。
-      // previewはR2に保存せずメモリ上で計算だけして捨てる。
       if (msg.type === 'video') {
         try {
           const { fetchIncomingMediaPreview } = await import('../services/incoming-media.js');
@@ -611,18 +612,10 @@ async function handleEvent(
           });
           if (preview) {
             const { computeDHash } = await import('../services/phash.js');
-            const dhash = computeDHash(preview.bytes);
-            console.log('[phash-observe]', JSON.stringify({
-              messageId: lineMessageId,
-              previewBytes: preview.bytes.byteLength,
-              previewContentType: preview.contentType,
-              dhash,
-            }));
-          } else {
-            console.log('[phash-observe]', JSON.stringify({ messageId: lineMessageId, preview: 'unavailable' }));
+            mediaThumbnailDhash = computeDHash(preview.bytes);
           }
         } catch (err) {
-          console.warn('[phash-observe] failed', err instanceof Error ? err.message : String(err));
+          console.warn('[phash] preview/hash failed', err instanceof Error ? err.message : String(err));
         }
       }
     }
@@ -747,6 +740,8 @@ async function handleEvent(
           let mediaSelfMatchLog: string | null = null;
           let mediaSha256 = '';
           let mediaRateLimited = false;
+          // どのTierで自己/仲間認識が決着したかの記録（診断ログ用、2026-07-21追加）。
+          let mediaSelfMatchTier: 't0_sha256' | 't0_5_phash' | 't1_describe' | null = null;
           try {
             const digest = await crypto.subtle.digest('SHA-256', mediaBytes);
             mediaSha256 = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -776,15 +771,46 @@ async function handleEvent(
               }
             }
 
+            // Tier 0.5: dHash近似一致判定（2026-07-21）。Tier 0（SHA-256）がLINEの
+            // 再エンコードでほぼヒットしない問題に対する決定的な代替。AIを使わず、
+            // ヒットすればGemini describeを完全にスキップする（fail-open: 不一致/
+            // 未計算はTier 1へ自然に落ちる）。
+            let phashMatch: { character: 'りんく' | 'こん太' | 'たぬ姉'; distance: number } | null = null;
+            if (msg.type === 'video' && !exactMatch && mediaThumbnailDhash) {
+              try {
+                const { findClosestPhashMatch } = await import('../services/phash.js');
+                const rows = await db
+                  .prepare(`SELECT phash, character FROM bot_media_phash WHERE hash_kind = 'dhash_9x8'`)
+                  .all<{ phash: string; character: string }>();
+                const registered = (rows.results ?? []).map((r) => ({
+                  phash: r.phash,
+                  character: r.character as 'りんく' | 'こん太' | 'たぬ姉',
+                }));
+                const match = findClosestPhashMatch(mediaThumbnailDhash, registered);
+                if (match) {
+                  phashMatch = match;
+                  console.log('[self-recognition] phash match', JSON.stringify(match));
+                }
+              } catch (err) {
+                console.warn('[webhook] bot_media_phash lookup failed', err);
+              }
+            }
+
+            // Tier 0/0.5どちらかで自己/仲間認識が決定的に済んでいれば、その動画に
+            // 「動きがある」と言い切れるのはTier 0（完全一致=同一バイト列）だけ。
+            // Tier 0.5は1枚のサムネイル静止画のみ見ているので、動きを捏造しない
+            // 正直な文言にする（Fable設計書 Phase B §4「返信プロンプトの誠実性」）。
             const { describeVideo, describeAudio } = await import('../services/media-describe.js');
             const description = exactMatch
               ? `${exactMatch.character}の公式アニメーション動画（まばたきや笑顔の表情が動く）`
-              : msg.type === 'video'
-                ? await describeVideo({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt }).then((r) => {
-                    mediaRateLimited = r.rateLimited;
-                    return r.text;
-                  })
-                : await describeAudio({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt });
+              : phashMatch
+                ? `${phashMatch.character}の公式アニメーション動画のワンシーン`
+                : msg.type === 'video'
+                  ? await describeVideo({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt }).then((r) => {
+                      mediaRateLimited = r.rateLimited;
+                      return r.text;
+                    })
+                  : await describeAudio({ bytes: mediaBytes, contentType: mediaContentType, config: mediaConfig, geminiApiKey, receivedAt });
             describeOutcome = description ? 'ok' : 'null';
 
             if (description) {
@@ -802,20 +828,28 @@ async function handleEvent(
 
               const project = await resolveBotProject(db, friend);
               const mediaLabel = msg.type === 'video' ? '動画' : '音声';
-              // 動画のみ自己言及判定（キャラの外見特徴は動画にしか乗らない）。Tier 0（完全一致）が
-              // 先に決まっていればそれを使い、無ければTier 1（決定的な文字列マッチング）にフォール
-              // バックする。どちらもLLMの推論には委ねない（_docs/SELF-RECOGNITION-DESIGN.md参照）。
+              // 動画のみ自己言及判定（キャラの外見特徴は動画にしか乗らない）。Tier 0（完全一致）
+              // →Tier 0.5（dHash近似一致）→Tier 1（決定的な文字列マッチング）の順で先に
+              // 決まったものを使う。いずれもLLMの推論には委ねない
+              // （_docs/SELF-RECOGNITION-DESIGN.md参照）。
               const selfMatch = exactMatch
                 ? { character: exactMatch.character, confidence: 'high' as const, matchedFeatures: ['exact_hash'] }
-                : msg.type === 'video'
-                  ? matchSelfCharacter(description)
-                  : null;
+                : phashMatch
+                  ? { character: phashMatch.character, confidence: 'high' as const, matchedFeatures: ['phash'] }
+                  : msg.type === 'video'
+                    ? matchSelfCharacter(description)
+                    : null;
               if (selfMatch) {
                 console.log('[self-recognition] matched', JSON.stringify(selfMatch));
                 mediaSelfMatchLog = selfMatch.character;
+                mediaSelfMatchTier = exactMatch ? 't0_sha256' : phashMatch ? 't0_5_phash' : 't1_describe';
               }
+              // Tier 0.5(phashMatch)は1枚のサムネイルしか見ていないため、動きの描写
+              // （まばたき・笑顔など）を指示すると見てもいない内容を捏造させてしまう。
+              // Tier 0(exactMatch、動画バイト列そのものが一致)のときのみ動きに触れさせる。
+              const canDescribeMotion = Boolean(exactMatch) && !phashMatch;
               let mediaIncomingText: string;
-              if (selfMatch?.character === 'りんく' && selfMatch.confidence === 'high') {
+              if (selfMatch?.character === 'りんく' && selfMatch.confidence === 'high' && canDescribeMotion) {
                 mediaIncomingText = `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}に写っているのは、あなた自身（りんく）です。ファンが作ってくれたあなたの${mediaLabel}を見せてもらった場面として、一人称で、照れ・喜び・ツッコミなど自分の姿を見たときの感情を素直に伝えてください。${mediaLabel}の中の動き（まばたき・笑顔など）に1つだけ具体的に触れてください。`;
               } else if (selfMatch?.character === 'りんく') {
                 mediaIncomingText = `（${mediaLabel}を送ってきました。内容は次の通りです: ${description}）この${mediaLabel}に写っているのは、おそらくあなた自身（りんく）です。「わたし…だよね？」と軽く確かめつつ、一人称で嬉しさを伝えてください。`;
@@ -882,6 +916,7 @@ async function handleEvent(
               describe: describeOutcome,
               rateLimited: mediaRateLimited,
               selfMatch: mediaSelfMatchLog,
+              selfMatchTier: mediaSelfMatchTier,
               elapsedMs: Date.now() - receivedAt,
             }));
           }

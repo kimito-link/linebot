@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { encode as encodeJpeg } from 'jpeg-js';
-import { computeDHash, hammingDistance } from './phash.js';
+import { computeDHash, hammingDistance, findClosestPhashMatch, PHASH_MATCH_THRESHOLD, type PhashRow } from './phash.js';
 
 /** width x height の単色/パターンJPEGを合成生成する（テスト用、実写真は使わない）。 */
 function makeJpeg(width: number, height: number, pixelFn: (x: number, y: number) => [number, number, number]): ArrayBuffer {
@@ -120,5 +120,48 @@ describe('hammingDistance', () => {
     const interDistance = hammingDistance(hOriginal, hDifferent);
 
     expect(intraDistance).toBeLessThan(interDistance);
+  });
+});
+
+describe('findClosestPhashMatch', () => {
+  // 2026-07-21実機検証で確認した実測値に基づく登録データ（migration 059相当）。
+  const registered: PhashRow[] = [
+    { phash: 'c6d4c8c48e96c442', character: 'たぬ姉' },
+    { phash: 'd2f0eabc9e9e9e24', character: 'りんく' },
+    { phash: '649290d8cade6824', character: 'こん太' },
+  ];
+
+  it('matches within threshold to the correct character', () => {
+    // 実機実測: LINE経由たぬ姉プレビュー、距離2
+    const lineObserved = 'd6d4c8c48e96c4c2';
+    const result = findClosestPhashMatch(lineObserved, registered);
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('たぬ姉');
+    expect(result?.distance).toBeLessThanOrEqual(PHASH_MATCH_THRESHOLD);
+  });
+
+  it('returns null when the closest match exceeds the threshold (unrelated video)', () => {
+    // 全ビット反転 = 距離64、閾値を大きく超える
+    const unrelated = registered[0].phash
+      .split('')
+      .map((c) => (0xf ^ parseInt(c, 16)).toString(16))
+      .join('');
+    const result = findClosestPhashMatch(unrelated, registered);
+    expect(result).toBeNull();
+  });
+
+  it('returns null when two different characters tie at the same minimum distance (fail-open)', () => {
+    const rowsForTie: PhashRow[] = [
+      { phash: '0000000000000000', character: 'りんく' },
+      { phash: '000000000000000f', character: 'こん太' },
+    ];
+    // target=...05: vs A(...00)は popcount(5)=2、vs B(...0f)は popcount(f^5=a)=2 → 同距離のtie
+    const midpoint = '0000000000000005';
+    const result = findClosestPhashMatch(midpoint, rowsForTie);
+    expect(result).toBeNull();
+  });
+
+  it('returns null for empty registry', () => {
+    expect(findClosestPhashMatch('c6d4c8c48e96c442', [])).toBeNull();
   });
 });

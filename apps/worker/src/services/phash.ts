@@ -109,3 +109,42 @@ function popcount4(nibble: number): number {
   }
   return count;
 }
+
+/**
+ * intra-class(同一キャラ、LINE再エンコード込み)実測: 距離2〜8。
+ * inter-class(別キャラ)実測: 距離18〜28。ギャップ10あり(2026-07-21実機検証、
+ * _docs/HANDOFF-RESUME-2026-07-21.md参照)。保守的に閾値10を採用し、
+ * 迷ったら不一致(Tier 1のGeminiへfail-open)扱いにする。
+ */
+export const PHASH_MATCH_THRESHOLD = 10;
+
+export interface PhashRow {
+  phash: string;
+  character: 'りんく' | 'こん太' | 'たぬ姉';
+}
+
+export interface PhashMatchResult {
+  character: 'りんく' | 'こん太' | 'たぬ姉';
+  distance: number;
+}
+
+/**
+ * 登録済みハッシュ群の中から最小距離のものを探す。閾値以下かつ
+ * 唯一のキャラに絞れた場合のみマッチとする（複数キャラが同着最小距離の
+ * 場合はfail-open、誤って自己/仲間言及をさせない）。
+ */
+export function findClosestPhashMatch(target: string, registered: PhashRow[]): PhashMatchResult | null {
+  let best: PhashMatchResult | null = null;
+  let bestIsUnique = true;
+  for (const row of registered) {
+    const distance = hammingDistance(target, row.phash);
+    if (best === null || distance < best.distance) {
+      best = { character: row.character, distance };
+      bestIsUnique = true;
+    } else if (distance === best.distance && row.character !== best.character) {
+      bestIsUnique = false;
+    }
+  }
+  if (!best || best.distance > PHASH_MATCH_THRESHOLD || !bestIsUnique) return null;
+  return best;
+}
