@@ -134,14 +134,14 @@ export function getBotConfig(): BotConfig {
   // video/audio未指定時はdisabled（既存bot.config.jsonの後方互換。2026-07-19動画・音声認識機能追加）。
   const video: BotMediaConfig = {
     enabled: raw.llm.video?.enabled ?? false,
-    model: raw.llm.video?.model ?? 'gemini-2.5-flash-lite',
+    model: raw.llm.video?.model ?? 'gemini-2.5-flash',
     timeoutMs: raw.llm.video?.timeoutMs ?? 15000,
     maxDescriptionTokens: raw.llm.video?.maxDescriptionTokens ?? 250,
     maxInputBytes: raw.llm.video?.maxInputBytes ?? 15 * 1024 * 1024,
   };
   const audio: BotMediaConfig = {
     enabled: raw.llm.audio?.enabled ?? false,
-    model: raw.llm.audio?.model ?? 'gemini-2.5-flash-lite',
+    model: raw.llm.audio?.model ?? 'gemini-2.5-flash',
     timeoutMs: raw.llm.audio?.timeoutMs ?? 15000,
     maxDescriptionTokens: raw.llm.audio?.maxDescriptionTokens ?? 250,
     maxInputBytes: raw.llm.audio?.maxInputBytes ?? 15 * 1024 * 1024,

@@ -10,7 +10,7 @@
     "dailyCallBudget": 800,
     "chain": [
       { "provider": "groq", "model": "llama-3.3-70b-versatile", "timeoutMs": 8000 },
-      { "provider": "gemini", "model": "gemini-2.5-flash-lite", "timeoutMs": 10000 },
+      { "provider": "gemini", "model": "gemini-2.5-flash", "timeoutMs": 10000 },
       { "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "timeoutMs": 8000 }
     ],
     "vision": {
@@ -18,19 +18,19 @@
       "maxDescriptionTokens": 250,
       "chain": [
         { "provider": "groq", "model": "qwen/qwen3.6-27b", "timeoutMs": 10000 },
-        { "provider": "gemini", "model": "gemini-2.5-flash-lite", "timeoutMs": 10000 }
+        { "provider": "gemini", "model": "gemini-2.5-flash", "timeoutMs": 10000 }
       ]
     },
     "video": {
       "enabled": true,
-      "model": "gemini-2.5-flash-lite",
+      "model": "gemini-2.5-flash",
       "timeoutMs": 22000,
       "maxDescriptionTokens": 250,
       "maxInputBytes": 15728640
     },
     "audio": {
       "enabled": true,
-      "model": "gemini-2.5-flash-lite",
+      "model": "gemini-2.5-flash",
       "timeoutMs": 22000,
       "maxDescriptionTokens": 250,
       "maxInputBytes": 15728640
