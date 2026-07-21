@@ -22,6 +22,7 @@ import { processDueReminders } from './services/booking-reminders.js';
 import { runExpirer } from './services/booking-expirer.js';
 import { processDueEventReminders } from './services/event-booking-reminders.js';
 import { runEventBookingExpirer } from './services/event-booking-expirer.js';
+import { processDueFollowups } from './services/followup-nudge.js';
 import { sendEventBookingNotification } from './services/event-booking-notifier.js';
 import { sendBookingNotification } from './services/booking-notifier.js';
 import { DEFAULT_ACCOUNT_SETTINGS } from './services/booking-types.js';
@@ -976,6 +977,23 @@ async function scheduled(
       );
     } catch (e) {
       console.error('event-booking-expirer error:', e);
+    }
+  }
+
+  // 自発的フォローアップ（OpenClaw方式）— 6h cron tick。
+  if (event.cron === '0 */6 * * *') {
+    try {
+      const result = await processDueFollowups(env.DB, {
+        now: new Date(),
+        deps: {
+          groqApiKey: env.GROQ_API_KEY,
+          geminiApiKey: env.GEMINI_API_KEY,
+          workersAi: env.AI,
+        },
+      });
+      console.log(`[followup-nudge] sent=${result.sent} skipped=${result.skipped}`);
+    } catch (e) {
+      console.error('followup-nudge error:', e);
     }
   }
 
