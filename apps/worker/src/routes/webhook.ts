@@ -33,6 +33,7 @@ import {
   createAiShainTask,
 } from '../services/ai-shain-worker-task.js';
 import { pushImmediateFirstStep } from '../services/immediate-first-step.js';
+import { detectNicknameRequest, saveNickname } from '../services/fan-memory.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -957,6 +958,13 @@ async function handleEvent(
       )
       .bind(logId, friend.id, incomingText, now)
       .run();
+
+    // 呼び名の明示的な指定を検出・保存する（fan_memory機能、2026-07-23追加）。
+    // 顔認識等は使わず、ユーザーが自分から名乗った呼び名だけを覚える。
+    const nicknameRequest = detectNicknameRequest(incomingText);
+    if (nicknameRequest) {
+      await saveNickname(db, friend.id, nicknameRequest, logId);
+    }
 
     // Cross-account trigger: send message from another account via UUID
     if (incomingText === '体験を完了する' && lineAccountId) {
