@@ -26,7 +26,15 @@ interface FeatureGroup {
 // 「Xのような耳」「獣耳」系の表現は、主体がXそのものでは*ない*（=獣耳キャラである）ことを
 // 含意する。本物の動物の動画なら「猫が…」と書かれ「猫のような耳」とは書かれないため、
 // 実在動物の描写と衝突しない安全な特徴として使える（2026-07-20 Fable設計書 §2.3参照）。
-const KEMOMIMI = /(狐|猫|犬|獣|動物|きつね|キツネ|ねこ|ネコ)のような耳|獣耳|けも(の)?耳|ケモ耳|アニマル(風の)?耳/;
+// どちらのキャラの動物か特定できない汎用表現（「獣耳」「けも耳」等）のみ、ここに残す。
+// 「猫耳」「狐耳」のような動物種を特定できる表現は、キャラ固有の特徴として各キャラの
+// FEATURE_TABLEに直接持たせる（両キャラ同点でnullに落ちるのを防ぐため。2026-07-24実機:
+// 「猫耳がとても可愛い」がこん太・たぬ姉の共通KEMOMIMIパターンにしかマッチせず、
+// 両者同点で判定不能になっていた）。
+const KEMOMIMI_GENERIC = /獣耳|けも(の)?耳|ケモ耳|アニマル(風の)?耳/;
+const KEMOMIMI_FOX = /(狐|きつね|キツネ)のような耳|(狐|きつね|キツネ)耳/;
+const KEMOMIMI_CAT = /(猫|ねこ|ネコ)のような耳|(猫|ねこ|ネコ)耳/;
+const KEMOMIMI_TANUKI = /(狸|たぬき|タヌキ)のような耳|(狸|たぬき|タヌキ)耳/;
 
 const FEATURE_TABLE: Record<SelfMatchCharacter, FeatureGroup[]> = {
   りんく: [
@@ -36,7 +44,12 @@ const FEATURE_TABLE: Record<SelfMatchCharacter, FeatureGroup[]> = {
   ],
   こん太: [
     { weight: 2, pattern: /狐|きつね|キツネ/, label: 'fox' },
-    { weight: 2, pattern: KEMOMIMI, label: 'kemomimi' },
+    { weight: 2, pattern: KEMOMIMI_FOX, label: 'kemomimi_fox' },
+    // こん太のモチーフ動物は狐だが、LP素材の見た目（茶系の丸耳）をGeminiが
+    // 「猫」と描写することが実機で確認できた（2026-07-24: 「猫耳がとても可愛い」）。
+    // 汎用KEMOMIMIパターンだとたぬ姉と同点になるため、こん太固有の手がかりとして扱う。
+    { weight: 2, pattern: KEMOMIMI_CAT, label: 'kemomimi_cat' },
+    { weight: 1, pattern: KEMOMIMI_GENERIC, label: 'kemomimi_generic' },
     // オレンジ髪はりんく(金髪)・たぬ姉(茶髪)と衝突しないこん太固有の色。単独でも
     // probableに届くようweight3に格上げ（2026-07-20実機: 耳に触れない描写で
     // オレンジ髪だけが唯一の手がかりになるケースを確認したため）。
@@ -46,7 +59,8 @@ const FEATURE_TABLE: Record<SelfMatchCharacter, FeatureGroup[]> = {
   ],
   たぬ姉: [
     { weight: 2, pattern: /狸|たぬき|タヌキ/, label: 'tanuki' },
-    { weight: 2, pattern: KEMOMIMI, label: 'kemomimi' },
+    { weight: 2, pattern: KEMOMIMI_TANUKI, label: 'kemomimi_tanuki' },
+    { weight: 1, pattern: KEMOMIMI_GENERIC, label: 'kemomimi_generic' },
     { weight: 1, pattern: /茶髪|茶色(い|の)髪/, label: 'brown_hair' },
     { weight: 1, pattern: /尻尾|しっぽ|シッポ/, label: 'tail' },
     { weight: 1, pattern: /耳/, label: 'ears' },

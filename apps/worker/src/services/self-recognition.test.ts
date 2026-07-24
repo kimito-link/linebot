@@ -56,9 +56,18 @@ describe('matchSelfCharacter', () => {
     expect(result?.confidence).toBe('high');
   });
 
-  it('returns null for kemomimi phrase alone without a hair-color tiebreaker', () => {
+  it('matches こん太 with probable confidence on "猫のような耳" alone (2026-07-24: cat-ear phrasing is こん太-specific, no longer shared with たぬ姉)', () => {
     const result = matchSelfCharacter('猫のような耳がついたキャラクターです。');
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('こん太');
+    expect(result?.confidence).toBe('probable');
+  });
+
+  it('matches たぬ姉 with high confidence on "狸のような耳" alone (the word 狸 itself already carries the tanuki signal)', () => {
+    const result = matchSelfCharacter('狸のような耳がついたキャラクターです。');
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('たぬ姉');
+    expect(result?.confidence).toBe('high');
   });
 
   it('returns null for a real cat description (no "のような耳" paraphrase)', () => {
@@ -85,5 +94,18 @@ describe('matchSelfCharacter', () => {
     const result = matchSelfCharacter('ヘッドホンをつけ金髪でオレンジのリボンをしたキャラクターが笑っています。');
     expect(result).not.toBeNull();
     expect(result?.character).toBe('りんく');
+  });
+
+  it('matches こん太 on the direct phrase "猫耳" (2026-07-24実機再現)', () => {
+    const result = matchSelfCharacter(
+      'わー！かわいいキャラクターですね！猫耳がとても可愛い！まばたきも繰り返していて、なんだか安心するような感じがしますね。穏やかな表情が素敵です！',
+    );
+    expect(result).not.toBeNull();
+    expect(result?.character).toBe('こん太');
+  });
+
+  it('still returns null for a real cat with ears described separately (no "猫耳"/"猫のような耳" phrase)', () => {
+    const result = matchSelfCharacter('オレンジ色の猫が毛づくろいをしながら、耳をぴくぴくさせています。');
+    expect(result).toBeNull();
   });
 });
