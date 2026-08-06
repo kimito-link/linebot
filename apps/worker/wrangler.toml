@@ -8,7 +8,7 @@ workers_dev = true
 # デフォルト = テスト環境
 # 使い方: npx wrangler deploy
 # ═══════════════════════════════════════════════════════════════
-account_id = "YOUR_DEV_ACCOUNT_ID"
+account_id = "ca40e10bfbfdda12a70fbff91f4e1089"
 
 [assets]
 directory = "dist/client"
@@ -59,7 +59,7 @@ MANIFEST_URL = "https://github.com/Shudesu/line-harness-oss/releases/latest/down
 WORKER_PUBLIC_URL = "https://line-harness.workers.dev"
 ADMIN_PUBLIC_URL = "https://line-harness-admin.pages.dev"
 LIFF_PUBLIC_URL = "https://line-harness-liff.pages.dev"
-CF_ACCOUNT_ID = "YOUR_DEV_ACCOUNT_ID"
+CF_ACCOUNT_ID = "ca40e10bfbfdda12a70fbff91f4e1089"
 
 # ═══════════════════════════════════════════════════════════════
 # 本番環境
@@ -67,7 +67,7 @@ CF_ACCOUNT_ID = "YOUR_DEV_ACCOUNT_ID"
 # D1:     npx wrangler d1 execute your-database --env production --remote --file ...
 # ═══════════════════════════════════════════════════════════════
 [env.production]
-account_id = "YOUR_ACCOUNT_ID"
+account_id = "ca40e10bfbfdda12a70fbff91f4e1089"
 compatibility_flags = ["nodejs_compat"]
 
 # Workers Logs を有効化（2026-07-17追加）。過去ログをCloudflareダッシュボードの
