@@ -1,6 +1,7 @@
 import * as aiShain from './groq-knowledge-content.js';
 import * as soushinSuggest from './soushin-suggest-knowledge-content.js';
 import * as henshinHisho from './henshin-hisho-knowledge-content.js';
+import * as webHealthCheck from './web-health-check-knowledge-content.js';
 import { getDefaultProject } from './groq-config.js';
 
 export interface BundledKnowledgePack {
@@ -30,6 +31,12 @@ const PACKS: Record<string, BundledKnowledgePack> = {
     buildSystemPrompt: henshinHisho.buildSystemPrompt,
     matchCannedResponse: henshinHisho.matchCannedResponse,
     getFailClosedEscalationText: henshinHisho.getFailClosedEscalationText,
+  },
+  'web-health-check': {
+    project: 'web-health-check',
+    buildSystemPrompt: webHealthCheck.buildSystemPrompt,
+    matchCannedResponse: webHealthCheck.matchCannedResponse,
+    getFailClosedEscalationText: webHealthCheck.getFailClosedEscalationText,
   },
 };
 
