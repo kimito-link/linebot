@@ -9,16 +9,36 @@
     "timeoutMs": 8000,
     "dailyCallBudget": 800,
     "chain": [
-      { "provider": "groq", "model": "llama-3.3-70b-versatile", "timeoutMs": 8000 },
-      { "provider": "gemini", "model": "gemini-3.1-flash-lite", "timeoutMs": 10000 },
-      { "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast", "timeoutMs": 8000 }
+      {
+        "provider": "groq",
+        "model": "llama-3.3-70b-versatile",
+        "timeoutMs": 8000
+      },
+      {
+        "provider": "gemini",
+        "model": "gemini-3.1-flash-lite",
+        "timeoutMs": 10000
+      },
+      {
+        "provider": "workers-ai",
+        "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+        "timeoutMs": 8000
+      }
     ],
     "vision": {
       "enabled": true,
       "maxDescriptionTokens": 250,
       "chain": [
-        { "provider": "groq", "model": "qwen/qwen3.6-27b", "timeoutMs": 10000 },
-        { "provider": "gemini", "model": "gemini-3.1-flash-lite", "timeoutMs": 10000 }
+        {
+          "provider": "groq",
+          "model": "qwen/qwen3.6-27b",
+          "timeoutMs": 10000
+        },
+        {
+          "provider": "gemini",
+          "model": "gemini-3.1-flash-lite",
+          "timeoutMs": 10000
+        }
       ]
     },
     "video": {
@@ -49,7 +69,7 @@
   },
   "retrieval": {
     "topK": 3,
-    "minScore": 0.0
+    "minScore": 0
   },
   "urlContext": {
     "enabled": true,
@@ -58,8 +78,17 @@
     "maxExtractChars": 2000
   },
   "projects": {
-    "ai-shain-link": { "knowledgePack": "./knowledge-packs/ai-shain" },
-    "soushin-suggest": { "knowledgePack": "./knowledge-packs/soushin-suggest" },
-    "henshin-hisho": { "knowledgePack": "./knowledge-packs/henshin-hisho" }
+    "ai-shain-link": {
+      "knowledgePack": "./knowledge-packs/ai-shain"
+    },
+    "soushin-suggest": {
+      "knowledgePack": "./knowledge-packs/soushin-suggest"
+    },
+    "henshin-hisho": {
+      "knowledgePack": "./knowledge-packs/henshin-hisho"
+    },
+    "web-health-check": {
+      "knowledgePack": "./knowledge-packs/web-health-check"
+    }
   }
 }
