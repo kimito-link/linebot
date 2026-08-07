@@ -11,6 +11,14 @@ on:
       - 'packages/shared/**'
       - 'packages/line-sdk/**'
       - '.github/workflows/deploy-cloudflare-worker.yml'
+      # bot.config.json は groq-config.ts で静的 import されて Worker に
+      # バンドルされる。ここに無いと、プロジェクト登録を足しても
+      # デプロイされず、resolveBotProject が既定プロジェクトへ黙って
+      # フォールバックする(エラーにならないので気づけない)。
+      - 'bot.config.json'
+      # knowledge-packs は正本。バンドル定数と両方更新する運用なので、
+      # パック側だけの修正でもデプロイが要る。
+      - 'knowledge-packs/**'
 
 jobs:
   deploy:
