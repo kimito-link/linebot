@@ -89,6 +89,24 @@ describe('web-health-check knowledge pack guardrails', () => {
     expect(answer).toContain('電話・Zoom');
     expect(answer).toContain('売り込みのご連絡はいたしません');
   });
+
+  it('discloses that the first reply is automated (LPの「自動応答だけで終わらせません」と両立させるため)', () => {
+    const answer = pack().matchCannedResponse('はじめまして');
+    expect(answer).toContain('自動でお送りしています');
+    expect(answer).toContain('担当者が必ず確認し');
+  });
+
+  it('identifies itself as the Reverse Hack desk, not 君斗りんく (ブランドの取り違えを防ぐ)', () => {
+    const answer = pack().matchCannedResponse('はじめまして');
+    expect(answer).toContain('リバースハック');
+    expect(answer).not.toContain('君斗りんく');
+  });
+
+  it('positions the bot as a front desk that does not decide (会議の結論: 前室bot)', () => {
+    const prompt = pack().buildSystemPrompt('');
+    expect(prompt).toContain('質問に何でも答える窓口ではない');
+    expect(prompt).toContain('判断や見積りはしない');
+  });
 });
 
 describe('henshin-hisho knowledge pack guardrails', () => {
