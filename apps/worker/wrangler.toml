@@ -46,9 +46,28 @@ crons = ["* * * * *", "0 */6 * * *"]
 # Phase 5 self-update vars — consumed by /admin/update/*. Secrets
 # (CF_API_TOKEN, ADMIN_API_KEY) must be set via `wrangler secret put`
 # and are intentionally absent from this file.
-# 注: [env.production] には意図的に置かない。本番は GitHub Actions デプロイ
-# 運用のため self-update は使わず、vars/secrets 不在で route は実行時ガードで
-# 不活性になる (本番挙動を変えないための判断, 2026-07-07)。
+# 注: [env.production] には意図的に置かない (本番挙動を変えないための判断,
+# 2026-07-07)。
+#
+# ★ ただし「[env.production] に置かない」は本番への配信を防いでいない
+#   (2026-08-07 調査)。理由は environment の継承ではなく、本番が
+#   [env.production] を**そもそも使っていない**こと:
+#
+#   1. @cloudflare/vite-plugin が build 時に wrangler.toml を
+#      dist/line_harness/wrangler.json へコンパイルする。このとき
+#      environment 構造は平坦化され、生成物の env は空になる
+#      (トップレベルの [vars] だけが残る)。
+#   2. deploy-cloudflare-worker.yml は
+#      `deploy --config dist/line_harness/wrangler.json --name <WORKER_NAME>`
+#      で配信する。--env production は CI のどこにも無い。
+#      account_id / database_name / database_id は sed で patch される。
+#
+#   結果、この8個は本番にもそのまま載る。実害は無い — self-update の全route
+#   は x-admin-api-key と ADMIN_API_KEY secret の一致を要求し、本番に secret
+#   が無いため常に 401 (admin-update.ts の auth gate)。
+#
+#   消したいなら直すのは wrangler.toml ではなく CI 側 (deploy 前に
+#   generated wrangler.json から jq で削る) 。TOML を触っても効かない。
 # ═══════════════════════════════════════════════════════════════
 [vars]
 WORKER_NAME = "line-harness"
