@@ -14,7 +14,7 @@ jobs:
     if: github.repository != 'Shudesu/line-harness-oss'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -48,7 +48,12 @@ jobs:
       - name: Merge upstream/main
         if: steps.detect.outputs.has_changes == 'true'
         run: |
-          git merge --no-edit upstream/main
+          # This fork intentionally carries local customizations. When upstream
+          # changes touch the same hunk, preserve the fork's version while still
+          # importing every non-conflicting upstream change and recording the
+          # upstream commit as merged. This prevents the scheduled sync from
+          # failing forever on the same expected fork conflicts.
+          git merge -X ours --no-edit upstream/main
 
       - name: Push update branch
         if: steps.detect.outputs.has_changes == 'true'
@@ -60,11 +65,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh pr create \
+          pr_url="$(gh pr create \
             --base main \
             --head "${{ steps.branch.outputs.name }}" \
             --title "chore: update from upstream" \
-            --body "This PR imports the latest Shudesu/line-harness-oss main into this fork.\n\nMerge this PR to receive upstream fixes and features, then let the existing Cloudflare deploy workflows update your environment."
+            --body "This PR imports the latest Shudesu/line-harness-oss main into this fork. Conflicting hunks are resolved in favor of this fork's existing customizations; non-conflicting upstream changes are still imported. Existing CI should validate the merged result before integration.")"
+          echo "Created $pr_url"
+          # If auto-merge is enabled for this repository, merge only after the
+          # repository's required checks pass. If it is unavailable, leave the
+          # validated PR open rather than turning a maintenance sync into a hard failure.
+          gh pr merge --auto --merge "$pr_url" || echo "Auto-merge unavailable; PR left open for the controller to evaluate."
 
       - name: No upstream changes
         if: steps.detect.outputs.has_changes == 'false'
