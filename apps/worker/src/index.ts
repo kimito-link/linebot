@@ -57,6 +57,7 @@ import { conversations } from './routes/conversations.js';
 // インボックス機能 (/api/inbox/unanswered) に置き換えたため削除。
 // DB テーブル notification_rules / notifications は archive 目的で残してある。
 import { stripe } from './routes/stripe.js';
+import { githubWebhook } from './routes/github-webhook.js';
 import { health } from './routes/health.js';
 import { automations } from './routes/automations.js';
 import { richMenus } from './routes/rich-menus.js';
@@ -134,6 +135,12 @@ export type Env = {
     // employee" task-queue entry point (see ai-shain.link/docs/
     // ARCHITECTURE-personal-ai-employee-first.md).
     GITHUB_TOKEN?: string;
+    // 承認カードの往路（routes/github-webhook.ts）で x-hub-signature-256 を検証する
+    // ためのシークレット。GitHub側のwebhook設定と同じ値を `wrangler secret put
+    // GITHUB_WEBHOOK_SECRET` で入れる。**未設定なら503で閉じる**(fail-closed)。
+    // この口が通ると開発者のスマホに「承認して送信」ボタン付きカードが届くため、
+    // Stripeレシーバーのような「シークレット未設定なら検証スキップ」は持たせない。
+    GITHUB_WEBHOOK_SECRET?: string;
     // Phase 5 self-update — consumed by /admin/update/*. Defaults live in
     // wrangler.toml [vars]; secrets (CF_API_TOKEN, ADMIN_API_KEY) come from
     // `wrangler secret put`. All are optional at the type level so the rest
@@ -207,6 +214,7 @@ app.route('/', templates);
 app.route('/', chats);
 app.route('/', conversations);
 app.route('/', stripe);
+app.route('/', githubWebhook);
 app.route('/', health);
 app.route('/', automations);
 app.route('/', richMenus);

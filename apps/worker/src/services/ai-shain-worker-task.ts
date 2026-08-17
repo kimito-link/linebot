@@ -44,6 +44,18 @@ export function isAuthorizedTaskSender(lineUserId: string): boolean {
   return ALLOWED_LINE_USER_IDS.has(lineUserId);
 }
 
+/**
+ * 承認カードの通知先（＝開発者本人）を返す。
+ *
+ * 送信先は必ずこの許可リストから取ること。Issue本文やwebhookペイロードに
+ * 書かれたIDへ送る実装にしてはいけない（GitHub側を書き換えられると、
+ * 任意の相手へ承認カードを送りつけられる）。許可リストの正本を1つに保つため、
+ * 送信者チェックと同じ Set を共有する。
+ */
+export function getApprovalNotifyTargets(): string[] {
+  return [...ALLOWED_LINE_USER_IDS];
+}
+
 /** プレフィックスを除いたタスク本文を取り出す。 */
 export function extractTaskBody(text: string): string {
   return text.trim().slice(TASK_PREFIX.length).trim();
