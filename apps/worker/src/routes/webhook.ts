@@ -32,8 +32,23 @@ import {
   extractTaskBody,
   createAiShainTask,
 } from '../services/ai-shain-worker-task.js';
+import {
+  isApprovalPostback,
+  parsePostbackData,
+  handleApprovalPostback,
+} from '../services/chatwork-approval.js';
 import { pushImmediateFirstStep } from '../services/immediate-first-step.js';
-import { detectNicknameRequest, saveNickname } from '../services/fan-memory.js';
+import {
+  detectNicknameRequest,
+  saveNickname,
+  detectForgetRequest,
+  forgetLatestMemory,
+  isMemoryConsent,
+  isMemoryRejection,
+  confirmPendingMemory,
+  rejectPendingMemory,
+  savePendingMemory,
+} from '../services/fan-memory.js';
 import type { Env } from '../index.js';
 
 const webhook = new Hono<Env>();
@@ -434,6 +449,34 @@ async function handleEvent(
     if (!friend) return;
 
     const postbackData = (event as unknown as { postback: { data: string } }).postback.data;
+
+    // Chatwork送信の承認ボタン。auto_replies の照合より先に処理して抜ける。
+    //
+    // **送信者チェックは必須**: このアカウントは不特定多数の顧客が友だち追加している。
+    // ここを外すと、他人が承認ボタンを押して開発者のPCから送信させられる。
+    // ai-shain-worker-task.ts の許可リストを流用する（正本を1つに保つ）。
+    if (isApprovalPostback(postbackData)) {
+      if (!isAuthorizedTaskSender(userId)) {
+        // 未許可の送信者には何も起きない（承認カードの存在も匂わせない）
+        return;
+      }
+      const pb = parsePostbackData(postbackData);
+      if (!pb) return; // 壊れたデータでは何もしない
+      try {
+        const result = await handleApprovalPostback(githubToken, pb, userId);
+        if (event.replyToken) {
+          await lineClient.replyMessage(event.replyToken, [{ type: 'text', text: result.message }]);
+        }
+      } catch (err) {
+        console.error('Chatwork approval postback failed', err);
+        if (event.replyToken) {
+          await lineClient
+            .replyMessage(event.replyToken, [{ type: 'text', text: '承認の処理に失敗しました。もう一度お試しください' }])
+            .catch(() => undefined);
+        }
+      }
+      return;
+    }
 
     // Match postback data against auto_replies (exact match on keyword)
     const autoReplyQuery = lineAccountId
@@ -966,6 +1009,24 @@ async function handleEvent(
       await saveNickname(db, friend.id, nicknameRequest, logId);
     }
 
+    // 「忘れて」コマンドの検出・削除（記憶の同意フロー、2026-07-24追加、
+    // _docs/MEMORY-KIMITOLINK-DEMO-DESIGN.md）。削除自体はここでルールベースに行い、
+    // 案内文言はLLM側（persona.md「記憶の申し出」節の指示）に委ねる。
+    if (detectForgetRequest(incomingText)) {
+      await forgetLatestMemory(db, friend.id);
+    }
+
+    // 記憶への同意/拒否を判定する（同意フローの後半）。直前にりんくが記憶を申し出て
+    // いた場合（confirmed=0の行が存在する場合）のみ意味を持つ操作で、そうでなければ
+    // confirmPendingMemory/rejectPendingMemoryは何もせずfalseを返す。
+    // 肯定でも否定でもない発言は何もしない（未確定のまま残るが、システムプロンプトへの
+    // 注入対象からは除外されるので実害はない。fan-memory.ts参照）。
+    if (isMemoryConsent(incomingText)) {
+      await confirmPendingMemory(db, friend.id);
+    } else if (isMemoryRejection(incomingText)) {
+      await rejectPendingMemory(db, friend.id);
+    }
+
     // Cross-account trigger: send message from another account via UUID
     if (incomingText === '体験を完了する' && lineAccountId) {
       try {
@@ -1186,6 +1247,12 @@ async function handleEvent(
             }
             await logOutgoingGroq(replyText, groqResult.kind === 'canned' ? 'groq_canned' : 'groq_reply');
             llmHandled = true;
+
+            // 記憶の同意フロー前半: りんくが「覚えておいてもいいですか？」と申し出た
+            // 応答なら、未確定(confirmed=0)の記憶行を作る（2026-07-24追加）。
+            if (groqResult.kind === 'reply' && groqResult.rememberOfferFact) {
+              await savePendingMemory(db, friend.id, groqResult.rememberOfferFact, logId);
+            }
           } else if (groqResult.kind === 'escalate') {
             await switchToHumanMode(db, friend.id);
             // エスカレーション時は無言にしない。groqResult.text（[ESCALATE]除去後の本文）が
