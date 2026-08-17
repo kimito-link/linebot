@@ -183,8 +183,39 @@ describe('承認の処理', () => {
     });
     const r = await handleApprovalPostback(TOKEN, { action: 'approve', issueNumber: 118, nonce: NONCE }, 'U1', NOW);
     expect(r.ok).toBe(false);
-    expect(r.message).toContain('すでに処理済み');
+    expect(r.message).toBe('この返信はすでに承認済みです');
     expect(calls.filter((c) => c.method !== 'GET')).toHaveLength(0);
+  });
+
+  it('★連打でラベル付け替え中に入っても、内部用語を人に見せない', async () => {
+    // 2026-08-17 実機で発生: ボタン連打の2回目以降がここに来る。
+    // 状態ラベルが一時的に消えている（付け替えの最中）ケース。
+    stubGithub({
+      body: makeBody(makeCard()),
+      labels: [{ name: 'cw-approval' }], // 状態ラベルが無い
+    });
+    const r = await handleApprovalPostback(TOKEN, { action: 'approve', issueNumber: 118, nonce: NONCE }, 'U1', NOW);
+    expect(r.ok).toBe(false);
+    expect(r.message).toBe('この承認はすでに処理済みです');
+    expect(r.message).not.toContain('状態不明');
+    expect(r.message).not.toContain('cw:');
+    expect(calls.filter((c) => c.method !== 'GET')).toHaveLength(0);
+  });
+
+  it('却下済み・送信済みも、それぞれの状況を説明する', async () => {
+    for (const [label, expected] of [
+      [CW_STATES.REJECTED, 'この返信はすでに却下しています'],
+      ['cw:sent', 'この返信はすでに送信済みです'],
+      ['cw:executing', '送信の処理中です。そのままお待ちください'],
+    ] as const) {
+      stubGithub({
+        body: makeBody(makeCard()),
+        labels: [{ name: 'cw-approval' }, { name: label }],
+      });
+      const r = await handleApprovalPostback(TOKEN, { action: 'approve', issueNumber: 118, nonce: NONCE }, 'U1', NOW);
+      expect(r.ok).toBe(false);
+      expect(r.message).toBe(expected);
+    }
   });
 
   it('★期限切れは承認させず expired にする', async () => {

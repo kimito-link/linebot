@@ -33,6 +33,20 @@ export const CW_STATES = {
 /** postback data の接頭辞。既存の auto_replies マッチと衝突しないようにする。 */
 const POSTBACK_PREFIX = 'cwapp:';
 
+/**
+ * すでに処理済みのカードを押したときに人へ返す文言。
+ * ラベル名（cw:approved 等）をそのまま見せない。
+ */
+const STATE_MESSAGES: Record<string, string> = {
+  'cw:approved': 'この返信はすでに承認済みです',
+  'cw:rejected': 'この返信はすでに却下しています',
+  'cw:expired': 'この承認は期限切れです。もう一度AIに下書きを作らせてください',
+  'cw:executing': '送信の処理中です。そのままお待ちください',
+  'cw:sent': 'この返信はすでに送信済みです',
+  'cw:failed': 'この返信は送信できませんでした。Chatworkを開いて確認してください',
+  'cw:unverified': '送信できたか確認できていません。Chatworkを開いて確認してください',
+};
+
 export interface ApprovalPostback {
   action: 'approve' | 'reject';
   issueNumber: number;
@@ -163,9 +177,13 @@ export async function handleApprovalPostback(
   }
 
   // 4) pending 以外は処理しない（二重承認・承認後の却下を防ぐ）
+  //
+  // ボタンを連打すると2回目以降がここに来る（2026-08-17 実機で発生）。
+  // 状態ラベルの付け替え中に入ると state が null になるため、
+  // 「状態不明」のような内部用語を人に見せず、何が起きたかを説明する。
   const state = currentState(issue.labels);
   if (state !== CW_STATES.PENDING) {
-    return { ok: false, message: `すでに処理済みです（${state || '状態不明'}）`, issueUrl };
+    return { ok: false, message: STATE_MESSAGES[state ?? ''] ?? 'この承認はすでに処理済みです', issueUrl };
   }
 
   // 5) 期限切れは承認させない
