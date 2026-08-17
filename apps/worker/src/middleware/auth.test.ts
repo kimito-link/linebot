@@ -273,3 +273,37 @@ describe('CORS allowed / blocked origins', () => {
     expect(res.headers.get('Access-Control-Allow-Origin')).toBeNull();
   });
 });
+
+/**
+ * 外部サービスからの webhook は staff 認証を通せない（Bearer も Cookie も持たない）。
+ * 免除を落とすと、ルート本体に到達する前に 401 で弾かれ、
+ * **本番だけ静かに壊れる**（ユニットテストはルート単体を直接叩くので気づけない）。
+ * 2026-08-17 に GitHub webhook で実際に踏んだため、免除自体をテストで固定する。
+ */
+describe('webhook paths bypass staff auth', () => {
+  function webhookApp() {
+    const a = new Hono<Env>();
+    a.use('*', authMiddleware);
+    a.post('/api/integrations/github/webhook', (c) => c.json({ success: true, data: 'reached' }));
+    a.post('/api/integrations/stripe/webhook', (c) => c.json({ success: true, data: 'reached' }));
+    return a;
+  }
+
+  for (const path of [
+    '/api/integrations/github/webhook',
+    '/api/integrations/stripe/webhook',
+  ]) {
+    test(`${path} reaches the route without credentials`, async () => {
+      const res = await webhookApp().request(path, { method: 'POST' }, env());
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ success: true, data: 'reached' });
+    });
+  }
+
+  test('免除は完全一致。似たパスは 401 のまま', async () => {
+    const a = webhookApp();
+    a.post('/api/integrations/github/webhook/extra', (c) => c.json({ success: true }));
+    const res = await a.request('/api/integrations/github/webhook/extra', { method: 'POST' }, env());
+    expect(res.status).toBe(401);
+  });
+});
