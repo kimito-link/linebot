@@ -302,7 +302,9 @@ export function buildApprovalFlex(card: Record<string, unknown>, issueNumber: nu
         },
         {
           type: 'button', style: 'primary', height: 'sm', color: '#7c3aed',
-          action: { type: 'postback', label: 'この内容で送信', data: buildPostbackData('approve', issueNumber, nonce) },
+          // ラベルは短く保つ。LINEのボタンは却下と横並びで幅が半分しかなく、
+          // 「この内容で送信」(7文字)は実機で見切れた（2026-08-17 実機確認）。
+          action: { type: 'postback', label: '送信を承認', data: buildPostbackData('approve', issueNumber, nonce) },
         },
       ],
     },
