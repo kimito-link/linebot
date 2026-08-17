@@ -20,7 +20,7 @@ import { buildFanMemoryContext } from './fan-memory.js';
 export type GroqPipelineResult =
   | { kind: 'disabled' }
   | { kind: 'canned'; text: string; source: 'canned' | 'cache'; imageUrl?: string }
-  | { kind: 'reply'; text: string; cacheable: boolean }
+  | { kind: 'reply'; text: string; cacheable: boolean; rememberOfferFact?: string }
   | { kind: 'escalate'; text?: string }
   | { kind: 'fail_closed'; escalationText: string };
 
@@ -137,10 +137,13 @@ export async function runGroqSupportPipeline(
   }
 
   const text = groqResult.text!;
-  const cacheable = !cacheSkip && isCacheableQuestion(incomingText);
+  // 記憶申し出（rememberOfferFact）を含む応答はキャッシュ対象外にする。同じ質問文でも
+  // 「今回だけ」の申し出であり、キャッシュヒットで別ユーザーに使い回すと事故る
+  // （§11地雷#3と同型のキャッシュ事故パターン）。
+  const cacheable = !cacheSkip && !groqResult.rememberOfferFact && isCacheableQuestion(incomingText);
   if (cacheable) {
     await saveCachedAnswer(db, incomingText, text, lineAccountId, project);
   }
 
-  return { kind: 'reply', text, cacheable };
+  return { kind: 'reply', text, cacheable, rememberOfferFact: groqResult.rememberOfferFact };
 }

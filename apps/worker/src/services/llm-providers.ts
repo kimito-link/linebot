@@ -1,4 +1,5 @@
 import { ESCALATION_MARKER, type GroqReplyResult } from './groq-reply.js';
+import { extractRememberOffer } from './fan-memory.js';
 
 /**
  * LLMプロバイダの共通呼び出し層。GROQ/Gemini/Cloudflare Workers AI をチェーンで
@@ -42,6 +43,14 @@ function parseReplyText(rawText: string): GroqReplyResult {
     const withoutMarker = cleaned.replace(ESCALATION_MARKER, '').trim();
     return { kind: 'escalate', text: withoutMarker || undefined };
   }
+
+  // 記憶の同意フロー（2026-07-24追加）。[REMEMBER_OFFER: ...]マーカーはユーザーに
+  // 見せない。抽出した要約はrememberOfferFactとして呼び出し元に渡す。
+  const offer = extractRememberOffer(cleaned);
+  if (offer) {
+    return { kind: 'reply', text: offer.displayText, rememberOfferFact: offer.fact };
+  }
+
   return { kind: 'reply', text: cleaned };
 }
 

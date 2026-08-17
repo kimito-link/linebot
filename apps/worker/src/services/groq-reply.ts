@@ -5,6 +5,12 @@ export type GroqReplyKind = 'reply' | 'escalate' | 'fail_closed';
 export interface GroqReplyResult {
   kind: GroqReplyKind;
   text?: string;
+  /**
+   * 記憶の同意フロー（2026-07-24追加、fan-memory.ts参照）。りんくが「覚えておいて
+   * もいいですか？」と申し出た応答から抽出した要約。ユーザーへの表示テキスト(text)
+   * からは既に除去済み。呼び出し元がconfirmed=0の記憶行を作る材料に使う。
+   */
+  rememberOfferFact?: string;
 }
 
 // Groq単体へのHTTP呼び出し本体は llm-providers.ts の callGroq() に統合済み
