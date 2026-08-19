@@ -2,6 +2,7 @@ import * as aiShain from './groq-knowledge-content.js';
 import * as soushinSuggest from './soushin-suggest-knowledge-content.js';
 import * as henshinHisho from './henshin-hisho-knowledge-content.js';
 import * as webHealthCheck from './web-health-check-knowledge-content.js';
+import * as dogfoodInvoiceChecker from './dogfood-invoice-checker-knowledge-content.js';
 import { getDefaultProject } from './groq-config.js';
 
 export interface BundledKnowledgePack {
@@ -37,6 +38,12 @@ const PACKS: Record<string, BundledKnowledgePack> = {
     buildSystemPrompt: webHealthCheck.buildSystemPrompt,
     matchCannedResponse: webHealthCheck.matchCannedResponse,
     getFailClosedEscalationText: webHealthCheck.getFailClosedEscalationText,
+  },
+  'dogfood-invoice-checker': {
+    project: 'dogfood-invoice-checker',
+    buildSystemPrompt: dogfoodInvoiceChecker.buildSystemPrompt,
+    matchCannedResponse: dogfoodInvoiceChecker.matchCannedResponse,
+    getFailClosedEscalationText: dogfoodInvoiceChecker.getFailClosedEscalationText,
   },
 };
 

@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GPTお引越しパック — 個人GPTを、LINE公式アカウントへ。</title>
+<meta name="description" content="個人アカウントでは新しいGPTが作れなくなりました。あなたのGPTのやり取りを、LINE公式アカウント上のBotとして構築します。運用費0円・買い切り。">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png">
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --panel: #ffffff;
+    --panel-soft: #F4EFEA;
+    --fg: #3A3532;
+    --muted: #7d746d;
+    --line: #ECE4DC;
+    --accent: #6B9080;
+    --accent-strong: #4F7A68;
+    --accent-soft: #EAF2EE;
+    --radius: 18px;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; min-width: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+    line-height: 1.8;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 20px; }
+  a { color: var(--accent-strong); }
+
+  section { padding: 48px 0; }
+  section.soft { background: var(--panel-soft); }
+  h1 { font-size: clamp(24px, 5vw, 32px); line-height: 1.5; margin: 0 0 16px; font-weight: 800; text-align: center; }
+  h2 { font-size: clamp(19px, 3.6vw, 24px); margin: 0 0 10px; text-align: center; }
+  .eyebrow {
+    display: block; width: fit-content; margin: 0 auto 12px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em;
+    color: var(--accent-strong); background: var(--accent-soft);
+    padding: 4px 12px; border-radius: 999px;
+  }
+  .section-lead { color: var(--muted); font-size: 14.5px; margin: 0 auto 28px; text-align: center; max-width: 520px; }
+
+  .hero { padding: 48px 0 40px; }
+  .hero-sub {
+    font-size: clamp(14px, 2vw, 15.5px); color: var(--muted); margin: 0 auto 24px;
+    max-width: 520px; text-align: center;
+  }
+  .hero-ctas { display: flex; justify-content: center; margin-bottom: 8px; }
+  .btn-primary {
+    background: var(--fg); color: #fff; text-decoration: none;
+    padding: 13px 26px; border-radius: 999px; font-weight: 700; font-size: 14.5px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .hero-note { text-align: center; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+
+  .fact-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px; max-width: 560px; margin: 0 auto;
+  }
+  .fact-card ul { margin: 10px 0 0; padding-left: 1.2em; font-size: 14px; }
+  .fact-card li { margin-bottom: 8px; }
+  .fact-source { font-size: 12px; color: var(--muted); margin-top: 14px; }
+
+  .flow-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .flow-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px;
+  }
+  .flow-card .num {
+    width: 30px; height: 30px; border-radius: 50%; background: var(--fg); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px;
+    margin-bottom: 10px;
+  }
+  .flow-card h3 { margin: 0 0 6px; font-size: 14px; }
+  .flow-card p { margin: 0; font-size: 12.5px; color: var(--muted); }
+  @media (max-width: 640px) { .flow-grid { grid-template-columns: 1fr; } }
+
+  .honesty-box {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px 22px; max-width: 560px; margin: 0 auto;
+  }
+  .honesty-box p { margin: 0 0 10px; font-size: 14px; }
+  .honesty-box p:last-child { margin-bottom: 0; }
+
+  .price-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 28px 26px; max-width: 480px; margin: 0 auto; text-align: center;
+  }
+  .price-amount { font-size: 28px; font-weight: 800; margin: 8px 0; }
+  .price-note { font-size: 12.5px; color: var(--muted); margin: 4px 0; }
+  .price-scope { text-align: left; font-size: 13px; color: var(--muted); margin-top: 16px; border-top: 1px solid var(--line); padding-top: 16px; }
+
+  .option-note {
+    text-align: center; font-size: 13px; color: var(--muted); max-width: 520px; margin: 0 auto;
+  }
+
+  .chat-demo {
+    max-width: 480px; margin: 0 auto; display: flex; flex-direction: column; gap: 10px;
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 20px;
+  }
+  .chat-msg { max-width: 85%; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.7; }
+  .chat-msg.user { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
+  .chat-msg.bot { align-self: flex-start; background: var(--panel-soft); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .chat-demo-note { text-align: center; font-size: 11.5px; color: var(--muted); margin-top: 12px; }
+
+  .btn-primary[aria-disabled="true"] { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+  footer { padding: 32px 0; text-align: center; font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="eyebrow" style="display:block;margin-left:auto;margin-right:auto;">GPT HIKKOSHI PACK</span>
+    <h1>あなたのGPTを、<br>LINE公式アカウントへ。</h1>
+    <p class="hero-sub">個人アカウントでは、新しいGPTを作ったりGPT Storeで公開したりできなくなりました。あなたのGPTのinstructions・ナレッジを、LINE公式アカウント上で動くBotとして構築します。</p>
+    <div class="hero-ctas">
+      <a class="btn-primary" href="#contact">まずは相談する →</a>
+    </div>
+    <p class="hero-note">テスト提供中・先着枠あり（詳しくは下記）</p>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <span class="eyebrow">起きていること（事実）</span>
+    <h2>何が変わったのか</h2>
+    <div class="fact-card">
+      <ul>
+        <li>個人のChatGPTアカウント（Free / Go / Plus / Pro）では、新しいGPTの作成と、GPT Storeへの新規公開ができなくなりました。</li>
+        <li>すでに作ってあるGPTは、条件を満たせば引き続き編集・利用できます。</li>
+        <li>Business / Enterprise / Eduのワークスペースでは、引き続きGPTの作成・共有・公開ができます。</li>
+      </ul>
+      <p class="fact-source">出典: OpenAI Help Center「GPTの共有と公開」／各種報道（2026年8月時点の確認）</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">できること</span>
+    <h2>GPTの中身を、そのままLINEへ</h2>
+    <p class="section-lead">個人アカウントで新規のGPT公開ができなくても、あなたのGPTが持っていた人格・受け答え・ナレッジは、別の場所で活かせます。</p>
+    <div class="flow-grid">
+      <div class="flow-card">
+        <div class="num">1</div>
+        <h3>移植</h3>
+        <p>GPTのinstructions・よくある質問・ナレッジ文書を、LINE Bot用の形式に書き起こします。</p>
+      </div>
+      <div class="flow-card">
+        <div class="num">2</div>
+        <h3>接続</h3>
+        <p>あなたのLINE公式アカウントに接続し、動作確認をします。</p>
+      </div>
+      <div class="flow-card">
+        <div class="num">3</div>
+        <h3>引き渡し</h3>
+        <p>一緒に応答を確認したうえで、そのままお使いいただけます。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <span class="eyebrow">動作イメージ</span>
+    <h2>移植後は、LINEでこう動きます</h2>
+    <p class="section-lead">たとえば「レシピ提案GPT」を移植した場合のイメージです。</p>
+    <div class="chat-demo">
+      <div class="chat-msg user">冷蔵庫に卵とキャベツしかない</div>
+      <div class="chat-msg bot">お任せください！卵とキャベツなら「とん平焼き風オムレツ」はいかがですか？ フライパン1つで10分です。作り方を送りますね。</div>
+      <div class="chat-msg user">小麦粉アレルギーでも大丈夫？</div>
+      <div class="chat-msg bot">このレシピは小麦粉不使用なので大丈夫です。ソースは市販のものに小麦が含まれる場合があるので、原材料表示をご確認ください。</div>
+    </div>
+    <p class="chat-demo-note">※会話例はサービスを説明するための創作イメージです。実際の応答は移植するGPTの内容によって変わります。</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <span class="eyebrow">正直に書きます</span>
+    <h2>できないことも、先にお伝えします</h2>
+    <div class="honesty-box">
+      <p>構築したBotは、よくある質問には定型文で、それ以外は無料枠のAIで自由に答えます。ただし、Botが答えられない・答えるべきでない質問は、あなたのLINE公式アカウントの受信箱にそのまま届きます。「なんでも自動で答える」仕組みではありません。</p>
+      <p>運用インフラはCloudflareの無料枠を使うため、月々のランニングコストは発生しません（応答に使うAIも無料枠です）。ただし、無料枠には利用量の上限があります。</p>
+      <p>送信の自動化・データの自動削除・外部サービスへのログインの代行など、人の判断が必要な操作はBotにはさせません。</p>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <span class="eyebrow">価格</span>
+    <h2>初期構築費</h2>
+    <div class="price-card">
+      <p class="price-amount">30,000円台 〜 50,000円未満</p>
+      <p class="price-note">（税込・買い切り・月額なし）</p>
+      <p class="price-note">テスト提供価格です。正式な金額は、お問い合わせ時にご案内します。</p>
+      <div class="price-scope">
+        <p><strong>含まれるもの:</strong> instructions移植、ナレッジ文書の一定数までの移植、LINE公式アカウントへの接続、動作確認</p>
+        <p><strong>含まれないもの（別途お見積り）:</strong> ナレッジ文書が多い場合の追加移植、外部サービスとの連携が必要な場合</p>
+        <p>テスト提供期間中のため、同時にお受けできる構築数には限りがあります。枠が埋まり次第、次回受付のご案内となります。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <p class="option-note">オプション: LINE公式アカウント側には、アフィリエイトのセルフサーブ計測機能（リンク発行・クリック計測・成果承認）も備わっています。ご興味があれば、構築のご相談時に合わせてお聞かせください。</p>
+  </div>
+</section>
+
+<section id="contact" class="soft">
+  <div class="wrap">
+    <span class="eyebrow">お問い合わせ</span>
+    <h2>まずはご相談ください</h2>
+    <p class="section-lead">今お使いのGPTのinstructions・ナレッジがあれば、それを見せていただくところから始めます。難しい書類は不要です。</p>
+    <!-- TODO(公開前必須): LINE公式アカウント発行後、友だち追加URL(lin.ee/xxxxx)に差し替える。 -->
+    <div class="hero-ctas">
+      <a class="btn-primary" href="#" aria-disabled="true">LINEで相談する →</a>
+    </div>
+    <p class="hero-note">専用のLINE公式アカウントを準備中です。もうしばらくお待ちください。</p>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>GPTお引越しパック（テスト提供中）</p>
+    <p>掲載している会話例はサービスのイメージを説明するための創作です。</p>
+    <p><a href="/line-harness-scenes">LINE Harnessでできること一覧を見る →</a></p>
+  </div>
+</footer>
+
+</body>
+</html>

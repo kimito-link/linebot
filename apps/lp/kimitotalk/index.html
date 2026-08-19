@@ -5,21 +5,39 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>君斗りんくの人格トーク — あなたに気づいてくれる、AIキャラ。</title>
 <meta name="description" content="送った動画や写真に、「それ、わたしだ」って気づいてくれる。3人のAIキャラが、いつものLINEで待っています。">
+<link rel="canonical" href="https://kimitotalk.link/">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://kimitotalk.link/">
 <meta property="og:site_name" content="君斗りんくの人格トーク">
 <meta property="og:title" content="君斗りんくの人格トーク — あなたに気づいてくれる、AIキャラ。">
 <meta property="og:description" content="送った動画や写真に、「それ、わたしだ」って気づいてくれる。3人のAIキャラが、いつものLINEで待っています。">
-<meta property="og:image" content="/assets/ogp.png">
+<meta property="og:image" content="https://kimitotalk.link/assets/ogp.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:locale" content="ja_JP">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="君斗りんくの人格トーク — あなたに気づいてくれる、AIキャラ。">
 <meta name="twitter:description" content="送った動画や写真に、「それ、わたしだ」って気づいてくれる。">
-<meta name="twitter:image" content="/assets/ogp.png">
+<meta name="twitter:image" content="https://kimitotalk.link/assets/ogp.png">
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="/assets/icon-180.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "君斗りんくの人格トーク",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "LINE",
+  "url": "https://kimitotalk.link/",
+  "description": "送った動画や写真に、「それ、わたしだ」って気づいてくれる。3人のAIキャラが、いつものLINEで待っています。",
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "JPY"
+  }
+}
+</script>
 <style>
   :root {
     --bg: #FAF7F2;
@@ -123,6 +141,26 @@
     font-size: 28px; width: 56px; height: 56px; border-radius: 16px; background: #fff;
     display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   }
+
+  /* Chat log panel — 記憶の同意フロー実演デモ（MEMORY-KIMITOLINK-DEMO-DESIGN.md） */
+  .chat-panel {
+    max-width: 460px; margin: 0 auto 20px; display: flex; flex-direction: column; gap: 10px;
+    background: linear-gradient(165deg, #FDF8F3, #F4EFFB);
+    border-radius: 24px; box-shadow: 0 16px 44px rgba(60,50,70,0.14); padding: 24px 20px;
+  }
+  .chat-line { display: flex; }
+  .chat-line.user { justify-content: flex-end; }
+  .chat-bubble {
+    max-width: 82%; border-radius: 4px 18px 18px 18px; padding: 11px 15px;
+    font-size: 14px; line-height: 1.7; box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  }
+  .chat-bubble.link { background: #fff; border-left: 3px solid var(--accent-strong); }
+  .chat-bubble.user {
+    background: var(--accent-soft); border-radius: 18px 4px 18px 18px;
+    border-right: 3px solid var(--accent);
+  }
+  .memory-link { text-align: center; font-size: 14px; margin-top: 18px; }
+  .memory-link a { color: var(--accent-strong); font-weight: 600; text-decoration: underline; }
 
   /* Demo video embed (YouTube Shorts, 9:16) */
   .demo-video-embed {
@@ -242,20 +280,21 @@
     <h1>送った動画に、<br>「それ、わたしだ」って<br><strong>気づいてくれる。</strong></h1>
     <p class="hero-sub">3人のAIキャラが、公式の動画や写真をちゃんと見分けて、自分ごととして反応してくれる。いつものLINEで待っています。</p>
     <div class="hero-ctas">
+      <!-- TODO(公開前必須): 友だち追加URL確定後、#ctaではなく直接そのURLへ変更する（離脱リスク低減）。 -->
       <a class="btn-primary" href="#cta">無料で、話しかけてみる →</a>
     </div>
 
     <div class="trio-panel">
       <div class="trio-line">
-        <video class="trio-avatar" src="/assets/video/konta-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/konta.png"></video>
+        <video class="trio-avatar" data-src="/assets/video/konta-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/konta.png"></video>
         <div class="trio-bubble konta">「自分が写ってる動画、ほんとに気づいてもらえるのだ？」って最初は半信半疑だったのだ。</div>
       </div>
       <div class="trio-line">
-        <video class="trio-avatar" src="/assets/video/link-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/link.png"></video>
+        <video class="trio-avatar" data-src="/assets/video/link-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/link.png"></video>
         <div class="trio-bubble link">動画を送ると、ちゃんと「わたしだ」って気づいてくれるのだ。写真でも同じなのだ。</div>
       </div>
       <div class="trio-line">
-        <video class="trio-avatar" src="/assets/video/tanunee-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/tanunee.png"></video>
+        <video class="trio-avatar" data-src="/assets/video/tanunee-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/tanunee.png"></video>
         <div class="trio-bubble tanunee">見せてもらった動画や写真を、ちゃんと見て、覚えていてくれるのだ。だから話すたびに"自分ごと"として返してくれるのだ。</div>
       </div>
     </div>
@@ -347,7 +386,7 @@
     <p class="section-lead">写真を送れば"その子の目"で見て、声を送れば"その子の耳"で聴く。動画なら、自分自身にも気づく。</p>
     <div class="trio-panel">
       <div class="trio-line">
-        <video class="trio-avatar" src="/assets/video/link-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/link.png"></video>
+        <video class="trio-avatar" data-src="/assets/video/link-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/link.png"></video>
         <div class="trio-bubble link">写真を送ると、写ってるものをちゃんと見て、感想を言ってくれるのだ。</div>
       </div>
       <div class="trio-line">
@@ -356,14 +395,42 @@
         </div>
       </div>
       <div class="trio-line">
-        <video class="trio-avatar" src="/assets/video/tanunee-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/tanunee.png"></video>
+        <video class="trio-avatar" data-src="/assets/video/tanunee-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/tanunee.png"></video>
         <div class="trio-bubble tanunee">声のメッセージも、動画も同じなのだ。声のトーンや映ってる空気まで汲み取って、ちゃんと返してくれるのだ。</div>
       </div>
       <div class="trio-line">
-        <video class="trio-avatar" src="/assets/video/konta-loop.mp4" autoplay loop muted playsinline poster="/assets/characters/konta.png"></video>
+        <video class="trio-avatar" data-src="/assets/video/konta-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/konta.png"></video>
         <div class="trio-bubble konta">自分が写ってる動画を送ってみたのだ。そしたら「それ、わたしだ」って、ちゃんと気づいてくれたのだ。うれしかったのだ。</div>
       </div>
     </div>
+  </div>
+</section>
+
+<section class="soft" id="memory">
+  <div class="wrap">
+    <span class="eyebrow">MEMORY &amp; FRIENDS</span>
+    <h2>こんなことも、できます。</h2>
+    <p class="section-lead">大事な話は、「覚えておいてもいいですか？」と聞いてから覚えます。そして、LINEの外にも仲間の場所があります。</p>
+    <div class="chat-panel">
+      <div class="chat-line"><div class="chat-bubble link">よくあることです。話そうとすることが多いと、そうなりやすいんです。伝えたいこと、ひとつだけ聞いてもいいですか？</div></div>
+      <div class="chat-line user"><div class="chat-bubble user">うーん、「準備した資料を見てほしい」かな</div></div>
+      <div class="chat-line"><div class="chat-bubble link">いいと思います。……よければ、今の話、覚えておいてもいいですか？次に会議のお話が出たとき、思い出せるように。いやでしたら、覚えません</div></div>
+      <div class="chat-line user"><div class="chat-bubble user">お願いしようかな</div></div>
+      <div class="chat-line"><div class="chat-bubble link">覚えました。またお話ししたくなったら、いつでもどうぞ。……そういえば、わたしたち、LINEの外にも仲間と一緒の場所があるんです。kimito.linkという、活動のリンクをまとめる公式ページで、こん太もたぬ姉もそこにいます</div></div>
+      <div class="chat-line user"><div class="chat-bubble user">そうなんだ、見てみます</div></div>
+      <div class="chat-line"><div class="chat-bubble link">よかったら、資料の話が形になったら、そこに並べてみてくださいね</div></div>
+    </div>
+    <div class="trio-panel">
+      <div class="trio-line">
+        <video class="trio-avatar" data-src="/assets/video/konta-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/konta.png"></video>
+        <div class="trio-bubble konta">勝手に覚えるんじゃなくて、聞いてから覚えるのだ。断っても、あとから消してもらってもいいのだ。</div>
+      </div>
+      <div class="trio-line">
+        <video class="trio-avatar" data-src="/assets/video/tanunee-loop.mp4" preload="none" loop muted playsinline poster="/assets/characters/tanunee.png"></video>
+        <div class="trio-bubble tanunee">kimito.linkは、わたしたちの仲間が運営してる、活動リンクをまとめる場所なのだ。わたしたち3人も、あっちでも一緒なのだ。</div>
+      </div>
+    </div>
+    <p class="memory-link"><a href="https://kimito.link/" target="_blank" rel="noopener">わたしたちのもうひとつの場所 → kimito.link をのぞいてみる</a></p>
   </div>
 </section>
 
@@ -403,6 +470,7 @@
         <li>画像・動画・音声への反応を体験</li>
         <li>動画・写真を送って気づいてもらえるか試す</li>
       </ul>
+      <!-- TODO(公開前必須): 友だち追加URL確定後、#ctaではなく直接そのURLへ変更する。 -->
       <a class="btn-primary" href="#cta" style="width:100%; justify-content:center;">友だち追加してはじめる →</a>
       <p class="cta-micro">いつでも解約できます。誰と話しているかは、いつでも確認できます。</p>
     </div>
@@ -449,6 +517,8 @@
     </div>
     <h2>さあ、話しかけてみよう。</h2>
     <p class="section-lead">動画や写真を送ると、きっと気づいてくれます。</p>
+    <!-- TODO(公開前必須): 実際のLINE公式アカウント友だち追加URL(lin.ee/xxxxx)に差し替える。
+         現在プレースホルダーのままだとクリックしても友だち追加できない致命的な欠陥。 -->
     <a class="btn-primary" href="https://lin.ee/PLACEHOLDER" target="_blank" rel="noopener">友だち追加する →</a>
   </div>
 </section>
@@ -462,10 +532,31 @@
 </footer>
 
 <script>
-  document.querySelectorAll('video.trio-avatar').forEach(function (v) {
+  // ビューポートに入るまで動画自体を読み込まない（パフォーマンス最適化）。
+  // 同じ動画URLがページ内8箇所で使われているため、src属性を最初から持たせると
+  // ブラウザがpreload="none"でも先読みしてしまい、初回表示時に無駄な帯域を使う。
+  // data-srcで保持しておき、交差した瞬間だけsrcを注入して読み込みを開始する。
+  var trioVideos = document.querySelectorAll('video.trio-avatar[data-src]');
+  function loadAndPlay(v) {
+    if (!v.src) v.src = v.dataset.src;
     var p = v.play();
     if (p && p.catch) p.catch(function () {});
-  });
+  }
+  if ('IntersectionObserver' in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var v = entry.target;
+        if (entry.isIntersecting) {
+          loadAndPlay(v);
+        } else if (v.src) {
+          v.pause();
+        }
+      });
+    }, { rootMargin: '200px' });
+    trioVideos.forEach(function (v) { observer.observe(v); });
+  } else {
+    trioVideos.forEach(loadAndPlay);
+  }
 </script>
 
 </body>
