@@ -50,6 +50,7 @@
   .section-lead { color: var(--muted); font-size: 14.5px; margin: 0 auto 28px; text-align: center; max-width: 560px; }
 
   .hero { padding: 48px 0 40px; }
+  .brand-logo { display: block; height: 44px; margin: 0 auto 20px; }
   .hero-sub {
     font-size: clamp(14px, 2vw, 15.5px); color: var(--muted); margin: 0 auto 24px;
     max-width: 560px; text-align: center;
@@ -114,6 +115,20 @@
   .foundation-box ul { margin: 10px 0 0; padding-left: 1.2em; font-size: 14px; }
   .foundation-box li { margin-bottom: 8px; }
 
+  .philosophy-box {
+    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px; max-width: 620px; margin: 0 auto; font-size: 14px;
+  }
+  .philosophy-box > p { margin: 0 0 14px; }
+  .values-list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .values-list li { background: var(--panel-soft); border-radius: 10px; padding: 10px 14px; }
+  .values-list strong { color: var(--accent-strong); }
+  .philosophy-note { color: var(--muted); font-size: 12.5px; margin: 0; }
+  .characters-row { display: flex; justify-content: center; gap: 24px; margin-top: 18px; }
+  .characters-row figure { margin: 0; text-align: center; }
+  .characters-row img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: var(--panel-soft); }
+  .characters-row figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
   .honesty-box {
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 20px 22px; max-width: 620px; margin: 0 auto;
@@ -130,6 +145,7 @@
 
 <section class="hero">
   <div class="wrap">
+    <img src="/kimitotalk/assets/logo.png" alt="Kimito Link" class="brand-logo">
     <span class="eyebrow" style="display:block;margin-left:auto;margin-right:auto;">LINE HARNESS</span>
     <h1>LINE公式アカウントで、<br>こんなことができます。</h1>
     <p class="hero-sub">LINE公式アカウント運用の基盤に、業種ごとの会話ルール・知識を載せるだけ。アプリのインストールも、新しい操作を覚えることも不要です。</p>
@@ -209,6 +225,27 @@
         <li>答えられない・答えるべきでない質問は、担当者の受信箱にそのまま届く</li>
         <li>運用インフラは無料枠の範囲で動くため、月々のランニングコストはかかりません</li>
       </ul>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <span class="eyebrow">わたしたちについて</span>
+    <h2>キミとつながるシンセカイ</h2>
+    <div class="philosophy-box">
+      <p>Kimito Linkは、クリエイターと応援する人が、安心して寄り添い合える場所を目指しています。理不尽な要求や一方的な扱いに悩まされることなく、お互いを尊重する関係を築けるように。</p>
+      <ul class="values-list">
+        <li><strong>心地よい空間</strong> — クリエイターと応援する人が自然に寄り添い合える空間</li>
+        <li><strong>確かな絆</strong> — 作品を通じた深い共感とつながり</li>
+        <li><strong>持続可能な創作</strong> — 好きなことを続けるための環境・仕組み・人のつながり</li>
+      </ul>
+      <p class="philosophy-note">LINE Harnessは、この理念を技術面から支える基盤の一つです。</p>
+      <div class="characters-row">
+        <figure><img src="/assets/characters/link.png" alt="りんく"><figcaption>りんく</figcaption></figure>
+        <figure><img src="/assets/characters/konta.png" alt="こん太"><figcaption>こん太</figcaption></figure>
+        <figure><img src="/assets/characters/tanunee.png" alt="たぬ姉"><figcaption>たぬ姉</figcaption></figure>
+      </div>
     </div>
   </div>
 </section>
