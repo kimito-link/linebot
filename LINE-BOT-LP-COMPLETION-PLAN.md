@@ -2,6 +2,12 @@
 
 > 素材集め=会議ハーネス（無料枠クラウドLLM、5/6体が有効回答） ／ 統合・裏取り=司令塔Claude ／ 2026-08-17
 > 前提: [LINE-HARNESS-SCENE-PRESENTATION-DESIGN.md](LINE-HARNESS-SCENE-PRESENTATION-DESIGN.md)（リスク階層化の決定）
+>
+> **【2026-08-20 追記・本文は以下陳腐化】** この設計後、ユーザーの意図が「kimitotalk.link自体を
+> LINE Harnessの汎用訴求LPに作り直す」ことだったと判明。`line-harness-scenes`は`kimitotalk`に
+> 統合し、独立ディレクトリは削除済み。**現状は「1LP体制」**（`kimitotalk`=LINE Harness汎用訴求、
+> `gpt-hikkoshi`=個別商品LP、の2ファイル構成で、以下の「2LP体制（gpt-hikkoshi独立＋
+> line-harness-scenesハブ）」という結論は採用されていない。
 
 ## 司令塔による統合判断
 

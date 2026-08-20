@@ -1,7 +1,11 @@
 # 設計書 — line-harness-scenes ファーストビュー改善
 
 > 素材集め=会議ハーネス（無料枠クラウドLLM、3/5体が有効回答） ／ 統合・裏取り=司令塔Claude ／ 2026-08-17
-> 対象: [apps/lp/line-harness-scenes/index.html](apps/lp/line-harness-scenes/index.html)
+> 対象（作成当時）: apps/lp/line-harness-scenes/index.html
+>
+> **【2026-08-20 追記】** この改善内容（ファーストビューのミニ会話デモ等）は、その後
+> `kimitotalk.link`本体への統合に伴い `apps/lp/kimitotalk/index.html` に移設済み。
+> `line-harness-scenes`ディレクトリ自体は削除されている。設計判断・実装内容は変わらず有効。
 
 ## 司令塔による統合判断
 
