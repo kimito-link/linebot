@@ -1,0 +1,12 @@
+-- fan_memory.confirmed列の追加漏れ修正（2026-08-21）。
+-- fan-memory.tsは当初からconfirmed列（記憶の同意フロー: りんくが「覚えておいて
+-- もいいですか？」と申し出た時点でconfirmed=0の行を作り、ユーザーの同意で1に
+-- 確定する）を前提に実装されていたが、060_fan_memory.sqlのCREATE TABLEに
+-- 列定義が漏れていた。Groqパイプラインがbuildfan_memoryContext経由で
+-- 毎回 `WHERE confirmed = 1` を発行し「no such column: confirmed」で
+-- 例外化、AI応答全体が「すみません、うまく応答できませんでした」に
+-- フォールバックし続けていた（2026-08-21 yukkuri-exosome動作確認中に発覚、
+-- 全アカウント共通の既存バグ）。
+-- 既存行は同意フローを経ずに作られたものなので、確定済み扱い（DEFAULT 1）とし、
+-- 既存の「覚えていてくれた」体験を壊さない。
+ALTER TABLE fan_memory ADD COLUMN confirmed INTEGER NOT NULL DEFAULT 1;
