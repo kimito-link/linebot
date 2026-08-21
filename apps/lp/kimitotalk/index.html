@@ -129,6 +129,12 @@
   .characters-row img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: var(--panel-soft); }
   .characters-row figcaption { font-size: 12px; color: var(--muted); margin-top: 6px; }
 
+  .hero-characters-row { display: flex; justify-content: center; gap: 18px; margin: 0 auto 14px; }
+  .hero-characters-row figure { margin: 0; text-align: center; }
+  .hero-characters-row img { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; background: var(--panel-soft); }
+  .hero-characters-row figcaption { font-size: 11px; color: var(--muted); margin-top: 4px; }
+  .hero-tagline { text-align: center; font-size: 13.5px; color: var(--accent-strong); font-weight: 700; margin: 0 0 4px; }
+
   .honesty-box {
     background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
     padding: 20px 22px; max-width: 620px; margin: 0 auto;
@@ -147,6 +153,12 @@
 <section class="hero">
   <div class="wrap">
     <img src="/kimitotalk/assets/logo.png" alt="Kimito Link" class="brand-logo">
+    <div class="hero-characters-row">
+      <figure><img src="/assets/characters/link.png" alt="りんく"><figcaption>りんく</figcaption></figure>
+      <figure><img src="/assets/characters/konta.png" alt="こん太"><figcaption>こん太</figcaption></figure>
+      <figure><img src="/assets/characters/tanunee.png" alt="たぬ姉"><figcaption>たぬ姉</figcaption></figure>
+    </div>
+    <p class="hero-tagline">君斗りんくの、話し方帳</p>
     <span class="eyebrow" style="display:block;margin-left:auto;margin-right:auto;">Kimito Talk</span>
     <h1>LINE公式アカウントで、<br>こんなことができます。</h1>
     <p class="hero-sub">LINE公式アカウント運用の基盤に、業種ごとの会話ルール・知識を載せるだけ。アプリのインストールも、新しい操作を覚えることも不要です。</p>
