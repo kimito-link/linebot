@@ -15,6 +15,7 @@ export interface LineAccount {
   is_active: number;
   country: string | null;
   role: string | null;
+  default_project: string | null;
   display_order: number;
   token_expires_at: string | null;
   og_site_name: string | null;
@@ -35,6 +36,7 @@ export interface CreateLineAccountInput {
   ogSiteName?: string | null;
   ogDefaultImageUrl?: string | null;
   ogDefaultDescription?: string | null;
+  defaultProject?: string | null;
 }
 
 export async function createLineAccount(
@@ -58,8 +60,9 @@ export async function createLineAccount(
           login_channel_id, login_channel_secret, liff_id,
           is_active, display_order,
           og_site_name, og_default_image_url, og_default_description,
+          default_project,
           created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`,
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -74,6 +77,7 @@ export async function createLineAccount(
       input.ogSiteName ?? null,
       input.ogDefaultImageUrl ?? null,
       input.ogDefaultDescription ?? null,
+      input.defaultProject ?? null,
       now,
       now,
     )
@@ -210,6 +214,7 @@ export interface UpdateLineAccountFieldsInput {
   ogSiteName?: string | null;
   ogDefaultImageUrl?: string | null;
   ogDefaultDescription?: string | null;
+  defaultProject?: string | null;
 }
 
 export async function updateLineAccountFields(
@@ -255,6 +260,10 @@ export async function updateLineAccountFields(
   if (input.ogDefaultDescription !== undefined) {
     sets.push('og_default_description = ?');
     binds.push(input.ogDefaultDescription);
+  }
+  if (input.defaultProject !== undefined) {
+    sets.push('default_project = ?');
+    binds.push(input.defaultProject);
   }
 
   if (sets.length === 0) {

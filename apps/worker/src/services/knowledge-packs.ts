@@ -3,6 +3,7 @@ import * as soushinSuggest from './soushin-suggest-knowledge-content.js';
 import * as henshinHisho from './henshin-hisho-knowledge-content.js';
 import * as webHealthCheck from './web-health-check-knowledge-content.js';
 import * as dogfoodInvoiceChecker from './dogfood-invoice-checker-knowledge-content.js';
+import * as yukkuriExosome from './yukkuri-exosome-knowledge-content.js';
 import { getDefaultProject } from './groq-config.js';
 
 export interface BundledKnowledgePack {
@@ -44,6 +45,12 @@ const PACKS: Record<string, BundledKnowledgePack> = {
     buildSystemPrompt: dogfoodInvoiceChecker.buildSystemPrompt,
     matchCannedResponse: dogfoodInvoiceChecker.matchCannedResponse,
     getFailClosedEscalationText: dogfoodInvoiceChecker.getFailClosedEscalationText,
+  },
+  'yukkuri-exosome': {
+    project: 'yukkuri-exosome',
+    buildSystemPrompt: yukkuriExosome.buildSystemPrompt,
+    matchCannedResponse: yukkuriExosome.matchCannedResponse,
+    getFailClosedEscalationText: yukkuriExosome.getFailClosedEscalationText,
   },
 };
 

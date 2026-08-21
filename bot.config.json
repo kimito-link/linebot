@@ -89,6 +89,9 @@
     },
     "web-health-check": {
       "knowledgePack": "./knowledge-packs/web-health-check"
+    },
+    "yukkuri-exosome": {
+      "knowledgePack": "./knowledge-packs/yukkuri-exosome"
     }
   }
 }

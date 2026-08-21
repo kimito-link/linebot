@@ -90,7 +90,7 @@ export async function processDueFollowups(
       continue;
     }
 
-    const project = await resolveBotProject(db, { ref_code: row.ref_code });
+    const project = await resolveBotProject(db, { ref_code: row.ref_code, line_account_id: row.line_account_id });
     const pack = getKnowledgePack(project);
     const history = await buildGroqHistory(db, row.id);
     if (history.length === 0) {
