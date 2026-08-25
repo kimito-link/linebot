@@ -142,7 +142,13 @@ npx wrangler secret put VOICE_SYNTH_TOKEN      # 上と同じ値
 > - **DockerfileのHEALTHCHECKコマンドを実際に実行して確認**。
 >   健全なとき exit 0、到達不能なとき exit 1、`PORT` を変えても追随することを
 >   実サーバー（PORT=8791）で確認済み。
-> - VOICEVOXの起動待ち（`waitForVoicevox`）が実際に動くことを確認。
+> - **compose で起きる流れをエンドツーエンドで再現して確認**。
+>   起動が20秒遅れるVOICEVOXの代役を立て、(1)待機ログを出しながら待ち
+>   (2)応答を検出して受付開始 (3)合成が正常動作（AAC・duration実測一致）、
+>   までを通した。`depends_on` だけで healthcheck を持たせない設計が
+>   実際に機能する（起動の遅れで取りこぼさない）ことの裏付け。
+> - VOICEVOXが到達不能なとき、接続先URLと経過秒数を15秒ごとに出すことを確認。
+>   黙って待つと `docker compose logs` で生死が判断できないため。
 > - **SIGTERMで正常終了する**ことを確認（`docker stop` で10秒待たされない）。
 > - ポート衝突時に原因と対処が読めるメッセージを出して exit 1 することを確認。
 > - `apk add ffmpeg` で `ffprobe` も入ること（Alpine公式のパッケージ内容で確認。

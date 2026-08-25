@@ -191,8 +191,10 @@ const server = http.createServer(async (req, res) => {
  * テキストで返すので、起動を止めるより受け付けた方がまだよい。
  */
 async function waitForVoicevox(timeoutMs = 180_000) {
-  const deadline = Date.now() + timeoutMs;
+  const startedAt = Date.now();
+  const deadline = startedAt + timeoutMs;
   let notified = false;
+  let lastReport = startedAt;
   while (Date.now() < deadline) {
     try {
       const res = await fetch(`${VOICEVOX}/version`, { signal: AbortSignal.timeout(3000) });
@@ -204,8 +206,15 @@ async function waitForVoicevox(timeoutMs = 180_000) {
       // まだ起動していないだけ。待つ。
     }
     if (!notified) {
-      console.log('[synth] VOICEVOX の起動を待っています…');
+      console.log(`[synth] VOICEVOX (${VOICEVOX}) の起動を待っています…`);
       notified = true;
+      lastReport = Date.now();
+    } else if (Date.now() - lastReport > 15_000) {
+      // 15秒ごとに経過を出す。黙って待つと、docker compose logs を見た人が
+      // 「生きているのか固まっているのか」を判断できない。
+      const waited = Math.round((Date.now() - startedAt) / 1000);
+      console.log(`[synth] まだ待っています（${waited}秒経過 / 最大${Math.round(timeoutMs / 1000)}秒）`);
+      lastReport = Date.now();
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
