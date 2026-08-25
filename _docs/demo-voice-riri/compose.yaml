@@ -30,12 +30,10 @@ services:
     # 外に出す必要はない。合成サーバーからだけ届けばよい。
     expose:
       - "50021"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:50021/version"]
-      interval: 30s
-      timeout: 5s
-      start_period: 60s   # モデル読み込みに時間がかかる
-      retries: 5
+    # ここにhealthcheckを書かないのは意図的。
+    # 他人のイメージの中に curl / wget が入っている保証が無く、
+    # 「入っているはず」に賭けると起動しない構成になる。
+    # 代わりに合成サーバー側がVOICEVOXの起動を待つ（synth-server.mjsのwaitForVoicevox）。
 
   synth:
     build: .
@@ -47,7 +45,6 @@ services:
       VOICE_SYNTH_TOKEN: ${VOICE_SYNTH_TOKEN:?VOICE_SYNTH_TOKEN を設定してください}
       VOICEVOX_URL: http://voicevox:50021
     depends_on:
-      voicevox:
-        # VOICEVOXが応答できるようになってから受け付ける
-        # （起動直後のリクエストを取りこぼさない）。
-        condition: service_healthy
+      # 起動順序だけを指定する（VOICEVOXが応答可能になるまで待つ処理は
+      # 合成サーバー側が自前で持つ。他人のイメージの中身に依存しないため）。
+      - voicevox

@@ -30,10 +30,11 @@ ENV PORT=8788
 EXPOSE 8788
 
 # コンテナの生死をオーケストレータが判断できるようにする。
-# 認証必須のエンドポイントなので、401が返ること＝プロセスが生きていること。
+#
+# curl/wgetに頼らずnodeで叩く。alpineのwgetはBusyBox版で --server-response 等の
+# GNU wget向けオプションを持たず、curlも既定では入っていない。
+# nodeは必ずこのイメージにあるので、依存を増やさずに済む。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -q -O /dev/null --server-response --post-data='{}' \
-      --header='content-type: application/json' \
-      http://127.0.0.1:8788/ 2>&1 | grep -q '401' || exit 1
+  CMD node -e "fetch('http://127.0.0.1:8788/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "synth-server.mjs"]

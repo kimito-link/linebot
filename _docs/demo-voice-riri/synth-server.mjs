@@ -123,6 +123,14 @@ function readBody(req) {
 }
 
 const server = http.createServer(async (req, res) => {
+  // ヘルスチェック用。コンテナのオーケストレータが生死を判断するためだけのもので、
+  // 認証は不要にしてある（合成はしないので、ここから声を作られる心配はない）。
+  // 秘密は一切返さない：状態を示す固定文字列だけ。
+  if (req.method === 'GET' && req.url === '/healthz') {
+    res.writeHead(200, { 'Content-Type': 'text/plain' }).end('ok');
+    return;
+  }
+
   if (req.method !== 'POST') {
     res.writeHead(405).end('Method Not Allowed');
     return;
@@ -168,6 +176,44 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(500).end('synthesis failed');
   }
 });
+
+/**
+ * VOICEVOXが応答できるようになるまで待つ。
+ *
+ * VOICEVOXはモデル読み込みのため起動に時間がかかる（1分近くかかることもある）。
+ * composeで同時に立ち上げると、こちらが先に受付を始めて最初の数リクエストを
+ * 取りこぼす。それを防ぐために自前で待つ。
+ *
+ * compose側のhealthcheckに頼らないのは、他人のイメージにcurl/wgetが入っている
+ * 保証がないため（「入っているはず」に賭けると起動しない構成になる）。
+ *
+ * 待てなくてもサーバー自体は起動する。合成の呼び出しはWorker側がnullに落として
+ * テキストで返すので、起動を止めるより受け付けた方がまだよい。
+ */
+async function waitForVoicevox(timeoutMs = 180_000) {
+  const deadline = Date.now() + timeoutMs;
+  let notified = false;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`${VOICEVOX}/version`, { signal: AbortSignal.timeout(3000) });
+      if (res.ok) {
+        console.log(`[synth] VOICEVOX 準備完了 (${(await res.text()).trim()})`);
+        return true;
+      }
+    } catch {
+      // まだ起動していないだけ。待つ。
+    }
+    if (!notified) {
+      console.log('[synth] VOICEVOX の起動を待っています…');
+      notified = true;
+    }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  console.warn('[synth] VOICEVOX が時間内に応答しませんでした。受付は開始します');
+  return false;
+}
+
+await waitForVoicevox();
 
 server.listen(PORT, () => {
   console.log(`音声合成サーバー: http://localhost:${PORT}`);

@@ -134,12 +134,25 @@ npx wrangler secret put VOICE_SYNTH_TOKEN      # 上と同じ値
 # 任意: VOICE_CHARACTER = tanunee | link | konta （既定はtanunee）
 ```
 
-> **未検証**: Dockerfile / compose.yaml は、この環境にDockerが無いため
-> **実際にビルド・起動しての確認ができていない**。YAML構文とイメージタグの実在
-> （`voicevox/voicevox_engine:cpu-ubuntu22.04-0.25.2`）だけは確認済み。
-> 初回は `docker compose up` の出力を必ず目視すること。
-> なお **`node synth-server.mjs` を直接起動する経路は実機で動作確認済み**
-> （m4a・AAC・X-Duration-Msの実測値が返ることを確認）。
+> **検証状況**（この環境にDockerが無いため、`docker compose up` 自体は未実行）
+>
+> 確認できていること:
+> - `node synth-server.mjs` の直接起動は実機で動作確認済み（m4a・AAC・
+>   X-Duration-Msの実測値が返る）。コンテナ内で走るのはこれと同じコード。
+> - **DockerfileのHEALTHCHECKコマンドを実際に実行して成功を確認**
+>   （`node -e "fetch('http://127.0.0.1:8788/healthz')..."` → exit 0）。
+> - VOICEVOXの起動待ち（`waitForVoicevox`）が実際に動くことを確認。
+> - イメージタグ `voicevox/voicevox_engine:cpu-ubuntu22.04-0.25.2` の実在。
+>   arm64/amd64両対応なのでApple Siliconでも動く。
+> - 合成サーバーは外部依存ゼロ（node標準モジュールのみ）＝`npm install`不要。
+>
+> 未確認なのは「イメージのビルドとコンテナ間通信」だけ。
+> 初回は `docker compose up` の出力を目視すること。
+>
+> なお、初版では alpine の wget に GNU wget 用のオプションを渡していて
+> **確実に壊れる HEALTHCHECK になっていた**（BusyBox版wgetは
+> `--server-response` を持たない）。curl/wgetに頼らずnodeで叩く形に直してある。
+> 他人のイメージに何が入っているかを当てにしない、というのが教訓。
 
 ### 動かし方（手元でとりあえず試す）
 
