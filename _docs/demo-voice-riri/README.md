@@ -139,12 +139,18 @@ npx wrangler secret put VOICE_SYNTH_TOKEN      # 上と同じ値
 > 確認できていること:
 > - `node synth-server.mjs` の直接起動は実機で動作確認済み（m4a・AAC・
 >   X-Duration-Msの実測値が返る）。コンテナ内で走るのはこれと同じコード。
-> - **DockerfileのHEALTHCHECKコマンドを実際に実行して成功を確認**
->   （`node -e "fetch('http://127.0.0.1:8788/healthz')..."` → exit 0）。
+> - **DockerfileのHEALTHCHECKコマンドを実際に実行して確認**。
+>   健全なとき exit 0、到達不能なとき exit 1、`PORT` を変えても追随することを
+>   実サーバー（PORT=8791）で確認済み。
 > - VOICEVOXの起動待ち（`waitForVoicevox`）が実際に動くことを確認。
+> - **SIGTERMで正常終了する**ことを確認（`docker stop` で10秒待たされない）。
+> - ポート衝突時に原因と対処が読めるメッセージを出して exit 1 することを確認。
+> - `apk add ffmpeg` で `ffprobe` も入ること（Alpine公式のパッケージ内容で確認。
+>   duration実測に必要なので、ここが外れると再生時間がズレる）。
 > - イメージタグ `voicevox/voicevox_engine:cpu-ubuntu22.04-0.25.2` の実在。
 >   arm64/amd64両対応なのでApple Siliconでも動く。
 > - 合成サーバーは外部依存ゼロ（node標準モジュールのみ）＝`npm install`不要。
+> - compose.yamlの構造（depends_on参照先の実在・build文脈・ports書式）。
 >
 > 未確認なのは「イメージのビルドとコンテナ間通信」だけ。
 > 初回は `docker compose up` の出力を目視すること。

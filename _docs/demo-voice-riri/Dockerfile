@@ -34,7 +34,9 @@ EXPOSE 8788
 # curl/wgetに頼らずnodeで叩く。alpineのwgetはBusyBox版で --server-response 等の
 # GNU wget向けオプションを持たず、curlも既定では入っていない。
 # nodeは必ずこのイメージにあるので、依存を増やさずに済む。
+# ポートは環境変数から読む。8788を直書きすると、PORTを変えて起動したときに
+# サーバーは新しいポートで待つのにヘルスチェックだけ8788を叩き、必ずunhealthyになる。
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD node -e "fetch('http://127.0.0.1:8788/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||8788)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "synth-server.mjs"]

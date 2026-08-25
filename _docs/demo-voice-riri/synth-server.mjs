@@ -213,6 +213,32 @@ async function waitForVoicevox(timeoutMs = 180_000) {
   return false;
 }
 
+// 起動時の失敗は原因が一目で分かるようにする。
+// 素のままだと EADDRINUSE がスタックトレースで出るだけで、
+// 「何が悪いのか」「どうすればいいのか」が読み取れない。
+server.on('error', (err) => {
+  if (err.code === 'EADDRINUSE') {
+    console.error(`[synth] ポート ${PORT} は既に使われています。`);
+    console.error('  既に起動していないか確認するか、PORT=別の番号 を指定してください。');
+  } else if (err.code === 'EACCES') {
+    console.error(`[synth] ポート ${PORT} を使う権限がありません（1024未満は要特権）。`);
+  } else {
+    console.error('[synth] 起動に失敗しました:', err.message);
+  }
+  process.exit(1);
+});
+
+// コンテナを止めるとき（docker stop / compose down）はSIGTERMが飛ぶ。
+// 受け取らないと強制終了まで10秒待たされるので、受けて素直に閉じる。
+for (const sig of ['SIGTERM', 'SIGINT']) {
+  process.on(sig, () => {
+    console.log(`[synth] ${sig} を受け取りました。終了します`);
+    server.close(() => process.exit(0));
+    // 接続が残っていても待ち続けない。
+    setTimeout(() => process.exit(0), 3000).unref();
+  });
+}
+
 await waitForVoicevox();
 
 server.listen(PORT, () => {
