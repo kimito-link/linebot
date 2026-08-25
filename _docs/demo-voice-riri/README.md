@@ -71,15 +71,20 @@ cp voice-demo.mp4 voice-demo-poster.jpg ../../apps/lp/kimitotalk/assets/videos/
 他のLP動画は `autoplay muted loop` だが、**この動画だけは `controls` 付き・autoplayなし**にしている。
 音が主役なので muted 自動再生では訴求が成立しないため。「▶ を押すと音が出ます」の一文も必ず添える。
 
-## 声の割り当て
+## 声の割り当てとクレジット表記
 
 `ouenmovie/whc-it/script_vertical.py` の `VOICE` 辞書が正本。勝手に別IDを当てると既存動画と声がブレる。
+コード側の正本は `apps/worker/src/services/voice-reply.ts`（`CHARACTER_SPEAKER_ID` / `CHARACTER_CREDIT`）。
 
-| キャラ | 話者ID | VOICEVOX話者 |
-|---|---|---|
-| たぬ姉 | 14 | 冥鳴ひまり |
-| りんく | 8 | 春日部つむぎ |
-| こん太 | 32 | 白上虎太郎（わーい） |
+| キャラ | 話者ID | VOICEVOX話者 | クレジット表記 |
+|---|---|---|---|
+| たぬ姉 | 14 | 冥鳴ひまり | VOICEVOX：冥鳴ひまり |
+| りんく | 8 | 春日部つむぎ | VOICEVOX：春日部つむぎ |
+| こん太 | 32 | 白上虎太郎（わーい） | VOICEVOX：白上虎太郎 |
+
+**クレジット表記は義務**。VOICEVOXは商用・非商用問わず利用できるが、「VOICEVOXを利用したことが
+わかるクレジット表記」が利用規約で求められている（キャラごとの個別規約もある）。
+声を出す場所には必ず添えること。参照: https://voicevox.hiroshiba.jp/term/
 
 ## LINE実機で音声を返す（2026-08-25 実装済み）
 
@@ -111,22 +116,47 @@ Authorization: Bearer {VOICE_SYNTH_TOKEN}
 この契約さえ満たせば中身は何でもよい。VOICEVOXでも、別のTTSでも、10年後の別の何かでも、
 **Worker側のコードは1行も変えずに差し替えられる**。
 
-### 動かし方
+### 動かし方（コンテナ・常設向け）
+
+VOICEVOX公式イメージ＋合成サーバーの2コンテナ。特定のクラウド製品に依存しない
+普通のコンテナなので、VPSでもクラウドのコンテナサービスでも自宅サーバーでも置ける
+（置き場所を後から変えられる、というのがこの構成の狙い）。
 
 ```bash
-# 1. 合成サーバーを起動（VOICEVOXアプリとffmpegが必要）
-VOICE_SYNTH_TOKEN=<好きな秘密の文字列> node synth-server.mjs
+VOICE_SYNTH_TOKEN=<好きな秘密の文字列> docker compose up -d
+```
 
-# 2. 外から到達できるようにする（ローカルPCで動かす場合）
-#    Cloudflare Tunnel等で https:// のURLを得る
+そのうえで https で到達できるようにし、Workerに設定する:
 
-# 3. Workerに設定
-npx wrangler secret put VOICE_SYNTH_TOKEN      # 1と同じ値
-npx wrangler secret put VOICE_SYNTH_ENDPOINT   # 2で得たURL
+```bash
+npx wrangler secret put VOICE_SYNTH_ENDPOINT   # そのURL
+npx wrangler secret put VOICE_SYNTH_TOKEN      # 上と同じ値
 # 任意: VOICE_CHARACTER = tanunee | link | konta （既定はtanunee）
 ```
 
+> **未検証**: Dockerfile / compose.yaml は、この環境にDockerが無いため
+> **実際にビルド・起動しての確認ができていない**。YAML構文とイメージタグの実在
+> （`voicevox/voicevox_engine:cpu-ubuntu22.04-0.25.2`）だけは確認済み。
+> 初回は `docker compose up` の出力を必ず目視すること。
+> なお **`node synth-server.mjs` を直接起動する経路は実機で動作確認済み**
+> （m4a・AAC・X-Duration-Msの実測値が返ることを確認）。
+
+### 動かし方（手元でとりあえず試す）
+
+```bash
+# VOICEVOXアプリとffmpegが入っている前提
+VOICE_SYNTH_TOKEN=<好きな秘密の文字列> node synth-server.mjs
+```
+
+ローカルPCで動かす場合、外から到達させるには Cloudflare Tunnel 等が要る。
+ただし**PCが落ちれば止まる**ので、常用するならコンテナで常設する方がよい。
+
 未設定なら音声機能は静かにオフになり、従来どおりテキストで返る（壊れない）。
+
+### クレジット表記を忘れないこと
+
+声を出す場所には必ずクレジットを添える（表記は上の「声の割り当てとクレジット表記」を参照）。
+LPには記載済み。新しい掲載先を作るときも忘れないこと。
 
 ### 疎通確認
 

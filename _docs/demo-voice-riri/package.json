@@ -1,0 +1,9 @@
+{
+  "name": "voice-synth-server",
+  "private": true,
+  "type": "module",
+  "description": "LINEに音声で返すためのm4a合成サーバー。VOICEVOX+ffmpegでm4a(AAC)を返す。",
+  "scripts": {
+    "start": "node synth-server.mjs"
+  }
+}

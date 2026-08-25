@@ -152,7 +152,17 @@ export function createSynthesizer(env: VoiceReplyEnv): VoiceSynthesizer | null {
   );
 }
 
-/** キャラクターごとの声。ouenmovie/whc-it/script_vertical.py の VOICE 辞書が正本。 */
+/**
+ * キャラクターごとの声。ouenmovie/whc-it/script_vertical.py の VOICE 辞書が正本
+ * （勝手に別IDを当てると既存の応援動画と声がブレる）。
+ *
+ * 【クレジット表記は必須】
+ * VOICEVOXは商用・非商用問わず利用できるが、「VOICEVOXを利用したことがわかる
+ * クレジット表記」が利用規約上の義務。キャラクターごとにも個別規約がある。
+ * 声を出す場所には CHARACTER_CREDIT の表記を必ず添えること
+ * （LPには記載済み。新しい掲載先を作るときも忘れない）。
+ * 参照: https://voicevox.hiroshiba.jp/term/
+ */
 export const CHARACTER_SPEAKER_ID = {
   /** たぬ姉（冥鳴ひまり） */
   tanunee: 14,
@@ -161,6 +171,13 @@ export const CHARACTER_SPEAKER_ID = {
   /** こん太（白上虎太郎・わーい） */
   konta: 32,
 } as const;
+
+/** 各キャラの声を使うときに表示すべきクレジット表記。 */
+export const CHARACTER_CREDIT: Record<keyof typeof CHARACTER_SPEAKER_ID, string> = {
+  tanunee: 'VOICEVOX：冥鳴ひまり',
+  link: 'VOICEVOX：春日部つむぎ',
+  konta: 'VOICEVOX：白上虎太郎',
+};
 
 export type CharacterKey = keyof typeof CHARACTER_SPEAKER_ID;
 

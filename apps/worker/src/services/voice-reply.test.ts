@@ -4,6 +4,7 @@ import {
   createSynthesizer,
   estimateDurationMs,
   CHARACTER_SPEAKER_ID,
+  CHARACTER_CREDIT,
   type VoiceSynthesizer,
 } from './voice-reply.js';
 
@@ -319,5 +320,20 @@ describe('estimateDurationMs', () => {
   test('文字数に比例し、最低でも1秒を返す', () => {
     expect(estimateDurationMs('あ')).toBe(1000);
     expect(estimateDurationMs('あ'.repeat(60))).toBe(10_000);
+  });
+});
+
+describe('VOICEVOXのクレジット表記', () => {
+  // VOICEVOXは「利用したことがわかるクレジット表記」が利用規約上の義務
+  // (https://voicevox.hiroshiba.jp/term/)。キャラを足したとき表記を
+  // 書き忘れないよう、ここで対応を固定しておく。
+  test('すべてのキャラにクレジットが定義されている', () => {
+    for (const key of Object.keys(CHARACTER_SPEAKER_ID)) {
+      expect(CHARACTER_CREDIT[key as keyof typeof CHARACTER_SPEAKER_ID]).toMatch(/^VOICEVOX：.+/);
+    }
+  });
+
+  test('クレジットの数がキャラの数と一致する（余分も不足もない）', () => {
+    expect(Object.keys(CHARACTER_CREDIT).sort()).toEqual(Object.keys(CHARACTER_SPEAKER_ID).sort());
   });
 });
