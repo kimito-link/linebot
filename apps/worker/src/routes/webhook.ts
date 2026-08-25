@@ -18,6 +18,8 @@ import type { EntryRoute, Friend } from '@line-crm/db';
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
 import { generateLlmReply, switchToHumanMode } from '../services/llm-reply.js';
+import { createSynthesizer, replyWithVoice } from '../services/voice-reply.js';
+import type { VoiceReplyEnv, CharacterKey } from '../services/voice-reply.js';
 import { runGroqSupportPipeline } from '../services/groq-pipeline.js';
 import { resolveBotProject } from '../services/bot-project.js';
 import { getBotConfig } from '../services/groq-config.js';
@@ -87,6 +89,16 @@ async function sendSafeText(
   }
   await lineClient.pushMessage(lineUserId, [{ type: 'text', text }]);
   return false;
+}
+
+/**
+ * どのキャラクターの声で返すかを決める。VOICE_CHARACTER 未設定・未知の値なら
+ * たぬ姉にする（声が出ないより、既定の声で出る方がよい）。
+ */
+function resolveVoiceCharacter(voiceEnv: VoiceReplyEnv & { VOICE_CHARACTER?: string }): CharacterKey {
+  const raw = voiceEnv.VOICE_CHARACTER?.trim();
+  if (raw === 'link' || raw === 'konta' || raw === 'tanunee') return raw;
+  return 'tanunee';
 }
 
 async function logOutgoingGroqMessage(
@@ -258,6 +270,12 @@ webhook.post('/webhook', async (c) => {
             ADMIN_PUBLIC_URL: c.env.ADMIN_PUBLIC_URL,
             LIFF_PUBLIC_URL: c.env.LIFF_PUBLIC_URL,
           },
+          {
+            VOICE_SYNTH_ENDPOINT: c.env.VOICE_SYNTH_ENDPOINT,
+            VOICE_SYNTH_TOKEN: c.env.VOICE_SYNTH_TOKEN,
+            VOICE_SYNTH_TIMEOUT_MS: c.env.VOICE_SYNTH_TIMEOUT_MS,
+            VOICE_CHARACTER: c.env.VOICE_CHARACTER,
+          },
         );
       } catch (err) {
         console.error('Error handling webhook event:', err instanceof Error ? err.stack : String(err));
@@ -286,6 +304,8 @@ async function handleEvent(
   geminiApiKey?: string,
   workersAi?: Ai,
   urlContextEnv: UrlContextEnv = {},
+  // 音声返信の設定（未設定なら音声機能はオフ＝従来どおりテキストのみ返す）。
+  voiceEnv: VoiceReplyEnv = {},
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -919,7 +939,26 @@ async function handleEvent(
               });
 
               if (groqResult.kind === 'canned' || groqResult.kind === 'reply') {
-                await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.text, receivedAt, false);
+                // 音声メッセージには音声で返す（声で話しかけられたら声で返るのが自然）。
+                // 合成できなければ replyWithVoice の中でテキストに落ちるので無言にはならない。
+                // 動画やエスカレーション・エラー通知は確実に読まれるべきなのでテキストのまま。
+                if (msg.type === 'audio') {
+                  await replyWithVoice({
+                    lineClient,
+                    replyToken: event.replyToken,
+                    lineUserId: friend.line_user_id,
+                    text: groqResult.text,
+                    character: resolveVoiceCharacter(voiceEnv),
+                    synthesizer: createSynthesizer(voiceEnv),
+                    r2,
+                    workerUrl,
+                    accountId: lineAccountId ?? 'unknown',
+                    receivedAt,
+                    replyTokenConsumed: false,
+                  });
+                } else {
+                  await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.text, receivedAt, false);
+                }
                 await logOutgoingGroqMessage(db, friend.id, groqResult.text, groqResult.kind === 'canned' ? 'groq_canned' : 'groq_reply');
                 imageLlmHandled = true;
                 mediaOutcome = 'replied';

@@ -44,6 +44,26 @@ export function videoMessage(
   return { type: 'video', originalContentUrl, previewImageUrl };
 }
 
+// ── Audio Message ───────────────────────────────────────────────────────────
+
+export interface AudioMessage {
+  type: 'audio';
+  originalContentUrl: string;
+  duration: number;
+}
+
+/**
+ * 音声メッセージを組み立てる。
+ * originalContentUrlはHTTPS(TLS1.2以上)で配信されるm4aのみLINEに受理される
+ * （mp3/wavは不可）。durationはミリ秒。
+ */
+export function audioMessage(
+  originalContentUrl: string,
+  durationMs: number,
+): AudioMessage {
+  return { type: 'audio', originalContentUrl, duration: durationMs };
+}
+
 // ── Template Messages ───────────────────────────────────────────────────────
 
 export interface TemplateAction {

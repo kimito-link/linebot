@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>君斗りんく — 音声で相談デモ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --line-bg: #7494c0;
+    --line-bubble-bot: #ffffff;
+    --line-bubble-user: #8de055;
+    --ink: #222;
+    --sub: #666;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Sans", "Yu Gothic", sans-serif;
+    background: #efeae0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 24px 12px;
+  }
+  .phone {
+    width: 390px;
+    max-width: 100%;
+    background: var(--line-bg);
+    border-radius: 28px;
+    overflow: hidden;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+    display: flex;
+    flex-direction: column;
+    height: 720px;
+  }
+  .header {
+    background: var(--line-bg);
+    color: #fff;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255,255,255,.15);
+  }
+  .header .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .header .name { font-weight: 700; font-size: 15px; }
+  .header .sub { font-size: 11px; opacity: .85; }
+  .thread {
+    flex: 1;
+    background: #efeae0;
+    padding: 16px 12px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .row { display: flex; gap: 8px; align-items: flex-end; }
+  .row.user { justify-content: flex-end; }
+  .row .who-icon {
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #fff; display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0;
+  }
+  .bubble {
+    max-width: 72%;
+    padding: 10px 13px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    box-shadow: 0 1px 1px rgba(0,0,0,.08);
+  }
+  .bubble.bot { background: var(--line-bubble-bot); color: var(--ink); border-bottom-left-radius: 4px; }
+  .bubble.user { background: var(--line-bubble-user); color: #12351a; border-bottom-right-radius: 4px; }
+  .bubble .speaker-tag {
+    font-size: 11px; font-weight: 700; margin-bottom: 3px; opacity: .6;
+  }
+  .voice-msg {
+    display: flex; align-items: center; gap: 10px;
+    min-width: 150px;
+  }
+  .voice-msg .play-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #06c755; color: #fff; border: none;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 14px; flex-shrink: 0;
+  }
+  .voice-msg .play-btn:disabled { opacity: .5; cursor: default; }
+  .voice-msg .waveform { flex: 1; height: 20px; display: flex; align-items: center; gap: 2px; }
+  .voice-msg .waveform span {
+    width: 3px; background: #06c75588; border-radius: 2px;
+  }
+  .voice-msg .dur { font-size: 11px; color: var(--sub); flex-shrink: 0; }
+  .status {
+    text-align: center; font-size: 11px; color: #7a7a7a; padding: 4px 0;
+  }
+  .composer {
+    background: #fff;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-top: 1px solid #ddd;
+  }
+  .mic-btn {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: none; background: #06c755; color: #fff;
+    font-size: 24px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform .15s, background .15s;
+    flex-shrink: 0;
+  }
+  .mic-btn.recording {
+    background: #ff4d4d;
+    transform: scale(1.08);
+    animation: pulse 1s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 0 0 rgba(255,77,77,.5); }
+    50% { box-shadow: 0 0 0 10px rgba(255,77,77,0); }
+  }
+  .mic-hint { font-size: 12px; color: #555; flex: 1; }
+  .textfallback {
+    flex: 1; display: flex; gap: 6px;
+  }
+  .textfallback input {
+    flex: 1; border: 1px solid #ccc; border-radius: 18px; padding: 8px 14px; font-size: 13px;
+  }
+  .textfallback button {
+    border: none; background: #eee; border-radius: 18px; padding: 8px 14px; font-size: 13px; cursor: pointer;
+  }
+  .banner {
+    max-width: 390px;
+    width: 100%;
+    text-align: center;
+    color: #444;
+    font-size: 13px;
+    margin-top: 14px;
+    line-height: 1.7;
+  }
+  .banner b { color: #111; }
+  .engine-status {
+    margin-top: 8px; font-size: 12px;
+  }
+  .engine-status.ok { color: #0a8f3c; }
+  .engine-status.ng { color: #c0392b; }
+  select#voiceOverride {
+    font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid #ccc;
+  }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="header">
+    <div class="avatar">🦝</div>
+    <div>
+      <div class="name">君斗りんく — クリエイター相談室</div>
+      <div class="sub">りんく・こん太・たぬ姉があなたの声に音声で返信</div>
+    </div>
+  </div>
+
+  <div class="thread" id="thread">
+    <div class="status">これは音声応答デモです。マイクで話しかけてね（テキスト入力も可）</div>
+    <div class="row">
+      <div class="who-icon">🦝</div>
+      <div class="bubble bot">
+        <div class="speaker-tag">りんく</div>
+        こんにちは！創作や発信で困ってることがあったら、なんでも話しかけてほしいのだ。声で送ってくれたら、声で返すのだ。
+      </div>
+    </div>
+  </div>
+
+  <div class="composer">
+    <button class="mic-btn" id="micBtn" title="マイクで話す">🎤</button>
+    <div class="textfallback">
+      <input type="text" id="textInput" placeholder="（音声認識が使えない場合はここに入力）">
+      <button id="sendBtn">送信</button>
+    </div>
+  </div>
+</div>
+
+<div class="banner">
+  <b>これは何のデモ？</b><br>
+  LINEで音声メッセージを送ると、キャラクターが<b>音声で返信</b>できる、という仕組みのデモです。<br>
+  文字起こし → キャラ口調で回答生成 → VOICEVOXで音声合成 → 音声で返信、という流れをブラウザ上で再現しています。
+  <div class="engine-status" id="engineStatus">VOICEVOXエンジンを確認中…</div>
+  <div style="margin-top:8px;">
+    声を固定したい場合:
+    <select id="voiceOverride">
+      <option value="auto">自動（話題で選ぶ）</option>
+      <option value="tanunee">たぬ姉で固定</option>
+      <option value="link">りんくで固定</option>
+      <option value="konta">こん太で固定</option>
+    </select>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

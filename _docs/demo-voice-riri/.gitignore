@@ -1,0 +1,7 @@
+# 中間生成物（make_audio.mjs / record.mjs で再生成できる）
+demo_audio.wav
+voice_konta.wav
+test.wav
+query.json
+rec/
+node_modules/

@@ -176,6 +176,16 @@ export interface VideoMessage {
   previewImageUrl: string;
 }
 
+/**
+ * 音声メッセージ。originalContentUrlはHTTPS(TLS1.2以上)で配信されるm4aのみ、
+ * 最大200MB。durationはミリ秒。
+ */
+export interface AudioMessage {
+  type: 'audio';
+  originalContentUrl: string;
+  duration: number;
+}
+
 export interface TemplateMessage {
   type: 'template';
   altText: string;
@@ -195,6 +205,7 @@ export type Message =
   | ImageMessage
   | FlexMessage
   | VideoMessage
+  | AudioMessage
   | TemplateMessage
   | ImageMapMessageType;
 
