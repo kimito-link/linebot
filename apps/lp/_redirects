@@ -1,14 +1,17 @@
-# Cloudflare Pages のルーティング（vercel.json と等価にする）
+# Cloudflare Pages のルーティング
 #
-# vercel.json は次の2つを設定している:
-#   cleanUrls: true                          → 拡張子なしURL
-#   rewrites: [{ "/" → "/kimitotalk" }]      → ルートをメインLPに
+# ルート(/)をメインLPに向ける。vercel.json の rewrites と同じ意図。
 #
-# このうち cleanUrls 相当は Cloudflare Pages の既定の挙動で、
-# /privacy/index.html は /privacy でも配信される（設定不要）。
-# 明示が要るのはルートのリライトだけ。
+# 【実測でわかった Vercel との違い】(2026-08-30)
+# - Vercel:          cleanUrls で /privacy → /privacy/index.html を直接配信
+# - Cloudflare Pages: /privacy → /privacy/ へ **308リダイレクト**してから配信
+#   → 最終的に200になるので実害なし。URLに末尾スラッシュが付くだけ
 #
-# 200 はリライト（URLはそのまま、中身だけ差し替え）。
-# 301 にするとアドレスバーが /kimitotalk に変わってしまい、
-# canonical（https://kimitotalk.link/）とずれるので 200 を使う。
-/    /kimitotalk/index.html    200
+# 【ルートについて】
+# 最初 `/  /kimitotalk/index.html  200` と書いたが**効かなかった**（404のまま）。
+# Pagesは静的ファイルの解決を先に行い、ルートに index.html が無いと
+# そこで404を返すため。302リダイレクトなら確実に動く。
+#
+# 302（一時）にしているのは、将来ルート直下に本物のトップページを置く可能性を
+# 残すため。301だとブラウザにキャッシュされて戻しにくい。
+/    /kimitotalk/    302
