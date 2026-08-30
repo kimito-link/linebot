@@ -1,0 +1,47 @@
+# LP（kimitotalk.link）を Cloudflare Pages へ配信する。
+#
+# 【なぜ作ったか】
+# LP だけ Vercel に取り残されていた。apps/web（管理画面）と apps/liff は既に
+# Cloudflare Pages で、同じリポジトリなのにデプロイ先が2社に分裂していた。
+# さらに LP には GitHub Actions が無く（Vercel の Git 連携頼み）、
+# **どこで何が起きているかリポジトリから読めない**状態だった。
+# CI に載せれば、デプロイの成否が履歴に残る。
+#
+# 【Vercel との切り替え手順】
+# 1. このワークフローで Cloudflare Pages に出す
+# 2. 実際に表示を確認する（動画・画像・/privacy まで）
+# 3. 独自ドメイン kimitotalk.link を Cloudflare Pages 側に向ける
+# 4. Vercel 側のプロジェクトを止める
+# **3 の前に 2 を必ずやること**（先にドメインを切り替えると落ちたときに戻せない）。
+
+name: Deploy Cloudflare LP
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/lp/**'
+      - '.github/workflows/deploy-cloudflare-lp.yml'
+
+jobs:
+  deploy:
+    # 管理画面のワークフローと同じガード。OSS 側のリポジトリでは動かさない。
+    if: github.repository != 'Shudesu/line-harness-oss' && vars.LINE_HARNESS_CLOUDFLARE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # LP は素の HTML なのでビルド不要。そのまま配る。
+
+      - name: Deploy to Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          LP_PAGES_PROJECT_NAME: ${{ vars.LP_PAGES_PROJECT_NAME || 'kimitotalk-lp' }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx wrangler pages deploy apps/lp \
+            --project-name="$LP_PAGES_PROJECT_NAME" \
+            --commit-message="deploy ${GITHUB_SHA}"

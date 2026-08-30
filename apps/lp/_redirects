@@ -1,0 +1,14 @@
+# Cloudflare Pages のルーティング（vercel.json と等価にする）
+#
+# vercel.json は次の2つを設定している:
+#   cleanUrls: true                          → 拡張子なしURL
+#   rewrites: [{ "/" → "/kimitotalk" }]      → ルートをメインLPに
+#
+# このうち cleanUrls 相当は Cloudflare Pages の既定の挙動で、
+# /privacy/index.html は /privacy でも配信される（設定不要）。
+# 明示が要るのはルートのリライトだけ。
+#
+# 200 はリライト（URLはそのまま、中身だけ差し替え）。
+# 301 にするとアドレスバーが /kimitotalk に変わってしまい、
+# canonical（https://kimitotalk.link/）とずれるので 200 を使う。
+/    /kimitotalk/index.html    200

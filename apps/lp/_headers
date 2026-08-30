@@ -1,0 +1,23 @@
+# Cloudflare Pages のレスポンスヘッダ
+#
+# 【方針】過剰に付けない。実益のあるものだけ。
+# LP は公開サイトなので noindex は付けない（検索されたいページ）。
+
+# 動画・画像は内容が変わったらファイル名ごと差し替える運用なので、長期キャッシュしてよい。
+# setup-demo.mp4 は1.6MB、voice-demo.mp4 は500KB あり、ここが効く。
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/kimitotalk/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML は毎回取り直す（文言修正がすぐ反映されるように）。
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# クリックジャッキング対策。LP を他サイトの iframe に埋められると
+# 偽の申込画面に見せかけられる余地が生まれるため。
+/*
+  X-Frame-Options: SAMEORIGIN
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
