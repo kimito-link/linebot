@@ -62,9 +62,26 @@ Vercelの使用量は $3.36/$20（17%）で、**移行しても金額はほぼ�
 
 ---
 
-## 公開前に残っているTODO
+## リンク切れの検査
 
-- **両LPのCTAが `href="#"` のまま**（`kimitotalk/index.html` と `gpt-hikkoshi/index.html`）。
-  LINE公式アカウント発行後、友だち追加URL（`https://lin.ee/xxxxx`）に差し替える。
-  現在は `aria-disabled="true"` と「準備中」の表示を添えてあるので、
-  押しても何も起きないのが正しい状態。
+```bash
+node scripts/check-lp-links.mjs            # LINEへの疎通も確認する
+node scripts/check-lp-links.mjs --offline  # 外部通信なし（CIと同じ）
+```
+
+CIでも走る（`.github/workflows/lp-ci.yml`）。ただし**CIは `--offline`**。
+LINE側の一時障害でCIが赤くなると、赤いのが常態化して誰も見なくなるため。
+実際の疎通は手元で `--offline` なしを叩いて確かめる。
+
+検出するもの: CTAが `href="#"` のまま / LINE URLが無効 / 内部リンク切れ /
+アセット欠落 / ルート(`/`)のリライト設定の消失。
+
+## CTAの接続先
+
+両LPとも **Kimito-Link Project（`@kimitolink`）** に繋いでいる。
+`?ref=` で流入元を区別する（`kimitotalk` / `gpt-hikkoshi`）。
+これは `entry_routes` の `ref_code` と対になる設計
+（`_docs/WEB-HEALTH-CHECK-WIRING.md` の前例に合わせた）。
+
+別アカウントに変えるときは、両LPの `href` を書き換えたうえで
+上の検査を走らせること（URLが生きているかまで見る）。
