@@ -337,3 +337,37 @@ describe('VOICEVOXのクレジット表記', () => {
     expect(Object.keys(CHARACTER_CREDIT).sort()).toEqual(Object.keys(CHARACTER_SPEAKER_ID).sort());
   });
 });
+
+describe('出力ガード（危険な断定を声で送らない）', () => {
+  test('★危険な断定は音声化せず、安全な文面に差し替える', async () => {
+    const lineClient = makeLineClientStub();
+    const synth = okSynthesizer();
+    await replyWithVoice(
+      baseParams({
+        lineClient: lineClient as never,
+        synthesizer: synth,
+        text: 'その頭痛はこれで治りますよ。',
+      }) as never,
+    );
+
+    // 合成に渡る時点で既に差し替わっている（危険な文面を音声化しない）
+    const synthesizedText = (synth.synthesize as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(synthesizedText).not.toContain('治ります');
+    expect(synthesizedText).toContain('お医者さん');
+
+    // 送信されるテキストも差し替え後
+    const messages = lineClient.replyMessage.mock.calls[0][1];
+    const textMsg = messages.find((m) => m.type === 'text')!;
+    expect(textMsg.text).not.toContain('治ります');
+  });
+
+  test('安全な文面はそのまま音声化する（誤検知しない）', async () => {
+    const synth = okSynthesizer();
+    const safe = 'おつかれさま、今夜はあったかくして休んでね。';
+    await replyWithVoice(
+      baseParams({ synthesizer: synth, text: safe }) as never,
+    );
+    const synthesizedText = (synth.synthesize as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    expect(synthesizedText).toBe(safe);
+  });
+});

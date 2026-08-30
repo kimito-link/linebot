@@ -20,6 +20,7 @@
 // replyWithVoice() の中で完結させ、呼び忘れによる無言化を構造的に防ぐ。
 
 import type { LineClient } from '@line-crm/line-sdk';
+import { guardOutput } from './output-guard.js';
 
 /** 合成結果。m4aのバイト列と、LINEに渡す再生時間(ミリ秒)。 */
 export interface SynthesizedVoice {
@@ -236,9 +237,22 @@ export async function replyWithVoice(
   params: ReplyWithVoiceParams,
 ): Promise<ReplyWithVoiceResult> {
   const {
-    lineClient, replyToken, lineUserId, text, character,
+    lineClient, replyToken, lineUserId, text: rawText, character,
     synthesizer, r2, workerUrl, accountId, receivedAt, replyTokenConsumed,
   } = params;
+
+  // 出力ガードは**合成の前**に通す。ここで止めれば、危険な断定を音声化する
+  // 無駄も省ける。音声返信は webhook.ts の sendSafeText を経由しない別経路なので、
+  // ここに置かないとガードが素通りになる（実際に一度その穴があった）。
+  const guard = guardOutput(rawText);
+  if (guard.blocked) {
+    console.warn(JSON.stringify({
+      tag: 'output_guard', outcome: 'blocked', route: 'voice',
+      hits: guard.hits.map((h) => `${h.category}:${h.label}`),
+      originalLength: rawText.length,
+    }));
+  }
+  const text = guard.text;
 
   const sendText = async (): Promise<ReplyWithVoiceResult> => {
     const usedReplyToken = await sendWithFallback(

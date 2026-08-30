@@ -860,3 +860,72 @@ describe('POST /webhook — 音声メッセージへの音声返信', () => {
     expect(lineClientMocks.replyMessage).toHaveBeenCalled();
   });
 });
+
+describe('POST /webhook — 出力ガード（危険な断定を送らない）', () => {
+  function makeDb() {
+    const stmt = {
+      bind: vi.fn(), run: vi.fn().mockResolvedValue({}),
+      all: vi.fn().mockResolvedValue({ results: [] }),
+      first: vi.fn().mockResolvedValue(null),
+    };
+    stmt.bind.mockReturnValue(stmt);
+    return { prepare: vi.fn().mockReturnValue(stmt) } as unknown as D1Database;
+  }
+
+  const FRIEND = {
+    id: 'friend-1', line_user_id: 'U-existing', display_name: 'F',
+    picture_url: null, status_message: null, is_following: 1, user_id: null,
+    line_account_id: null, metadata: '{}', first_tracked_link_id: null,
+    ai_reply_mode: 'bot', ref_code: null,
+    created_at: '2026-07-17T00:00:00.000+09:00', updated_at: '2026-07-17T00:00:00.000+09:00',
+  };
+
+  async function sendTextWebhook(llmReply: string) {
+    vi.mocked(verifySignature).mockResolvedValue(true);
+    vi.mocked(getFriendByLineUserId).mockResolvedValue(FRIEND as never);
+    vi.mocked(jstNow).mockReturnValue('2026-07-17T12:00:00.000+09:00');
+    vi.mocked(upsertChatOnMessage).mockResolvedValue({} as never);
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(false);
+    runGroqSupportPipelineMock.mockResolvedValue({ kind: 'reply', text: llmReply });
+
+    const executionCtx = {
+      waitUntil: vi.fn(), passThroughOnException: vi.fn(), props: {},
+    } as unknown as ExecutionContext;
+
+    await setupApp().request(
+      '/webhook',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Line-Signature': 'A'.repeat(43) + '=' },
+        body: JSON.stringify({
+          destination: 'bot',
+          events: [{
+            type: 'message', replyToken: 'reply-token',
+            message: { type: 'text', id: 'm1', text: '頭痛が治りますか' },
+            timestamp: Date.now(), source: { type: 'user', userId: 'U-existing' },
+            webhookEventId: 'e1', deliveryContext: { isRedelivery: false }, mode: 'active',
+          }],
+        }),
+      },
+      { ...baseEnv, DB: makeDb(), GROQ_API_KEY: 'gsk-test', WORKER_URL: 'https://w.example' },
+      executionCtx,
+    );
+    const p = vi.mocked(executionCtx.waitUntil).mock.calls[0]?.[0] as Promise<unknown>;
+    await p;
+  }
+
+  test('★LLMが危険な断定を返しても、そのまま送らない', async () => {
+    await sendTextWebhook('その頭痛はこの方法で治りますよ。');
+    const sent = lineClientMocks.replyMessage.mock.calls[0]?.[1] as Array<{ text: string }>;
+    expect(sent[0].text).not.toContain('治ります');
+    expect(sent[0].text).toContain('お医者さん');
+  });
+
+  test('安全な返答はそのまま送る（誤検知しない）', async () => {
+    const safe = '気になるなら、お医者さんに相談してみてね。';
+    await sendTextWebhook(safe);
+    const sent = lineClientMocks.replyMessage.mock.calls[0]?.[1] as Array<{ text: string }>;
+    expect(sent[0].text).toBe(safe);
+  });
+});

@@ -19,6 +19,7 @@ import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
 import { generateLlmReply, switchToHumanMode } from '../services/llm-reply.js';
 import { createSynthesizer, replyWithVoice } from '../services/voice-reply.js';
+import { guardOutput } from '../services/output-guard.js';
 import type { VoiceReplyEnv, CharacterKey } from '../services/voice-reply.js';
 import { runGroqSupportPipeline } from '../services/groq-pipeline.js';
 import { resolveBotProject } from '../services/bot-project.js';
@@ -74,10 +75,28 @@ async function sendSafeText(
   lineClient: LineClient,
   replyToken: string,
   lineUserId: string,
-  text: string,
+  rawText: string,
   receivedAt: number,
   replyTokenConsumed: boolean,
 ): Promise<boolean> {
+  // 送信の直前に出力ガードを通す（services/output-guard.ts）。
+  // ここに置くのは、この関数が10箇所から呼ばれる共通経路だから。
+  // 呼び出し側ごとに挟むと必ず漏れる（実際にLINE導線が切れていたのに
+  // 気づけなかったのも同じ構造だった）。
+  //
+  // 検査するのはLLM生成文だけでなく定型文も含むが、定型文は元々安全なので
+  // 素通りする（webhook.test.ts で固定してある）。
+  const guard = guardOutput(rawText);
+  if (guard.blocked) {
+    console.warn(JSON.stringify({
+      tag: 'output_guard', outcome: 'blocked',
+      hits: guard.hits.map((h) => `${h.category}:${h.label}`),
+      // 元の文面は残さない（ログに危険な断定が残るのを避ける）
+      originalLength: rawText.length,
+    }));
+  }
+  const text = guard.text;
+
   const withinDeadline = !replyTokenConsumed && Date.now() - receivedAt < 45_000;
   if (withinDeadline) {
     try {
