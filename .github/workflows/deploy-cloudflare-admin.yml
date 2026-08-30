@@ -26,7 +26,11 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter @line-crm/shared build
+      # apps/web は @line-crm/shared と @line-harness/update-engine の両方に依存する。
+      # update-engine を抜くと dist/pure.mjs が無く、update-banner.tsx の import が
+      # 解決できずビルドが落ちる（2026-08-30に実際に発生。worker-ci.yml は両方
+      # ビルドしていたのでこちらだけ漏れていた）。
+      - run: pnpm --filter @line-crm/shared --filter @line-harness/update-engine build
 
       - name: Capture build metadata
         id: build-meta
