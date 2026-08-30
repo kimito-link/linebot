@@ -1,0 +1,29 @@
+# リポジトリ内の改行コードをLFに統一する。
+#
+# 入れた理由: Windows上のツール（エディタ・スクリプト）がファイルを書き戻すと
+# CRLFに変わることがあり、中身を1行も変えていないのに「全行が変更された」
+# 差分になる。実際に webhook.test.ts で発生し、レビューできない差分になった。
+#
+# text=auto により、コミット時はLFに正規化され、チェックアウト時はOSに合わせて
+# 展開される（Windowsでの編集は今までどおりできる）。
+
+* text=auto eol=lf
+
+# バイナリは触らせない（改行変換されると壊れる）。
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.mp4 binary
+*.webm binary
+*.mp3 binary
+*.m4a binary
+*.wav binary
+*.pdf binary
+*.zip binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary

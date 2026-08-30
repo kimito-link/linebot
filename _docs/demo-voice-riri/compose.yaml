@@ -1,0 +1,50 @@
+# =============================================================================
+# 音声合成の一式 — VOICEVOXエンジン + m4a化サーバー
+# =============================================================================
+#
+# 起動:
+#   VOICE_SYNTH_TOKEN=<好きな秘密の文字列> docker compose up -d
+#
+# 動作確認:
+#   curl -D - -X POST http://localhost:8788/ \
+#     -H "authorization: Bearer <上と同じ値>" \
+#     -H "content-type: application/json" \
+#     -d '{"text":"こんにちは","speakerId":14}' -o out.m4a
+#   → X-Duration-Ms ヘッダが返り、out.m4a が AAC ならOK
+#
+# これをどこか（VPS・クラウドのコンテナサービス・自宅サーバー等）に置き、
+# https で到達できるようにしたうえで、Worker側に設定する:
+#   npx wrangler secret put VOICE_SYNTH_ENDPOINT   # そのURL
+#   npx wrangler secret put VOICE_SYNTH_TOKEN      # 上と同じ値
+#
+# 特定のクラウド製品に依存しない普通のコンテナなので、置き場所は後から変えられる。
+
+services:
+  voicevox:
+    # CPU版。GPUは不要（短い返答文の合成なら十分な速さで返る）。
+    # 版を固定しているのは、勝手に上がって声が変わるのを防ぐため。
+    # 上げるときは意図して書き換え、実際に声を聴いて確認する。
+    # 0.25.2 はローカルで実際に声を確認した版と同じ（揃えてある）。
+    image: voicevox/voicevox_engine:cpu-ubuntu22.04-0.25.2
+    restart: unless-stopped
+    # 外に出す必要はない。合成サーバーからだけ届けばよい。
+    expose:
+      - "50021"
+    # ここにhealthcheckを書かないのは意図的。
+    # 他人のイメージの中に curl / wget が入っている保証が無く、
+    # 「入っているはず」に賭けると起動しない構成になる。
+    # 代わりに合成サーバー側がVOICEVOXの起動を待つ（synth-server.mjsのwaitForVoicevox）。
+
+  synth:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8788:8788"
+    environment:
+      # 未設定ならサーバーは起動時に落ちる（無認証で公開されるのを防ぐため）。
+      VOICE_SYNTH_TOKEN: ${VOICE_SYNTH_TOKEN:?VOICE_SYNTH_TOKEN を設定してください}
+      VOICEVOX_URL: http://voicevox:50021
+    depends_on:
+      # 起動順序だけを指定する（VOICEVOXが応答可能になるまで待つ処理は
+      # 合成サーバー側が自前で持つ。他人のイメージの中身に依存しないため）。
+      - voicevox

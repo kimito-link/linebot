@@ -18,6 +18,9 @@ import type { EntryRoute, Friend } from '@line-crm/db';
 import { fireEvent } from '../services/event-bus.js';
 import { buildMessage, expandVariables } from '../services/step-delivery.js';
 import { generateLlmReply, switchToHumanMode } from '../services/llm-reply.js';
+import { createSynthesizer, replyWithVoice } from '../services/voice-reply.js';
+import { guardOutput } from '../services/output-guard.js';
+import type { VoiceReplyEnv, CharacterKey } from '../services/voice-reply.js';
 import { runGroqSupportPipeline } from '../services/groq-pipeline.js';
 import { resolveBotProject } from '../services/bot-project.js';
 import { getBotConfig } from '../services/groq-config.js';
@@ -72,10 +75,28 @@ async function sendSafeText(
   lineClient: LineClient,
   replyToken: string,
   lineUserId: string,
-  text: string,
+  rawText: string,
   receivedAt: number,
   replyTokenConsumed: boolean,
 ): Promise<boolean> {
+  // 送信の直前に出力ガードを通す（services/output-guard.ts）。
+  // ここに置くのは、この関数が10箇所から呼ばれる共通経路だから。
+  // 呼び出し側ごとに挟むと必ず漏れる（実際にLINE導線が切れていたのに
+  // 気づけなかったのも同じ構造だった）。
+  //
+  // 検査するのはLLM生成文だけでなく定型文も含むが、定型文は元々安全なので
+  // 素通りする（webhook.test.ts で固定してある）。
+  const guard = guardOutput(rawText);
+  if (guard.blocked) {
+    console.warn(JSON.stringify({
+      tag: 'output_guard', outcome: 'blocked',
+      hits: guard.hits.map((h) => `${h.category}:${h.label}`),
+      // 元の文面は残さない（ログに危険な断定が残るのを避ける）
+      originalLength: rawText.length,
+    }));
+  }
+  const text = guard.text;
+
   const withinDeadline = !replyTokenConsumed && Date.now() - receivedAt < 45_000;
   if (withinDeadline) {
     try {
@@ -87,6 +108,16 @@ async function sendSafeText(
   }
   await lineClient.pushMessage(lineUserId, [{ type: 'text', text }]);
   return false;
+}
+
+/**
+ * どのキャラクターの声で返すかを決める。VOICE_CHARACTER 未設定・未知の値なら
+ * たぬ姉にする（声が出ないより、既定の声で出る方がよい）。
+ */
+function resolveVoiceCharacter(voiceEnv: VoiceReplyEnv & { VOICE_CHARACTER?: string }): CharacterKey {
+  const raw = voiceEnv.VOICE_CHARACTER?.trim();
+  if (raw === 'link' || raw === 'konta' || raw === 'tanunee') return raw;
+  return 'tanunee';
 }
 
 async function logOutgoingGroqMessage(
@@ -258,6 +289,12 @@ webhook.post('/webhook', async (c) => {
             ADMIN_PUBLIC_URL: c.env.ADMIN_PUBLIC_URL,
             LIFF_PUBLIC_URL: c.env.LIFF_PUBLIC_URL,
           },
+          {
+            VOICE_SYNTH_ENDPOINT: c.env.VOICE_SYNTH_ENDPOINT,
+            VOICE_SYNTH_TOKEN: c.env.VOICE_SYNTH_TOKEN,
+            VOICE_SYNTH_TIMEOUT_MS: c.env.VOICE_SYNTH_TIMEOUT_MS,
+            VOICE_CHARACTER: c.env.VOICE_CHARACTER,
+          },
         );
       } catch (err) {
         console.error('Error handling webhook event:', err instanceof Error ? err.stack : String(err));
@@ -286,6 +323,8 @@ async function handleEvent(
   geminiApiKey?: string,
   workersAi?: Ai,
   urlContextEnv: UrlContextEnv = {},
+  // 音声返信の設定（未設定なら音声機能はオフ＝従来どおりテキストのみ返す）。
+  voiceEnv: VoiceReplyEnv = {},
 ): Promise<void> {
   if (event.type === 'follow') {
     const userId =
@@ -919,7 +958,26 @@ async function handleEvent(
               });
 
               if (groqResult.kind === 'canned' || groqResult.kind === 'reply') {
-                await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.text, receivedAt, false);
+                // 音声メッセージには音声で返す（声で話しかけられたら声で返るのが自然）。
+                // 合成できなければ replyWithVoice の中でテキストに落ちるので無言にはならない。
+                // 動画やエスカレーション・エラー通知は確実に読まれるべきなのでテキストのまま。
+                if (msg.type === 'audio') {
+                  await replyWithVoice({
+                    lineClient,
+                    replyToken: event.replyToken,
+                    lineUserId: friend.line_user_id,
+                    text: groqResult.text,
+                    character: resolveVoiceCharacter(voiceEnv),
+                    synthesizer: createSynthesizer(voiceEnv),
+                    r2,
+                    workerUrl,
+                    accountId: lineAccountId ?? 'unknown',
+                    receivedAt,
+                    replyTokenConsumed: false,
+                  });
+                } else {
+                  await sendSafeText(lineClient, event.replyToken, friend.line_user_id, groqResult.text, receivedAt, false);
+                }
                 await logOutgoingGroqMessage(db, friend.id, groqResult.text, groqResult.kind === 'canned' ? 'groq_canned' : 'groq_reply');
                 imageLlmHandled = true;
                 mediaOutcome = 'replied';

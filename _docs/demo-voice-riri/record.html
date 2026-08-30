@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>音声デモ 録画用</title>
+<style>
+  :root {
+    --bg: #FAF7F2;
+    --panel: #ffffff;
+    --panel-soft: #F4EFEA;
+    --fg: #3A3532;
+    --muted: #7d746d;
+    --line: #ECE4DC;
+    --accent-strong: #4F7A68;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 900px;
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .stage { display: flex; align-items: center; gap: 56px; }
+
+  .caption-col { width: 420px; }
+  .caption-eyebrow {
+    display: inline-block; font-size: 14px; font-weight: 700; letter-spacing: .04em;
+    color: var(--accent-strong); background: #EAF2EE;
+    padding: 6px 16px; border-radius: 999px; margin-bottom: 18px;
+  }
+  .caption-title {
+    font-size: 34px; font-weight: 800; line-height: 1.45; margin: 0 0 20px;
+  }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+  .steps li {
+    font-size: 17px; line-height: 1.6; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+    padding: 14px 18px; opacity: .35; transition: opacity .4s, color .4s, border-color .4s;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .steps li .num {
+    width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+    background: var(--panel-soft); color: var(--muted);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; transition: background .4s, color .4s;
+  }
+  .steps li.active { opacity: 1; color: var(--fg); border-color: var(--accent-strong); }
+  .steps li.active .num { background: var(--accent-strong); color: #fff; }
+
+  /* LINE風スマホ */
+  .phone {
+    width: 380px; height: 720px;
+    background: #7494c0; border-radius: 34px; overflow: hidden;
+    box-shadow: 0 18px 48px rgba(0,0,0,.18);
+    display: flex; flex-direction: column;
+    border: 8px solid #2c2c2c;
+  }
+  .ph-header {
+    background: #7494c0; color: #fff; padding: 14px 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ph-header .avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 19px;
+  }
+  .ph-header .nm { font-weight: 700; font-size: 15px; }
+  .ph-header .sb { font-size: 11px; opacity: .85; }
+  .thread {
+    flex: 1; background: #efeae0; padding: 16px 12px;
+    display: flex; flex-direction: column; gap: 12px; overflow: hidden;
+  }
+  .row { display: flex; gap: 8px; align-items: flex-end; opacity: 0; transform: translateY(8px); }
+  .row.show { opacity: 1; transform: none; transition: opacity .35s, transform .35s; }
+  .row.user { justify-content: flex-end; }
+  .row .ico {
+    width: 32px; height: 32px; border-radius: 50%; background: #fff; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 16px;
+  }
+  .bub {
+    max-width: 74%; padding: 11px 14px; border-radius: 17px;
+    font-size: 14.5px; line-height: 1.55; box-shadow: 0 1px 1px rgba(0,0,0,.07);
+  }
+  .bub.bot { background: #fff; border-bottom-left-radius: 5px; }
+  .bub.user { background: #8de055; color: #12351a; border-bottom-right-radius: 5px; }
+  .bub .tag { font-size: 11.5px; font-weight: 700; opacity: .6; margin-bottom: 4px; }
+
+  /* 音声メッセージ表現 */
+  .voice {
+    display: flex; align-items: center; gap: 10px; min-width: 168px;
+  }
+  .voice .pbtn {
+    width: 34px; height: 34px; border-radius: 50%; background: #06c755; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0;
+  }
+  .voice .wave { flex: 1; height: 22px; display: flex; align-items: center; gap: 2.5px; }
+  .voice .wave i {
+    width: 3px; border-radius: 2px; background: #06c75577; display: block;
+  }
+  .voice.playing .wave i { background: #06c755; }
+  .voice .dur { font-size: 11.5px; color: var(--muted); flex-shrink: 0; }
+
+  .mic-area {
+    background: #fff; padding: 14px; display: flex; align-items: center; justify-content: center; gap: 12px;
+    border-top: 1px solid #ddd;
+  }
+  .mic {
+    width: 58px; height: 58px; border-radius: 50%; background: #06c755; color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 25px;
+  }
+  .mic.rec { background: #ff4d4d; }
+  .mic-label { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="caption-col">
+    <span class="caption-eyebrow">こんなこともできます</span>
+    <h1 class="caption-title">音声メッセージにも、<br>声で返せます</h1>
+    <ul class="steps">
+      <li id="s1"><span class="num">1</span><span>音声の内容を聞き取る</span></li>
+      <li id="s2"><span class="num">2</span><span>キャラクターの口調で返事を組み立てる</span></li>
+      <li id="s3"><span class="num">3</span><span>声に変換して、音声メッセージで返す</span></li>
+    </ul>
+  </div>
+
+  <div class="phone">
+    <div class="ph-header">
+      <div class="avatar">🦝</div>
+      <div>
+        <div class="nm">君斗りんく</div>
+        <div class="sb">オンライン</div>
+      </div>
+    </div>
+    <div class="thread" id="thread"></div>
+    <div class="mic-area">
+      <div class="mic" id="mic">🎤</div>
+      <div class="mic-label" id="micLabel">押して話す</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// 録画シナリオ（タイミングは record.mjs 側と共有する定義）
+window.SCENARIO = [
+  { t: 'mic-on',  at: 1200 },
+  { t: 'user',    at: 3000, text: '投稿したのにいいねが全然つかなくて、ちょっと落ち込んでます', dur: 5 },
+  { t: 'step',    at: 3400, step: 1 },
+  { t: 'step',    at: 5200, step: 2 },
+  { t: 'step',    at: 7000, step: 3 },
+  { t: 'bot',     at: 8200, speaker: 'こん太', icon: '🐻',
+    text: '伸びない＝ダメな投稿、とは限らないよ！投稿時間とか、最初の一文でも変わることあるし、落ち込まず次いこ！', dur: 9 },
+  { t: 'play',    at: 8600 },
+];
+
+const thread = document.getElementById('thread');
+const mic = document.getElementById('mic');
+const micLabel = document.getElementById('micLabel');
+
+function waveBars(n) {
+  let h = '';
+  // 決定的な波形（Math.randomを使わない＝録画の再現性のため）
+  const pattern = [8,14,10,18,12,20,9,16,11,19,13,7,17,10,15,12,18,9];
+  for (let i = 0; i < n; i++) h += `<i style="height:${pattern[i % pattern.length]}px"></i>`;
+  return h;
+}
+
+function addUserVoice(text, dur) {
+  const row = document.createElement('div');
+  row.className = 'row user';
+  row.innerHTML = `<div class="bub user">
+      <div class="voice"><div class="pbtn">▶</div><div class="wave">${waveBars(16)}</div><div class="dur">${dur}"</div></div>
+      <div style="font-size:12px;opacity:.75;margin-top:6px;">${text}</div>
+    </div>`;
+  thread.appendChild(row);
+  requestAnimationFrame(() => row.classList.add('show'));
+  return row;
+}
+
+function addBotVoice(speaker, icon, text, dur) {
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.innerHTML = `<div class="ico">${icon}</div>
+    <div class="bub bot">
+      <div class="tag">${speaker}</div>
+      <div class="voice"><div class="pbtn">▶</div><div class="wave">${waveBars(16)}</div><div class="dur">${dur}"</div></div>
+      <div style="font-size:12px;color:#888;margin-top:6px;">${text}</div>
+    </div>`;
+  thread.appendChild(row);
+  requestAnimationFrame(() => row.classList.add('show'));
+  return row;
+}
+
+window.runScenario = function () {
+  for (const ev of window.SCENARIO) {
+    setTimeout(() => {
+      if (ev.t === 'mic-on') {
+        mic.classList.add('rec');
+        micLabel.textContent = '聞いています…';
+      } else if (ev.t === 'user') {
+        mic.classList.remove('rec');
+        micLabel.textContent = '押して話す';
+        addUserVoice(ev.text, ev.dur);
+      } else if (ev.t === 'step') {
+        document.getElementById('s' + ev.step).classList.add('active');
+      } else if (ev.t === 'bot') {
+        window._botRow = addBotVoice(ev.speaker, ev.icon, ev.text, ev.dur);
+      } else if (ev.t === 'play') {
+        const v = window._botRow && window._botRow.querySelector('.voice');
+        if (v) { v.classList.add('playing'); v.querySelector('.pbtn').textContent = '❚❚'; }
+      }
+    }, ev.at);
+  }
+};
+</script>
+</body>
+</html>

@@ -80,6 +80,23 @@
   .chat-msg.user { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
   .chat-msg.bot { align-self: flex-start; background: var(--panel-soft); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
   .fv-demo-note { text-align: center; font-size: 11.5px; color: var(--muted); margin: 0 0 20px; }
+  /* 音声デモ: 声のやりとりを文字に起こしたカード。音を出さない訪問者にも
+     「声で返ってくる」ことが視覚だけで伝わるようにするためのもの（_docs/VOICE-SECTION-DESIGN.md）。 */
+  .voice-demo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 0 auto 10px; }
+  @media (max-width: 640px) { .voice-demo-grid { grid-template-columns: 1fr; max-width: 480px; } }
+  .voice-chip {
+    display: inline-block; font-size: 10.5px; font-weight: 700; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line); border-radius: 999px;
+    padding: 1px 8px; letter-spacing: 0.02em;
+  }
+  .chat-msg .voice-chip { display: block; width: fit-content; margin-bottom: 5px; }
+  /* 「アバター+名前」と「声で返信・0:06」チップは縦に積む。横1行に並べると
+     3列時のカード幅(約249px)に収まらず2行に折り返して不揃いになる（実測: 1行維持には250px必要）。 */
+  .voice-reply-head {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 3px;
+    font-size: 11px; font-weight: 700; color: var(--accent-strong);
+  }
+  .voice-avatar { width: 24px; height: 24px; border-radius: 50%; object-fit: cover; background: var(--panel-soft); }
 
   /* シーンカード */
   .scene-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
@@ -265,6 +282,78 @@
   </div>
 </section>
 
+<section class="soft">
+  <div class="wrap">
+    <span class="eyebrow">こんなこともできます</span>
+    <h2>音声メッセージにも、声で返せます</h2>
+    <p class="section-lead">友だちが送った音声メッセージを聞き取って、キャラクターの声でお返しします。下の会話例は、その声のやりとりを文字に起こしたものです。</p>
+    <p class="fv-demo-note">このページを開いただけでは、音は鳴りません。音が出るのは、下の動画の ▶ を押したときだけです。</p>
+
+    <div class="voice-demo-grid">
+      <div class="chat-demo">
+        <div class="chat-msg user">
+          <span class="voice-chip">音声メッセージ・0:05</span>
+          あ、えっと……明日の午後って、空いてますか？
+        </div>
+        <div class="chat-msg bot">
+          <span class="voice-reply-head">
+            <img class="voice-avatar" src="/assets/characters/link.png" alt="りんく">
+            りんく
+          </span>
+          <span class="voice-chip">声で返信・0:06</span>
+          明日の午後なら、14時に空きがあるの。
+        </div>
+      </div>
+      <div class="chat-demo">
+        <div class="chat-msg user">
+          <span class="voice-chip">音声メッセージ・0:04</span>
+          車で行きたいんですけど、駐車場ってありますか？
+        </div>
+        <div class="chat-msg bot">
+          <span class="voice-reply-head">
+            <img class="voice-avatar" src="/assets/characters/konta.png" alt="こん太">
+            こん太
+          </span>
+          <span class="voice-chip">声で返信・0:05</span>
+          店の裏に2台あるんだ、先着だから早めがいいんじゃない？
+        </div>
+      </div>
+      <div class="chat-demo">
+        <div class="chat-msg user">
+          <span class="voice-chip">音声メッセージ・0:06</span>
+          はぁ……今日、ちょっと疲れちゃった……
+        </div>
+        <div class="chat-msg bot">
+          <span class="voice-reply-head">
+            <img class="voice-avatar" src="/assets/characters/tanunee.png" alt="たぬ姉">
+            たぬ姉
+          </span>
+          <span class="voice-chip">声で返信・0:07</span>
+          おつかれさま、今夜はあったかくして早めにやすむのよ。
+        </div>
+      </div>
+    </div>
+    <p class="fv-demo-note">※会話例はサービスを説明するための創作イメージです。キャラクターと場面の組み合わせも一例です。<br>各キャラクターの声には音声合成を使っています。VOICEVOX：冥鳴ひまり（たぬ姉） / 春日部つむぎ（りんく） / 白上虎太郎（こん太）</p>
+
+    <p class="fv-demo-note">実際に動かした様子です（約20秒）。動画の中で返信しているのは、こん太の声です。</p>
+    <video class="demo-video" src="/kimitotalk/assets/videos/voice-demo.mp4"
+           poster="/kimitotalk/assets/videos/voice-demo-poster.jpg"
+           controls playsinline preload="metadata"></video>
+    <p class="fv-demo-note">動画内の音声合成：VOICEVOX：白上虎太郎</p>
+
+    <div class="foundation-box">
+      <p>LINEで音声メッセージを送ると、内容を聞き取って、その場にふさわしい返事をキャラクターの声で送り返す仕組みです。文字を打つのが手間なとき、声でのやりとりの方が自然なシーンなど、テキスト対応と組み合わせて使えます。</p>
+      <ul>
+        <li>受け取った音声の内容を聞き取り、テキストとして理解する</li>
+        <li>内容に応じた返答を、キャラクターの口調で組み立てる</li>
+        <li>音声合成でキャラクターの声に変換し、LINEの音声メッセージとして返信する</li>
+      </ul>
+      <p style="margin:12px 0 0">うまく声が作れなかったときは、黙り込まず、同じ内容をそのまま文章でお返しします。「返事が来ない」を作らないことを、声を出すことより優先した設計です。</p>
+    </div>
+    <p class="hero-note">導入をご検討の際は、内容に応じて個別にご相談ください。</p>
+  </div>
+</section>
+
 <section>
   <div class="wrap">
     <span class="eyebrow">サービス名</span>
@@ -313,11 +402,13 @@
     <span class="eyebrow">お問い合わせ</span>
     <h2>まずはご相談ください</h2>
     <p class="section-lead">どのシーンに近いか分からなくても大丈夫です。今困っていることをお聞かせください。</p>
-    <!-- TODO(公開前必須): LINE公式アカウント発行後、友だち追加URL(lin.ee/xxxxx)に差し替える。 -->
+    <!-- 接続先: Kimito-Link Project (@kimitolink)。ref= でどのLPから来たかを追う
+         （entry_routes の ref_code と対。_docs/WEB-HEALTH-CHECK-WIRING.md 参照）。
+         リンク切れは scripts/check-lp-links.mjs が検出する。 -->
     <div class="hero-ctas">
-      <a class="btn-primary" href="#" aria-disabled="true">LINEで相談する →</a>
+      <a class="btn-primary" href="https://line.me/R/ti/p/@kimitolink?ref=kimitotalk">LINEで相談する →</a>
     </div>
-    <p class="hero-note">専用のLINE公式アカウントを準備中です。もうしばらくお待ちください。</p>
+    <p class="hero-note">LINEのトークでご相談ください。営業時間外のご相談も受け付けています。</p>
   </div>
 </section>
 
@@ -325,6 +416,7 @@
   <div class="wrap">
     <p>Kimito Talk — LINE公式アカウント運用基盤</p>
     <p><a href="/gpt-hikkoshi">GPTのお引越しでお困りの方はこちら →</a></p>
+    <p><a href="/privacy">プライバシーポリシー</a></p>
   </div>
 </footer>
 

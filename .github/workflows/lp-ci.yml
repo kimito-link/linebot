@@ -1,0 +1,45 @@
+# LP のリンク切れ検査。
+#
+# 【なぜ作ったか】
+# 2026-08-30、両LPの「LINEで相談する」ボタンが href="#" のまま公開されていたことに
+# 誰も気づかないまま時間が過ぎていた。**押しても何も起きない**状態が実害として
+# 存在したのに、それを検出する仕組みが無かった。
+# URLをHTMLに直書きする以上、切れたことに気づく手段を同時に持つ必要がある。
+#
+# 【--offline にしている理由】
+# CIでは外部（LINE）へ通信しない。LINE側の一時的な障害やレート制限で
+# CIが赤くなると、**赤いのが常態化して誰も見なくなる**。
+# 実際の疎通は手元で `node scripts/check-lp-links.mjs`（--offlineなし）を叩く。
+
+name: LP CI
+
+on:
+  pull_request:
+    paths:
+      - 'apps/lp/**'
+      - 'scripts/check-lp-links.mjs'
+      - '.github/workflows/lp-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/lp/**'
+      - 'scripts/check-lp-links.mjs'
+      - '.github/workflows/lp-ci.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lp-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # 依存ゼロの素のNodeスクリプト。pnpm install は要らない。
+      - name: リンク切れ検査
+        run: node scripts/check-lp-links.mjs --offline

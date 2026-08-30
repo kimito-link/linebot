@@ -59,6 +59,7 @@ import { conversations } from './routes/conversations.js';
 import { stripe } from './routes/stripe.js';
 import { githubWebhook } from './routes/github-webhook.js';
 import { health } from './routes/health.js';
+import { adminConnections } from './routes/admin-connections.js';
 import { automations } from './routes/automations.js';
 import { richMenus } from './routes/rich-menus.js';
 import { trackedLinks } from './routes/tracked-links.js';
@@ -135,6 +136,18 @@ export type Env = {
     // employee" task-queue entry point (see ai-shain.link/docs/
     // ARCHITECTURE-personal-ai-employee-first.md).
     GITHUB_TOKEN?: string;
+    // 音声返信（services/voice-reply.ts）。音声メッセージを受け取ったとき、
+    // 返答をキャラクターの声で返すための合成サーバー。
+    // LINEの音声メッセージは m4a(AAC) しか受理せず、Workers上ではAACエンコードが
+    // できない（ffmpeg.wasmはバンドル上限超過・実行時WASM取得も不可）ため、
+    // 合成とm4a化はWorkerの外に置く。契約は POST {text, speakerId} → audio/mp4 +
+    // X-Duration-Ms ヘッダの1本だけなので、VOICEVOXでも別のTTSでも差し替えられる。
+    // **未設定なら音声機能は静かにオフ**になり、従来どおりテキストで返る。
+    VOICE_SYNTH_ENDPOINT?: string;
+    VOICE_SYNTH_TOKEN?: string;
+    VOICE_SYNTH_TIMEOUT_MS?: string;
+    // 'tanunee' | 'link' | 'konta'。未設定・未知の値ならたぬ姉。
+    VOICE_CHARACTER?: string;
     // 承認カードの往路（routes/github-webhook.ts）で x-hub-signature-256 を検証する
     // ためのシークレット。GitHub側のwebhook設定と同じ値を `wrangler secret put
     // GITHUB_WEBHOOK_SECRET` で入れる。**未設定なら503で閉じる**(fail-closed)。
@@ -216,6 +229,7 @@ app.route('/', conversations);
 app.route('/', stripe);
 app.route('/', githubWebhook);
 app.route('/', health);
+app.route('/', adminConnections);
 app.route('/', automations);
 app.route('/', richMenus);
 app.route('/', trackedLinks);

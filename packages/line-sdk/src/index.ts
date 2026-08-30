@@ -5,6 +5,7 @@ export {
   imageMessage,
   flexMessage,
   videoMessage,
+  audioMessage,
   buttonsTemplate,
   confirmTemplate,
   carouselTemplate,
@@ -22,6 +23,7 @@ export {
 } from './messages.js';
 export type {
   AudioEventMessage,
+  AudioMessage,
   BroadcastRequest,
   EventMessage,
   FileEventMessage,

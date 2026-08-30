@@ -90,6 +90,38 @@ vi.mock('../services/bot-project.js', () => ({
   resolveBotProject: vi.fn().mockResolvedValue('ai-shain-link'),
 }));
 
+const fetchAndStoreIncomingMediaMock = vi.fn();
+// fetchIncomingMediaPreview も出しておく（動画のpHash判定が呼ぶ）。
+// 出し忘れると「No export is defined」で実際とは違う経路に落ち、
+// テストは通るのに実装を検証できていない状態になる。
+const fetchIncomingMediaPreviewMock = vi.fn().mockResolvedValue(null);
+vi.mock('../services/incoming-media.js', () => ({
+  fetchAndStoreIncomingMedia: (...args: unknown[]) => fetchAndStoreIncomingMediaMock(...args),
+  fetchIncomingMediaPreview: (...args: unknown[]) => fetchIncomingMediaPreviewMock(...args),
+}));
+
+const describeAudioMock = vi.fn();
+const describeVideoMock = vi.fn();
+vi.mock('../services/media-describe.js', () => ({
+  describeAudio: (...args: unknown[]) => describeAudioMock(...args),
+  describeVideo: (...args: unknown[]) => describeVideoMock(...args),
+}));
+
+// 音声合成そのものはvoice-reply.test.tsが担当するので、ここでは
+// 「webhookが音声分岐に入り、合成役を渡しているか」だけを見る。
+const createSynthesizerMock = vi.fn();
+const replyWithVoiceMock = vi.fn();
+vi.mock('../services/voice-reply.js', async () => {
+  const actual = await vi.importActual<typeof import('../services/voice-reply.js')>(
+    '../services/voice-reply.js',
+  );
+  return {
+    ...actual,
+    createSynthesizer: (...args: unknown[]) => createSynthesizerMock(...args),
+    replyWithVoice: (...args: unknown[]) => replyWithVoiceMock(...args),
+  };
+});
+
 import { verifySignature } from '@line-crm/line-sdk';
 import {
   addTagToFriend,
@@ -648,5 +680,252 @@ describe('POST /webhook — image message vision pipeline', () => {
     const parsed = JSON.parse(contentArg);
     expect(parsed.bytes).toBeUndefined();
     expect(parsed.originalContentUrl).toBe('https://worker.example.workers.dev/images/incoming-x.jpg');
+  });
+});
+
+describe('POST /webhook — 音声メッセージへの音声返信', () => {
+  function makeDb() {
+    const stmt = {
+      bind: vi.fn(),
+      run: vi.fn().mockResolvedValue({}),
+      all: vi.fn().mockResolvedValue({ results: [] }),
+      first: vi.fn().mockResolvedValue(null),
+    };
+    stmt.bind.mockReturnValue(stmt);
+    return { prepare: vi.fn().mockReturnValue(stmt) } as unknown as D1Database;
+  }
+
+  const FRIEND = {
+    id: 'friend-1',
+    line_user_id: 'U-existing',
+    display_name: 'Existing Friend',
+    picture_url: null,
+    status_message: null,
+    is_following: 1,
+    user_id: null,
+    line_account_id: null,
+    metadata: '{}',
+    first_tracked_link_id: null,
+    ai_reply_mode: 'bot',
+    ref_code: null,
+    created_at: '2026-07-17T00:00:00.000+09:00',
+    updated_at: '2026-07-17T00:00:00.000+09:00',
+  };
+
+  const AUDIO_CONFIG = {
+    enabled: true,
+    model: 'gemini-3.1-flash-lite',
+    timeoutMs: 20000,
+    maxDescriptionTokens: 250,
+    maxInputBytes: 15 * 1024 * 1024,
+  };
+
+  function mediaWebhookBody(type: 'audio' | 'video') {
+    return JSON.stringify({
+      destination: 'bot',
+      events: [
+        {
+          type: 'message',
+          replyToken: 'reply-token',
+          message: { type, id: `msg-${type}-1` },
+          timestamp: Date.now(),
+          source: { type: 'user', userId: 'U-existing' },
+          webhookEventId: 'event-1',
+          deliveryContext: { isRedelivery: false },
+          mode: 'active',
+        },
+      ],
+    });
+  }
+
+  async function sendMediaWebhook(type: 'audio' | 'video', env: Record<string, unknown> = {}) {
+    vi.mocked(verifySignature).mockResolvedValue(true);
+    vi.mocked(getFriendByLineUserId).mockResolvedValue(FRIEND as never);
+    vi.mocked(jstNow).mockReturnValue('2026-07-17T12:00:00.000+09:00');
+    vi.mocked(upsertChatOnMessage).mockResolvedValue({} as never);
+
+    botConfigMock.mockReturnValue({
+      ...DEFAULT_BOT_CONFIG,
+      llm: { ...DEFAULT_BOT_CONFIG.llm, audio: AUDIO_CONFIG, video: AUDIO_CONFIG },
+    });
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(false);
+    fetchAndStoreIncomingMediaMock.mockResolvedValue({
+      refs: {
+        originalContentUrl: 'https://worker.example.workers.dev/images/incoming-x.m4a',
+        bytes: new ArrayBuffer(1024),
+        contentType: type === 'audio' ? 'audio/m4a' : 'video/mp4',
+      },
+      failureReason: null,
+    });
+    describeAudioMock.mockResolvedValue('落ち込んでいる相談');
+    describeVideoMock.mockResolvedValue({ text: '動画の内容', rateLimited: false });
+    runGroqSupportPipelineMock.mockResolvedValue({ kind: 'reply', text: 'それ、気にしすぎよ。' });
+
+    const executionCtx = {
+      waitUntil: vi.fn(),
+      passThroughOnException: vi.fn(),
+      props: {},
+    } as unknown as ExecutionContext;
+
+    const app = setupApp();
+    const res = await app.request(
+      '/webhook',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Line-Signature': 'A'.repeat(43) + '=',
+        },
+        body: mediaWebhookBody(type),
+      },
+      {
+        ...baseEnv,
+        DB: makeDb(),
+        GROQ_API_KEY: 'gsk-test',
+        GEMINI_API_KEY: 'gemini-test',
+        WORKER_URL: 'https://worker.example.workers.dev',
+        IMAGES: {} as R2Bucket,
+        ...env,
+      },
+      executionCtx,
+    );
+
+    const processing = vi.mocked(executionCtx.waitUntil).mock.calls[0]?.[0] as Promise<unknown>;
+    await processing;
+    return res;
+  }
+
+  test('音声メッセージは replyWithVoice を通る（声で話しかけられたら声で返す）', async () => {
+    await sendMediaWebhook('audio', {
+      VOICE_SYNTH_ENDPOINT: 'https://synth.example/tts',
+      VOICE_SYNTH_TOKEN: 'secret',
+    });
+
+    expect(replyWithVoiceMock).toHaveBeenCalledTimes(1);
+    const params = replyWithVoiceMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(params.text).toBe('それ、気にしすぎよ。');
+    expect(params.lineUserId).toBe('U-existing');
+  });
+
+  test('VOICE_CHARACTER で誰の声かを切り替えられる', async () => {
+    await sendMediaWebhook('audio', {
+      VOICE_SYNTH_ENDPOINT: 'https://synth.example/tts',
+      VOICE_SYNTH_TOKEN: 'secret',
+      VOICE_CHARACTER: 'konta',
+    });
+
+    const params = replyWithVoiceMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(params.character).toBe('konta');
+  });
+
+  test('VOICE_CHARACTER 未設定なら既定のたぬ姉になる', async () => {
+    await sendMediaWebhook('audio', {
+      VOICE_SYNTH_ENDPOINT: 'https://synth.example/tts',
+      VOICE_SYNTH_TOKEN: 'secret',
+    });
+
+    const params = replyWithVoiceMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(params.character).toBe('tanunee');
+  });
+
+  test('未知の VOICE_CHARACTER でも落ちずに既定へ倒す', async () => {
+    await sendMediaWebhook('audio', {
+      VOICE_SYNTH_ENDPOINT: 'https://synth.example/tts',
+      VOICE_SYNTH_TOKEN: 'secret',
+      VOICE_CHARACTER: 'nonexistent-character',
+    });
+
+    const params = replyWithVoiceMock.mock.calls[0][0] as Record<string, unknown>;
+    expect(params.character).toBe('tanunee');
+  });
+
+  test('音声機能が未設定でも音声分岐は通る（replyWithVoiceの中でテキストに落ちる）', async () => {
+    await sendMediaWebhook('audio');
+
+    // 未設定なら createSynthesizer が null を返し、replyWithVoice がテキストで返す。
+    // webhook側で分岐を止めてしまうと「設定した瞬間に別経路になる」ので、
+    // 常に同じ道を通ることを固定しておく。
+    expect(replyWithVoiceMock).toHaveBeenCalledTimes(1);
+    expect(createSynthesizerMock).toHaveBeenCalled();
+  });
+
+  test('動画メッセージは音声で返さない（テキストのまま）', async () => {
+    await sendMediaWebhook('video', {
+      VOICE_SYNTH_ENDPOINT: 'https://synth.example/tts',
+      VOICE_SYNTH_TOKEN: 'secret',
+    });
+
+    expect(replyWithVoiceMock).not.toHaveBeenCalled();
+    expect(lineClientMocks.replyMessage).toHaveBeenCalled();
+  });
+});
+
+describe('POST /webhook — 出力ガード（危険な断定を送らない）', () => {
+  function makeDb() {
+    const stmt = {
+      bind: vi.fn(), run: vi.fn().mockResolvedValue({}),
+      all: vi.fn().mockResolvedValue({ results: [] }),
+      first: vi.fn().mockResolvedValue(null),
+    };
+    stmt.bind.mockReturnValue(stmt);
+    return { prepare: vi.fn().mockReturnValue(stmt) } as unknown as D1Database;
+  }
+
+  const FRIEND = {
+    id: 'friend-1', line_user_id: 'U-existing', display_name: 'F',
+    picture_url: null, status_message: null, is_following: 1, user_id: null,
+    line_account_id: null, metadata: '{}', first_tracked_link_id: null,
+    ai_reply_mode: 'bot', ref_code: null,
+    created_at: '2026-07-17T00:00:00.000+09:00', updated_at: '2026-07-17T00:00:00.000+09:00',
+  };
+
+  async function sendTextWebhook(llmReply: string) {
+    vi.mocked(verifySignature).mockResolvedValue(true);
+    vi.mocked(getFriendByLineUserId).mockResolvedValue(FRIEND as never);
+    vi.mocked(jstNow).mockReturnValue('2026-07-17T12:00:00.000+09:00');
+    vi.mocked(upsertChatOnMessage).mockResolvedValue({} as never);
+    getGroqReplyConfigMock.mockResolvedValue({ enabled: true });
+    isGroqBudgetExceededMock.mockResolvedValue(false);
+    runGroqSupportPipelineMock.mockResolvedValue({ kind: 'reply', text: llmReply });
+
+    const executionCtx = {
+      waitUntil: vi.fn(), passThroughOnException: vi.fn(), props: {},
+    } as unknown as ExecutionContext;
+
+    await setupApp().request(
+      '/webhook',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Line-Signature': 'A'.repeat(43) + '=' },
+        body: JSON.stringify({
+          destination: 'bot',
+          events: [{
+            type: 'message', replyToken: 'reply-token',
+            message: { type: 'text', id: 'm1', text: '頭痛が治りますか' },
+            timestamp: Date.now(), source: { type: 'user', userId: 'U-existing' },
+            webhookEventId: 'e1', deliveryContext: { isRedelivery: false }, mode: 'active',
+          }],
+        }),
+      },
+      { ...baseEnv, DB: makeDb(), GROQ_API_KEY: 'gsk-test', WORKER_URL: 'https://w.example' },
+      executionCtx,
+    );
+    const p = vi.mocked(executionCtx.waitUntil).mock.calls[0]?.[0] as Promise<unknown>;
+    await p;
+  }
+
+  test('★LLMが危険な断定を返しても、そのまま送らない', async () => {
+    await sendTextWebhook('その頭痛はこの方法で治りますよ。');
+    const sent = lineClientMocks.replyMessage.mock.calls[0]?.[1] as Array<{ text: string }>;
+    expect(sent[0].text).not.toContain('治ります');
+    expect(sent[0].text).toContain('お医者さん');
+  });
+
+  test('安全な返答はそのまま送る（誤検知しない）', async () => {
+    const safe = '気になるなら、お医者さんに相談してみてね。';
+    await sendTextWebhook(safe);
+    const sent = lineClientMocks.replyMessage.mock.calls[0]?.[1] as Array<{ text: string }>;
+    expect(sent[0].text).toBe(safe);
   });
 });
