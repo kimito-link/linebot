@@ -39,6 +39,24 @@ enabled = true
 [ai]
 binding = "AI"
 
+# 本番Worker(kimitolink-line)に残っていた Durable Object を削除する。
+#
+# 【経緯】2026-08-30、mainへのデプロイが次のエラーで失敗した:
+#   New version of script does not export class 'TenantScheduler'
+#   which is depended on by existing Durable Objects [code: 10064]
+#
+# 原因は、上流OSSの作業コピー(web-ios-android/kimitolink-line)から一度デプロイされ、
+# TenantScheduler が本番に焼き付いたこと。このリポジトリは DO を使っておらず、
+# 定期実行は下の [triggers] crons で動いている（services/ban-monitor.ts 等）。
+# したがって削除しても実害は無い。
+#
+# 上流コピーからのデプロイは GitHub Variables で止めてある
+# （kimito-link/line-harness-oss の LINE_HARNESS_CLOUDFLARE_DEPLOY = false）。
+# 詳細: ai-hub/kb/line-harness-two-repos-one-worker.md
+[[migrations]]
+tag = "v2"
+deleted_classes = ["TenantScheduler"]
+
 [triggers]
 crons = ["* * * * *", "0 */6 * * *"]
 
