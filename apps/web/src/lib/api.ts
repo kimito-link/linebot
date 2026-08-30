@@ -34,6 +34,70 @@ import type {
   PoolAccount,
 } from '@line-crm/shared'
 
+/**
+ * 接続の状態。「測れなかった」を「正常」と混ぜないための4値。
+ * 正本は apps/worker/src/services/connection-registry.ts。
+ */
+export type ConnectionStatus = 'ok' | 'ng' | 'unverified' | 'unconfigured'
+
+/** 未設定・切断時に何が起きるか。放置してよいかの判断材料。 */
+export type DegradeMode =
+  | 'silent-skip'   // 黙って動き続ける（気づけない。要注意）
+  | 'fallback'      // 別の手段に切り替わる
+  | 'feature-off'   // その機能が止まる
+  | 'fail-closed'   // 閉じる（安全側）
+  | 'required'      // これが無いと成り立たない
+
+export type ConnectionState = {
+  id: string
+  label: string
+  group: 'line' | 'llm' | 'storage' | 'integration' | 'ops'
+  envKeys: string[]
+  degrade: DegradeMode
+  whenMissing: string
+  source: string
+  configured: boolean
+  /** 欠けているキー名。**値は含まれない** */
+  missingKeys: string[]
+  status: ConnectionStatus
+  /** 実測できた接続のみ付く（現状はLINEだけ） */
+  probe?: {
+    checkedAt: string | null
+    danger: number
+    warning: number
+    accounts: number
+    source: string
+  }
+}
+
+export type ConnectionsResponse = {
+  connections: ConnectionState[]
+  /** 「黙ってスキップする」のに未設定＝最も気づきにくい欠落 */
+  silentlyMissing: Array<{
+    id: string
+    label: string
+    missingKeys: string[]
+    whenMissing: string
+  }>
+  /** 疎通記録の取得に失敗した理由（成功に見せかけないため） */
+  probeError: string | null
+  generatedAt: string
+}
+
+export type LlmUsageResponse = {
+  date: string
+  budget: number
+  totalCalls: number
+  accounts: Array<{
+    lineAccountId: string | null
+    calls: number
+    cacheHits: number
+    escalations: number
+    remaining: number
+    exceeded: boolean
+  }>
+}
+
 /** Affiliate offer (案件) as returned by the worker. */
 export type AffiliateOffer = {
   id: string
@@ -950,6 +1014,14 @@ export const api = {
       }),
     getMigration: (migrationId: string) =>
       fetchApi<ApiResponse<AccountMigration>>(`/api/accounts/migrations/${migrationId}`),
+  },
+  // 接続状態の可視化（services/connection-registry.ts が正本）。
+  // シークレットの値は返らない。設定の有無と「未設定なら何が起きるか」だけ。
+  connections: {
+    list: () =>
+      fetchApi<ApiResponse<ConnectionsResponse>>('/api/admin/connections'),
+    llmUsage: () =>
+      fetchApi<ApiResponse<LlmUsageResponse>>('/api/admin/llm-usage'),
   },
   staff: {
     list: () =>
