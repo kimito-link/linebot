@@ -56,6 +56,8 @@
   .vs-card.no { border-color: #E4CFCF; background: var(--dim-soft); }
   .vs-card .t { font-size: 13px; color: var(--muted); font-weight: 700; }
   .vs-card .m { font-size: 17px; font-weight: 700; margin-top: 4px; line-height: 1.6; }
+  .brand-head { display: flex; align-items: center; gap: 13px; }
+  .brand-logo { width: 54px; height: 54px; object-fit: contain; flex-shrink: 0; }
   .vs-card.no .m { color: var(--dim); }
   .vs-card.ok .m { color: var(--accent-strong); }
 
@@ -80,6 +82,13 @@
   .tag.live { background: var(--accent-soft); color: var(--accent-strong); }
   .tag.wip { background: var(--warn-soft); color: var(--warn); }
   .step a { color: var(--accent-strong); }
+  .try {
+    margin-top: 10px; padding: 12px 14px;
+    background: var(--accent-soft); border-radius: 12px;
+  }
+  .try a { font-weight: 700; font-size: 14.5px; text-decoration: none; }
+  .try a:hover { text-decoration: underline; }
+  .try span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
 
   /* ── スマホのトーク画面 ── */
   .demo-grid { display: grid; grid-template-columns: 1fr; gap: 28px; margin-top: 24px; align-items: start; }
@@ -227,12 +236,18 @@
       <div class="step">
         <div class="when">事前</div>
         <div>
-          <div class="what">「行く」と答えた人が見える</div>
+          <div class="what">「行く」と答えた人が、数になって見える</div>
           <div class="why">
-            どの地域に何人いるかが地図で埋まっていきます。開ける前に規模が読めます。<br>
-            <a href="https://doin-challenge.com/demo" target="_blank" rel="noopener">画面を触ってみる（登録不要）→</a>
+            いま何人が来ると答えているか。どの地域に多いか。開ける前に規模が読めます。
+            参加した記録も残るので、次に誰へ届ければいいかが分かります。
+            <div class="try">
+              <a href="https://doin-challenge.com/demo" target="_blank" rel="noopener">
+                実際の画面を触ってみる →
+              </a>
+              <span>登録もログインも要りません。1分ほどで一通り見られます。</span>
+            </div>
           </div>
-          <span class="tag wip">触れます・育てている途中です</span>
+          <span class="tag live">いま触れます</span>
         </div>
       </div>
 
@@ -447,7 +462,7 @@
         <tr><td>音声メッセージに声で返す</td><td class="ok">動きます</td></tr>
         <tr><td>配信の応援を記録に残す</td><td class="ok">公開中（ニコニコ生放送）</td></tr>
         <tr><td>当日「これから行く」でつながる</td><td class="ok">動きます</td></tr>
-        <tr><td>参加表明を集めて人数を見る</td><td>画面は触れます。育てている途中です</td></tr>
+        <tr><td>参加表明を集めて人数を見る</td><td class="ok">画面が触れます</td></tr>
         <tr><td>「あと何日」を出し続ける</td><td>作っている途中です</td></tr>
         <tr><td>YouTubeの配信にも対応</td><td>これからです</td></tr>
       </table>
@@ -477,9 +492,14 @@
 
     <div class="versus" style="margin-top:22px">
       <div class="vs-card">
-        <div class="t">リバースハック</div>
-        <div class="m" style="color:var(--fg)">守る</div>
-        <p class="note" style="margin-top:8px">
+        <div class="brand-head">
+          <img src="assets/logo-reversehack.png" alt="リバースハック" class="brand-logo">
+          <div>
+            <div class="t">リバースハック</div>
+            <div class="m" style="color:var(--fg)">守る</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:10px">
           お名前で検索したときに、望まない語が並ぶことがあります。
           サジェスト・検索結果・風評への対策です。歯科・美容・通販と、
           業種ごとに作り分けてきました。
@@ -489,9 +509,14 @@
         </p>
       </div>
       <div class="vs-card">
-        <div class="t">きみとりんく</div>
-        <div class="m" style="color:var(--fg)">育てる</div>
-        <p class="note" style="margin-top:8px">
+        <div class="brand-head">
+          <img src="assets/logo-kimitolink.png" alt="きみとりんく" class="brand-logo">
+          <div>
+            <div class="t">きみとりんく</div>
+            <div class="m" style="color:var(--fg)">育てる</div>
+          </div>
+        </div>
+        <p class="note" style="margin-top:10px">
           このページでご紹介しているものは、すべてこちらから伸びています。
           クリエイターが買い叩かれないように、という考えで作っています。
         </p>
@@ -500,6 +525,11 @@
         </p>
       </div>
     </div>
+
+    <p class="note" style="margin-top:18px">
+      「キミトリンク」「動員ちゃれんじ」「動員チャレンジ」は商標登録しています。
+      名前を勝手に使われないようにしておくのは、続けるつもりがあるからです。
+    </p>
 
     <p style="margin-top:20px">
       タレントさんにとっては、たぶん両方が要ります。
@@ -518,10 +548,18 @@
       できないことは、先にお伝えします。
     </p>
     <a class="cta" href="https://line.me/R/ti/p/@kimitolink?ref=talent">LINEで相談する →</a>
-    <p class="note" style="margin-top:22px">
+    <div class="foot-brands">
+      <a href="https://kimito-link.com/" target="_blank" rel="noopener">
+        <img src="assets/logo-kimitolink.png" alt="きみとりんく">
+        <span>きみとりんく</span>
+      </a>
+      <a href="https://soushin-suggest.link/" target="_blank" rel="noopener">
+        <img src="assets/logo-reversehack.png" alt="リバースハック">
+        <span>リバースハック</span>
+      </a>
+    </div>
+    <p class="note" style="margin-top:16px">
       株式会社ベストトラスト<br>
-      <a href="https://kimito-link.com/" target="_blank" rel="noopener">きみとりんく</a>（つくる・届ける） ／
-      <a href="https://soushin-suggest.link/" target="_blank" rel="noopener">リバースハック</a>（守る）<br>
       <a href="/privacy/">プライバシーポリシー</a>
     </p>
   </div>
