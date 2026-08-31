@@ -186,8 +186,87 @@ jobs:
             { echo ""; cat /tmp/excluded.md; } >> /tmp/body.md
             title="$title ※workflow変更は除外"
           fi
-          gh pr create --base main --head "${{ steps.branch.outputs.name }}" \
-            --title "$title" --body-file /tmp/body.md
+          # PR作成に失敗してもジョブは落とさない。
+          #
+          # リポジトリ設定 default_workflow_permissions が read のとき、
+          # gh pr create は次で失敗する（2026-08-31 実測）:
+          #   GraphQL: Resource not accessible by integration (createPullRequest)
+          #
+          # これを解くにはリポジトリ既定を write に上げることになるが、
+          # そうすると**このリポジトリの全workflowの既定権限が上がる**。
+          # 上流取り込みという補助的な機能のために、恒久的に権限を広げるのは
+          # 割に合わない（一度広げた権限は、たいてい誰も狭めない）。
+          #
+          # ブランチはpush済みなので成果は失われていない。人が手でPRを
+          # 作れる。だからここは「失敗」ではなく「人に引き渡す」で終える。
+          if gh pr create --base main --head "${{ steps.branch.outputs.name }}" \
+               --title "$title" --body-file /tmp/body.md; then
+            echo "PRを作成した。"
+          else
+            {
+              echo "### PRは自動作成できなかった"
+              echo ""
+              echo "ブランチは push 済み: \`${{ steps.branch.outputs.name }}\`"
+              echo ""
+              echo "リポジトリ設定 \`default_workflow_permissions\` が \`read\` のため、"
+              echo "ActionsからPRを作れない。**取り込み自体は成功している。**"
+              echo ""
+              echo "手でPRを作るなら:"
+              echo ""
+              echo '```bash'
+              echo "gh pr create --repo ${{ github.repository }} --base main \\"
+              echo "  --head ${{ steps.branch.outputs.name }} --title '$title' --web"
+              echo '```'
+              echo ""
+              echo "取り込む気がないなら、ブランチを消してよい:"
+              echo ""
+              echo '```bash'
+              echo "git push origin --delete ${{ steps.branch.outputs.name }}"
+              echo '```'
+              echo ""
+              echo "毎晩これが出るのが煩わしければ、このworkflowの \`schedule:\` を外して"
+              echo "\`workflow_dispatch\` だけにする（必要なときに手で回す）。"
+              echo ""
+              cat /tmp/body.md
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::warning::PRは作れなかったが、ブランチ ${{ steps.branch.outputs.name }} は push 済み。詳細はこの実行のSummaryを参照。"
+          fi
+
+      # 未処理のブランチが静かに溜まるのを防ぐ。
+      #
+      # PRが自動で作られない構成なので、放っておくと upstream/update-* が
+      # 毎晩1本ずつ増え、誰も見ないまま積み上がる（実際2026-07-27〜30の
+      # 4本が未処理のまま残っていた）。溜まっていることを毎回言う。
+      #
+      # ここでも赤くしない。溜まっているのは「壊れている」ではなく
+      # 「判断が保留されている」状態なので、warningで十分。
+      - name: Report pending upstream branches
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          branches=$(gh api "repos/${{ github.repository }}/branches" --paginate \
+            -q '.[] | select(.name | startswith("upstream/update-")) | .name' 2>/dev/null | sort || true)
+          count=$(echo "$branches" | grep -c . || true)
+          if [ "${count:-0}" -gt 0 ]; then
+            {
+              echo ""
+              echo "### 未処理の上流取り込みブランチ: ${count}本"
+              echo ""
+              echo '```'
+              echo "$branches"
+              echo '```'
+              echo ""
+              echo "見るつもりが無いものは消してよい:"
+              echo ""
+              echo '```bash'
+              echo "$branches" | sed 's|^|git push origin --delete |'
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            if [ "$count" -ge 5 ]; then
+              echo "::warning::上流取り込みブランチが ${count}本 溜まっている。処理するか消すか決めること。"
+            fi
+          fi
 
       - name: No upstream changes
         if: steps.detect.outputs.has_changes == 'false'
