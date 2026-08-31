@@ -1,4 +1,5 @@
 import { jstNow } from '@line-crm/db';
+import { readBodyForLog } from './safe-log.js';
 
 /**
  * auto_replies にマッチしなかった自由文メッセージへの、LLM（Claude API）による
@@ -139,7 +140,7 @@ export async function generateLlmReply(params: {
   }
 
   if (!response.ok) {
-    console.error('LLM reply: Anthropic API error', response.status, await response.text().catch(() => ''));
+    console.error('LLM reply: Anthropic API error', response.status, await readBodyForLog(response, [apiKey]));
     return { kind: 'error' };
   }
 

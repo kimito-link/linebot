@@ -27,6 +27,7 @@ import { attachTagAndFireSideEffects } from '../services/friend-tag-attach.js';
 import { pushImmediateFirstStep } from '../services/immediate-first-step.js';
 import { notifyAffiliateFriendAdd } from '../services/affiliate-notifier.js';
 import { safeRedirectTarget } from '../lib/safe-redirect.js';
+import { readBodyForLog } from '../services/safe-log.js';
 import type { Env } from '../index.js';
 
 const liffRoutes = new Hono<Env>();
@@ -649,7 +650,10 @@ liffRoutes.get('/auth/callback', async (c) => {
     });
 
     if (!tokenRes.ok) {
-      const errText = await tokenRes.text();
+      // 本文をそのまま出さない。OAuthのエラーは送ったパラメータを反射することが
+      // あり、client_secret が Workers Logs に平文で残りうる。
+      // 送った秘密を渡して、キー名に頼らず値そのものでも消す。
+      const errText = await readBodyForLog(tokenRes, [loginChannelSecret, code]);
       console.error('Token exchange failed:', errText);
       return c.html(errorPage('Token exchange failed'));
     }
