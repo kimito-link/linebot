@@ -29,6 +29,24 @@ import { notifyAffiliateFriendAdd } from '../services/affiliate-notifier.js';
 import { safeRedirectTarget } from '../lib/safe-redirect.js';
 import { readBodyForLog } from '../services/safe-log.js';
 import type { Env } from '../index.js';
+// OAuth state の base64 変換。
+//
+// btoa() は Latin-1 しか受け取らないので、日本語を含むクエリが1つでもあると
+// （例: utm_campaign=夏キャンペーン）InvalidCharacterError を投げ、
+// /auth/line のリクエスト全体が500になる。**導線ごと落ちる。**
+// UTF-8 バイト列に直してから符号化する。
+//
+// decodeState は素の btoa が作った既存 state（ASCII のみ）ともバイト互換なので、
+// 発行済みのリンクは壊れない。
+//
+// 上流 line-harness-oss の 6be3b7c と同じ実装。こちらにも同じバグがあった。
+function encodeState(state: string): string {
+  return btoa(String.fromCharCode(...new TextEncoder().encode(state)));
+}
+
+function decodeState(encoded: string): string {
+  return new TextDecoder().decode(Uint8Array.from(atob(encoded), (ch) => ch.charCodeAt(0)));
+}
 
 const liffRoutes = new Hono<Env>();
 
@@ -395,7 +413,7 @@ liffRoutes.get('/auth/line', async (c) => {
   // Without these, the form falls back to the gateId baked into the form's
   // onSubmitWebhookUrl (which is stale when a form is reused across campaigns).
   const state = JSON.stringify({ ref, redirect, form: formId, gate: gateParam, xh: xhParam2, gclid, fbclid, twclid, ttclid, utmSource, utmMedium, utmCampaign, account: accountParam || poolAccount, uid: uidParam, ig: igParam, iga: igaParam, igan: iganParam });
-  const encodedState = btoa(state);
+  const encodedState = encodeState(state);
   const loginUrl = new URL('https://access.line.me/oauth2/v2.1/authorize');
   loginUrl.searchParams.set('response_type', 'code');
   loginUrl.searchParams.set('client_id', channelId);
@@ -554,7 +572,7 @@ liffRoutes.get('/auth/oauth', async (c) => {
     account: accountParam || poolAccount, uid: uidParam, ig: igParam,
     iga: igaParam, igan: iganParam,
   });
-  const encodedState = btoa(state);
+  const encodedState = encodeState(state);
   const loginUrl = new URL('https://access.line.me/oauth2/v2.1/authorize');
   loginUrl.searchParams.set('response_type', 'code');
   loginUrl.searchParams.set('client_id', channelId);
@@ -595,7 +613,7 @@ liffRoutes.get('/auth/callback', async (c) => {
   let igaParam = '';
   let iganParam = '';
   try {
-    const parsed = JSON.parse(atob(stateParam));
+    const parsed = JSON.parse(decodeState(stateParam));
     ref = parsed.ref || '';
     redirect = parsed.redirect || '';
     formId = parsed.form || '';
