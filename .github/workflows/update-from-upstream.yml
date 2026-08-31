@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
   pull-requests: write
+# 注: `workflows` という permission キーは存在しない。GITHUB_TOKEN では
+# .github/workflows/ 配下を push できない仕様で、permissions ブロックでは
+# 回避できない（CIが自分でCIの定義を書き換えられると、任意コード実行を
+# 自分に許可できてしまうため意図的に禁じられている）。
+# 詳しくは下の「上流のworkflow変更は取り込まない」ステップのコメントを参照。
 
 jobs:
   update:
@@ -79,6 +84,45 @@ jobs:
             git commit -m "chore: merge upstream/main (衝突あり — 人の解決が要る)"
           fi
 
+      # 上流の .github/workflows/ 変更は取り込まない。
+      #
+      # GITHUB_TOKEN では workflow ファイルを push できない（2026-08-31 実測）:
+      #   refusing to allow a GitHub App to create or update workflow
+      #   `.github/workflows/deploy-cloudflare-admin.yml` without `workflows` permission
+      # これは permissions ブロックでは解決できない仕様。回避するには
+      # `workflow` scope 付きの PAT が要るが、そのために鍵を1本増やして
+      # 管理し続けるのは割に合わない。
+      #
+      # しかも「CIの定義が自動で書き換わらない」のは安全側の性質でもある。
+      # workflow は信頼されて実行されるので、中身を読まずに取り込むと
+      # 何が動くようになるか分からない。
+      #
+      # そこで workflow の変更だけ元に戻し、何が来ていたかをPRに書く。
+      # 必要なら人が手で移す。
+      - name: Exclude upstream workflow changes
+        if: steps.detect.outputs.has_changes == 'true'
+        id: exclude
+        run: |
+          changed=$(git diff --name-only HEAD~1 HEAD -- .github/workflows/ || true)
+          if [ -n "$changed" ]; then
+            echo "excluded=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "### 取り込まなかった上流のworkflow変更"
+              echo ""
+              echo "GITHUB_TOKENではworkflowファイルをpushできないため、以下は**元に戻してある**。"
+              echo "必要なら手で移すこと。"
+              echo ""
+              echo '```'
+              echo "$changed"
+              echo '```'
+            } > /tmp/excluded.md
+            # マージ前の状態に戻す。HEAD~1 はこちら側の直前のコミット。
+            git checkout HEAD~1 -- .github/workflows/
+            git commit -qm "chore: 上流のworkflow変更を除外（GITHUB_TOKENでは push できないため）"
+          else
+            echo "excluded=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Push update branch
         if: steps.detect.outputs.has_changes == 'true'
         run: |
@@ -89,6 +133,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           CONFLICTED: ${{ steps.merge.outputs.conflicted }}
+          EXCLUDED: ${{ steps.exclude.outputs.excluded }}
         run: |
           if [ "$CONFLICTED" = "true" ]; then
             title="chore: update from upstream (衝突あり)"
@@ -110,6 +155,11 @@ jobs:
               echo ""
               echo "マージすると既存のCloudflareデプロイworkflowが本番へ反映する。"
             } > /tmp/body.md
+          fi
+          # workflow変更を落としている場合は、それも本文に足す
+          if [ "$EXCLUDED" = "true" ]; then
+            { echo ""; cat /tmp/excluded.md; } >> /tmp/body.md
+            title="$title ※workflow変更は除外"
           fi
           gh pr create --base main --head "${{ steps.branch.outputs.name }}" \
             --title "$title" --body-file /tmp/body.md
