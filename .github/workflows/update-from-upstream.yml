@@ -33,14 +33,38 @@ jobs:
           git remote add upstream https://github.com/Shudesu/line-harness-oss.git
           git fetch upstream main
 
+      # 「取り込むべき上流の変更があるか」と
+      # 「そのためのブランチを既に作ってあるか」は別の問いなので両方見る。
+      #
+      # 上流がmainに入っているかだけで判定すると、PRをマージするまで
+      # 毎晩「未取り込みだ」と判断し、**中身がまったく同じブランチを
+      # 1本ずつ積み続ける**。実際そうなっていて13本溜まった（2026-08-31）。
+      # 差分ゼロのブランチが並んでも、判断材料は1本目以上には増えない。
       - name: Detect upstream changes
         id: detect
         run: |
           if git merge-base --is-ancestor upstream/main HEAD; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_changes=true" >> "$GITHUB_OUTPUT"
+            echo "reason=up-to-date" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
+
+          # 既存の取り込みブランチが、いま取り込もうとしている上流地点を
+          # 既にカバーしているなら、作り直す意味がない。
+          target=$(git rev-parse upstream/main)
+          for ref in $(git ls-remote --heads origin 'refs/heads/upstream/update-*' | cut -f2); do
+            branch="${ref#refs/heads/}"
+            git fetch -q origin "$ref:refs/remotes/pending/${branch#upstream/}" 2>/dev/null || continue
+            if git merge-base --is-ancestor "$target" "refs/remotes/pending/${branch#upstream/}" 2>/dev/null; then
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              echo "reason=already-prepared" >> "$GITHUB_OUTPUT"
+              echo "pending=$branch" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+          done
+
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          echo "reason=new-upstream" >> "$GITHUB_OUTPUT"
 
       - name: Create update branch
         if: steps.detect.outputs.has_changes == 'true'
@@ -268,6 +292,27 @@ jobs:
             fi
           fi
 
+      # 「作らなかった」理由を区別して出す。
+      # up-to-date と already-prepared を同じ文言にすると、
+      # 「取り込み待ちのブランチがある」ことが見えなくなる。
       - name: No upstream changes
         if: steps.detect.outputs.has_changes == 'false'
-        run: echo "Fork is already up to date with upstream/main."
+        env:
+          REASON: ${{ steps.detect.outputs.reason }}
+          PENDING: ${{ steps.detect.outputs.pending }}
+        run: |
+          if [ "$REASON" = "already-prepared" ]; then
+            {
+              echo "### 新しいブランチは作らなかった"
+              echo ""
+              echo "取り込むべき上流の変更はあるが、**それを含むブランチが既にある**:"
+              echo ""
+              echo "- \`$PENDING\`"
+              echo ""
+              echo "同じ内容のブランチを増やしても判断材料は増えないので作らない。"
+              echo "上のブランチを処理する（マージするか消すか）と、次の実行から再開する。"
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "取り込み待ちのブランチが既にある: $PENDING"
+          else
+            echo "Fork is already up to date with upstream/main."
+          fi
