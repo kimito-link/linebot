@@ -89,6 +89,14 @@
   .try a { font-weight: 700; font-size: 14.5px; text-decoration: none; }
   .try a:hover { text-decoration: underline; }
   .try span { display: block; font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  /* 動画＋リンクを横並びに（スマホでは縦） */
+  .demo-inline { display: grid; gap: 14px; margin-top: 12px; align-items: start; }
+  @media (min-width: 620px) { .demo-inline { grid-template-columns: 200px 1fr; gap: 18px; } }
+  .phone-video {
+    width: 100%; max-width: 200px; border-radius: 16px; display: block;
+    border: 4px solid #2c2c2c; box-shadow: 0 8px 22px rgba(0,0,0,.14);
+  }
+  .demo-inline .try { margin-top: 0; }
 
   /* ── スマホのトーク画面 ── */
   .demo-grid { display: grid; grid-template-columns: 1fr; gap: 28px; margin-top: 24px; align-items: start; }
@@ -240,11 +248,15 @@
           <div class="why">
             いま何人が来ると答えているか。どの地域に多いか。開ける前に規模が読めます。
             参加した記録も残るので、次に誰へ届ければいいかが分かります。
-            <div class="try">
-              <a href="https://doin-challenge.com/demo" target="_blank" rel="noopener">
-                実際の画面を触ってみる →
-              </a>
-              <span>登録もログインも要りません。1分ほどで一通り見られます。</span>
+            <div class="demo-inline">
+              <video class="phone-video" controls preload="none"
+                     poster="assets/doin-demo-poster.jpg" src="assets/doin-demo.mp4"></video>
+              <div class="try">
+                <a href="https://doin-challenge.com/demo" target="_blank" rel="noopener">
+                  実際に触ってみる →
+                </a>
+                <span>登録もログインも要りません。1分ほどで一通り見られます。</span>
+              </div>
             </div>
           </div>
           <span class="tag live">いま触れます</span>
