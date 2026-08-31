@@ -8,6 +8,7 @@
 import {
   getLineAccounts,
   createAccountHealthLog,
+  getAccountHealthLogs,
 } from '@line-crm/db';
 
 export async function checkAccountHealth(
@@ -74,6 +75,28 @@ async function checkSingleAccount(
     riskLevel = 'warning'; // レート制限
   } else if (totalSent > 5000) {
     riskLevel = 'warning'; // 大量送信の警告
+  }
+
+  // 直前の記録と同じ状態なら書かない。
+  //
+  // この関数は毎分の cron tick ごとに呼ばれる（index.ts の scheduled が
+  // cron分岐より前でこれを呼ぶ）ので、無条件に INSERT すると**異常が
+  // 1件も無いアカウントでも 1日1,440行**が積み上がる。しかも古い行を消す
+  // 仕組みが無いので、増える一方になる。
+  //
+  // ヘルスログは「チェックした記録」ではなく「状態が変わった履歴」。
+  // 同じ状態を連投すると、本当に見たい変化がその中に埋もれる。
+  //
+  // risk_level が同じでもエラーコードが変われば別の事象なので、両方を比べる。
+  // （上流 line-harness-oss も同じ判断。向こうは43テナント・24時間で
+  //   53,908行になった実測を報告している）
+  const [latest] = await getAccountHealthLogs(db, account.id, 1);
+  if (
+    latest &&
+    latest.risk_level === riskLevel &&
+    (latest.error_code ?? null) === (errorCode ?? null)
+  ) {
+    return;
   }
 
   await createAccountHealthLog(db, {
