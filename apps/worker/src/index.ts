@@ -354,6 +354,15 @@ app.get('/r/:ref', async (c) => {
     }
   }
 
+  // LIFF URL が無いと、この先の liffUrl.match() が undefined を触って
+  // 500（真っ白な Internal Server Error）になる。実際に本番で起きていた
+  // （2026-08-31 実測。LIFF_URL secret が未設定だった）。
+  // /auth/line 側と同じガード。片方だけ塞ぐともう片方で同じ500が出る。
+  if (!liffUrl) {
+    console.warn('[/r/:ref] LIFF_URL が未設定のため処理できない');
+    return c.text('LIFF の設定が未完了です。管理者にお問い合わせください。', 503);
+  }
+
   // Build LIFF URL with params (direct link for Universal Link)
   const liffIdMatch = liffUrl.match(/liff\.line\.me\/([0-9]+-[A-Za-z0-9]+)/);
   const liffParams = new URLSearchParams();

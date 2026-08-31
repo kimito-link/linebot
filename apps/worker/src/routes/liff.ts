@@ -380,6 +380,18 @@ liffRoutes.get('/auth/line', async (c) => {
   // It must NOT appear in LIFF URLs or QR codes that escape to external domains.
   const externalRef = ref.startsWith('xh:') ? '' : ref;
 
+  // LIFF URL が無いと、この先の liffUrl.match() が undefined を触って
+  // 500（真っ白な Internal Server Error）になる。実際に本番で起きていた
+  // （2026-08-31 実測。LIFF_URL secret が未設定だった）。
+  //
+  // connection-registry は line-login を degrade: 'feature-off' と宣言している。
+  // 宣言どおり「機能が無効」として振る舞い、**何が足りないかを言う**。
+  // 設定漏れが真っ白な500になると、原因に辿り着くまでが遠い。
+  if (!liffUrl) {
+    console.warn('[auth/line] LIFF_URL が未設定のため処理できない');
+    return c.html(errorPage('LIFF の設定が未完了です。管理者にお問い合わせください。'), 503);
+  }
+
   // Build LIFF URL with ref + ad params (for mobile → LINE app)
   // Extract LIFF ID from URL and pass as query param so the app can init correctly
   const liffIdMatch = liffUrl.match(/liff\.line\.me\/([0-9]+-[A-Za-z0-9]+)/);
