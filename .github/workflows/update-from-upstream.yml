@@ -45,10 +45,39 @@ jobs:
           git switch -c "$branch"
           echo "name=$branch" >> "$GITHUB_OUTPUT"
 
+      # 衝突しても止めない。
+      #
+      # このリポジトリは2026-07-19に上流から分岐して以来、双方が独自に
+      # 進んでいる(音声返信・出力ガード等はこちら固有)。衝突は例外ではなく
+      # 常態であり、`git merge` の失敗でジョブを落とすと **毎晩必ず赤くなり、
+      # PRも作られない**状態になる。実際2026-08-21〜30の10日間、
+      # 連続でfailureのまま何も届いていなかった。
+      #
+      # 赤が鳴り続けると本当の失敗が埋もれるので、衝突は「異常」ではなく
+      # 「人が解決すべき状態」として扱い、印を残したままPRにする。
       - name: Merge upstream/main
         if: steps.detect.outputs.has_changes == 'true'
+        id: merge
         run: |
-          git merge --no-edit upstream/main
+          if git merge --no-edit upstream/main; then
+            echo "conflicted=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "conflicted=true" >> "$GITHUB_OUTPUT"
+            # ファイル名は commit する前に採る。commit 後は unmerged 状態が
+            # 消えて --diff-filter=U が何も返さなくなるため。
+            git diff --name-only --diff-filter=U > /tmp/conflicted-files.txt
+            {
+              echo "### 衝突したファイル"
+              echo ""
+              echo '```'
+              cat /tmp/conflicted-files.txt
+              echo '```'
+            } > /tmp/conflicts.md
+            # 衝突マーカーを含んだまま記録する。ここで解決を試みない
+            # (機械が適当に片方を選ぶと、消えた変更に誰も気づけない)。
+            git add -A
+            git commit -m "chore: merge upstream/main (衝突あり — 人の解決が要る)"
+          fi
 
       - name: Push update branch
         if: steps.detect.outputs.has_changes == 'true'
@@ -59,12 +88,31 @@ jobs:
         if: steps.detect.outputs.has_changes == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          CONFLICTED: ${{ steps.merge.outputs.conflicted }}
         run: |
-          gh pr create \
-            --base main \
-            --head "${{ steps.branch.outputs.name }}" \
-            --title "chore: update from upstream" \
-            --body "This PR imports the latest Shudesu/line-harness-oss main into this fork.\n\nMerge this PR to receive upstream fixes and features, then let the existing Cloudflare deploy workflows update your environment."
+          if [ "$CONFLICTED" = "true" ]; then
+            title="chore: update from upstream (衝突あり)"
+            {
+              echo "上流 Shudesu/line-harness-oss の変更を取り込もうとしたが、**衝突した**。"
+              echo ""
+              echo "衝突マーカーを含んだままコミットしてある。**そのままマージしないこと。**"
+              echo "手元にこのブランチを取得して解決し、force pushしてからマージする。"
+              echo ""
+              echo "解決する気がないなら、このPRは閉じてよい（次の実行でまた作られる）。"
+              echo "取り込み自体をやめるなら、このworkflowのscheduleを外す。"
+              echo ""
+              cat /tmp/conflicts.md 2>/dev/null || true
+            } > /tmp/body.md
+          else
+            title="chore: update from upstream"
+            {
+              echo "上流 Shudesu/line-harness-oss の変更を取り込む。**衝突なし。**"
+              echo ""
+              echo "マージすると既存のCloudflareデプロイworkflowが本番へ反映する。"
+            } > /tmp/body.md
+          fi
+          gh pr create --base main --head "${{ steps.branch.outputs.name }}" \
+            --title "$title" --body-file /tmp/body.md
 
       - name: No upstream changes
         if: steps.detect.outputs.has_changes == 'false'
