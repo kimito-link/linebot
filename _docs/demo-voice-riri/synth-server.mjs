@@ -103,22 +103,36 @@ async function wavToM4a(wav) {
   }
 }
 
+const MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * リクエスト本文を読む。上限を超えたら読むのをやめて例外にする。
+ *
+ * 接続は切らずに、pause() で受け取りを止めるだけにしてある。
+ * 以前は req.destroy() で切っていたが、そうすると呼び出し側には
+ * レスポンスが一切届かず（curlで HTTP 000）、「大きすぎた」のか
+ * 「サーバーが落ちた」のかを区別できなかった。
+ * 呼び出し側で調査するときに、この違いが効く。
+ */
 function readBody(req) {
   return new Promise((resolve, reject) => {
     const chunks = [];
     let size = 0;
+    let done = false;
     req.on('data', (c) => {
+      if (done) return;
       size += c.length;
       // 認証前に大きなボディを読み込まされないように上限を設ける。
-      if (size > 64 * 1024) {
+      if (size > MAX_BODY_BYTES) {
+        done = true;
+        req.pause();
         reject(new Error('body too large'));
-        req.destroy();
         return;
       }
       chunks.push(c);
     });
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
+    req.on('end', () => { if (!done) resolve(Buffer.concat(chunks).toString('utf8')); });
+    req.on('error', (err) => { if (!done) reject(err); });
   });
 }
 
@@ -143,9 +157,40 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // JSONの解釈は合成のtryの外で行う。
+  // 中に入れると「壊れたJSONを送られた」(呼び出し側の誤り=400)と
+  // 「VOICEVOXが落ちた」(こちらの障害=500)が同じcatchに落ち、
+  // 障害調査のときにどちらが原因か切り分けられなくなる。
+  let raw;
   try {
-    const raw = await readBody(req);
-    const { text, speakerId } = JSON.parse(raw);
+    raw = await readBody(req);
+  } catch (err) {
+    // 本文が大きすぎる／途中で切れた。どちらも送信側の問題。
+    console.warn('[synth] bad request body:', err.message);
+    // 400を書いてすぐ閉じると、送信側がまだ送っている途中の場合に
+    // レスポンスが読まれないまま接続が切れることがある。
+    // 残りを読み捨ててから閉じると、400が確実に相手に届く。
+    req.resume();
+    res.writeHead(400, { Connection: 'close' }).end('invalid request body');
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    console.warn('[synth] malformed JSON');
+    res.writeHead(400).end('malformed JSON');
+    return;
+  }
+
+  if (parsed === null || typeof parsed !== 'object') {
+    res.writeHead(400).end('body must be a JSON object');
+    return;
+  }
+
+  try {
+    const { text, speakerId } = parsed;
 
     if (typeof text !== 'string' || !text.trim()) {
       res.writeHead(400).end('text is required');
