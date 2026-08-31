@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>タレント事務所のLINE公式アカウント — できることの実例</title>
-<meta name="description" content="タレント事務所がLINE公式アカウントで何ができるかを、実際に動く画面でご覧いただけます。お仕事の依頼窓口、ファンとの接点、物販の導線まで。">
+<title>イベントの動員を、開ける前に見えるようにする</title>
+<meta name="description" content="ライブ・舞台・撮影会。何人来るかは開けてみなければ分からない、と言われます。告知が確実に届き、参加表明が集まり、当日まで忘れられない。その一本の流れをご紹介します。">
 <meta name="robots" content="noindex">
 <style>
   :root {
@@ -19,23 +19,24 @@
     --accent-soft: #EAF2EE;
     --warn: #A9863A;
     --warn-soft: #F6EFDF;
-    --radius: 18px;
+    --dim: #9A5B5B;
+    --dim-soft: #FCF6F5;
     color-scheme: light;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
     font-family: 'Hiragino Sans', 'Helvetica Neue', system-ui, sans-serif;
     background: var(--bg); color: var(--fg);
-    line-height: 1.8; font-size: 16px;
+    line-height: 1.85; font-size: 16px;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 900px; margin: 0 auto; padding: 0 20px; }
-  section { padding: 56px 0; }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 0 20px; }
+  section { padding: 54px 0; }
   section + section { border-top: 1px solid var(--line); }
 
-  h1 { font-size: 27px; line-height: 1.5; letter-spacing: .01em; }
-  h2 { font-size: 21px; line-height: 1.5; margin-bottom: 18px; }
-  h3 { font-size: 16px; margin-bottom: 8px; }
+  h1 { font-size: 26px; line-height: 1.55; letter-spacing: .01em; }
+  h2 { font-size: 20px; line-height: 1.55; margin-bottom: 16px; }
+  h3 { font-size: 15px; margin-bottom: 6px; }
   p + p { margin-top: 14px; }
   .lead { color: var(--muted); font-size: 15px; }
   .chip {
@@ -43,111 +44,101 @@
     background: var(--accent-soft); color: var(--accent-strong);
     padding: 5px 13px; border-radius: 999px; margin-bottom: 14px;
   }
-
-  /* ── 現状の図（何が途切れているか） ── */
-  .flow { display: grid; gap: 12px; margin-top: 22px; }
-  .flow-row {
-    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 15px 18px;
+  .quote {
+    border-left: 3px solid var(--accent); padding: 4px 0 4px 16px;
+    font-size: 18px; font-weight: 700; line-height: 1.7; margin: 18px 0;
   }
-  .flow-row .who { font-weight: 700; font-size: 14px; min-width: 108px; }
-  .flow-row .arrow { color: var(--muted); font-size: 13px; }
-  .flow-row .dest { font-size: 14px; color: var(--muted); }
-  .flow-row.stop { border-color: #E4CFCF; background: #FCF6F5; }
-  .flow-row.stop .dest { color: #9A5B5B; font-weight: 700; }
+
+  /* ── 対比（流れる / 見る） ── */
+  .versus { display: grid; gap: 12px; margin-top: 20px; }
+  @media (min-width: 700px) { .versus { grid-template-columns: 1fr 1fr; } }
+  .vs-card { border-radius: 14px; padding: 18px 20px; border: 1px solid var(--line); background: var(--panel); }
+  .vs-card.no { border-color: #E4CFCF; background: var(--dim-soft); }
+  .vs-card .t { font-size: 13px; color: var(--muted); font-weight: 700; }
+  .vs-card .m { font-size: 17px; font-weight: 700; margin-top: 4px; line-height: 1.6; }
+  .vs-card.no .m { color: var(--dim); }
+  .vs-card.ok .m { color: var(--accent-strong); }
+
+  /* ── 時間軸（このページの主役） ── */
+  .flow { margin-top: 26px; }
+  .step {
+    display: grid; grid-template-columns: 92px 1fr; gap: 16px;
+    padding: 18px 0; border-bottom: 1px solid var(--line); align-items: start;
+  }
+  .step:last-child { border-bottom: none; }
+  .step .when {
+    font-size: 12.5px; font-weight: 700; color: var(--accent-strong);
+    background: var(--accent-soft); border-radius: 8px;
+    padding: 5px 8px; text-align: center; line-height: 1.4;
+  }
+  .step .what { font-size: 16px; font-weight: 700; line-height: 1.6; }
+  .step .why { font-size: 14px; color: var(--muted); margin-top: 3px; }
+  .step .tag {
+    display: inline-block; font-size: 11.5px; font-weight: 700;
+    padding: 2px 9px; border-radius: 999px; margin-top: 7px;
+  }
+  .tag.live { background: var(--accent-soft); color: var(--accent-strong); }
+  .tag.wip { background: var(--warn-soft); color: var(--warn); }
+  .step a { color: var(--accent-strong); }
 
   /* ── スマホのトーク画面 ── */
-  .demo-grid {
-    display: grid; grid-template-columns: 1fr; gap: 30px;
-    margin-top: 26px; align-items: start;
-  }
-  @media (min-width: 800px) { .demo-grid { grid-template-columns: 340px 1fr; gap: 38px; } }
-
+  .demo-grid { display: grid; grid-template-columns: 1fr; gap: 28px; margin-top: 24px; align-items: start; }
+  @media (min-width: 800px) { .demo-grid { grid-template-columns: 330px 1fr; gap: 36px; } }
   .phone {
-    width: 100%; max-width: 340px; margin: 0 auto;
+    width: 100%; max-width: 330px; margin: 0 auto;
     background: #7494c0; border-radius: 30px; overflow: hidden;
     box-shadow: 0 14px 38px rgba(0,0,0,.14);
-    border: 7px solid #2c2c2c;
-    display: flex; flex-direction: column;
+    border: 7px solid #2c2c2c; display: flex; flex-direction: column;
   }
-  .ph-header {
-    background: #7494c0; color: #fff; padding: 12px 14px;
-    display: flex; align-items: center; gap: 9px;
-  }
-  .ph-header img {
-    width: 34px; height: 34px; border-radius: 50%;
-    background: #fff; object-fit: cover;
-  }
+  .ph-header { background: #7494c0; color: #fff; padding: 12px 14px; display: flex; align-items: center; gap: 9px; }
+  .ph-header img { width: 34px; height: 34px; border-radius: 50%; background: #fff; object-fit: cover; }
   .ph-header .nm { font-weight: 700; font-size: 14px; }
   .ph-header .sb { font-size: 10.5px; opacity: .85; }
-  .thread {
-    background: #efeae0; padding: 14px 11px;
-    display: flex; flex-direction: column; gap: 11px;
-    min-height: 400px;
-  }
+  .thread { background: #efeae0; padding: 14px 11px; display: flex; flex-direction: column; gap: 11px; }
   .row { display: flex; gap: 7px; align-items: flex-end; }
   .row.me { justify-content: flex-end; }
-  .row .ico {
-    width: 29px; height: 29px; border-radius: 50%;
-    background: #fff; flex-shrink: 0; object-fit: cover;
-  }
+  .row .ico { width: 29px; height: 29px; border-radius: 50%; background: #fff; flex-shrink: 0; object-fit: cover; }
   .bub {
-    max-width: 76%; padding: 10px 13px; border-radius: 16px;
-    font-size: 13.5px; line-height: 1.6;
-    box-shadow: 0 1px 1px rgba(0,0,0,.06);
+    max-width: 78%; padding: 10px 13px; border-radius: 16px;
+    font-size: 13.5px; line-height: 1.6; box-shadow: 0 1px 1px rgba(0,0,0,.06);
   }
   .bub.bot { background: #fff; border-bottom-left-radius: 4px; }
   .bub.me { background: #8de055; color: #12351a; border-bottom-right-radius: 4px; }
   .bub .nm { font-size: 11px; font-weight: 700; opacity: .55; margin-bottom: 3px; }
-  /* 選択肢ボタン（リッチメニュー風） */
   .opts { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
   .opts span {
     background: var(--accent-soft); color: var(--accent-strong);
     border: 1px solid #cfe0d7; border-radius: 999px;
     padding: 6px 12px; font-size: 12.5px; font-weight: 700; text-align: center;
   }
-  .ph-menu {
-    background: #fff; border-top: 1px solid #ddd;
-    display: grid; grid-template-columns: repeat(3, 1fr);
-  }
-  .ph-menu div {
-    padding: 13px 4px; text-align: center; font-size: 11.5px;
-    color: var(--fg); border-right: 1px solid #eee; line-height: 1.4;
-  }
+  .ph-menu { background: #fff; border-top: 1px solid #ddd; display: grid; grid-template-columns: repeat(3, 1fr); }
+  .ph-menu div { padding: 12px 4px; text-align: center; font-size: 11.5px; border-right: 1px solid #eee; line-height: 1.4; }
   .ph-menu div:last-child { border-right: none; }
   .ph-menu .ic { display: block; font-size: 17px; margin-bottom: 3px; }
 
-  /* ── 説明の箇条書き ── */
-  .points { display: grid; gap: 14px; }
-  .point {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 14px; padding: 16px 18px;
-  }
-  .point h3 { font-size: 15px; }
+  /* ── カード ── */
+  .points { display: grid; gap: 13px; }
+  @media (min-width: 700px) { .points.two { grid-template-columns: 1fr 1fr; } }
+  .point { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px 18px; }
   .point p { font-size: 14px; color: var(--muted); margin-top: 4px; }
 
-  /* ── 事実の表 ── */
-  table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 14px; }
-  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); }
+  table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); }
   th { font-size: 12.5px; color: var(--muted); font-weight: 700; }
-  td.no { color: #9A5B5B; font-weight: 700; }
+  td.no { color: var(--dim); font-weight: 700; }
   td.ok { color: var(--accent-strong); font-weight: 700; }
   .tbl-wrap { overflow-x: auto; }
 
   video { width: 100%; border-radius: 14px; display: block; border: 1px solid var(--line); }
   .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
-  .src { font-size: 11.5px; color: var(--muted); }
-  .src a { color: var(--muted); }
+  .src { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
+  .src a, .note a { color: var(--muted); }
 
-  .callout {
-    background: var(--warn-soft); border: 1px solid #E8DCC0;
-    border-radius: 14px; padding: 17px 19px; margin-top: 20px;
-  }
-  .callout h3 { color: var(--warn); font-size: 15px; }
-  .callout p { font-size: 14px; margin-top: 6px; }
+  .callout { background: var(--warn-soft); border: 1px solid #E8DCC0; border-radius: 14px; padding: 17px 19px; margin-top: 18px; }
+  .callout h3 { color: var(--warn); }
+  .callout p { font-size: 14px; margin-top: 5px; }
 
-  footer { padding: 40px 0 60px; text-align: center; }
+  footer { padding: 42px 0 62px; text-align: center; }
   .cta {
     display: inline-block; background: var(--accent-strong); color: #fff;
     text-decoration: none; font-weight: 700; font-size: 15px;
@@ -157,105 +148,151 @@
 </head>
 <body>
 
+<!-- 1. 相手の言葉から始める -->
 <section>
   <div class="wrap">
     <span class="chip">タレント事務所さま向け</span>
-    <h1>ファンと、お仕事の依頼。<br>その受け皿を、ひとつにまとめられます。</h1>
+    <h1>「動員は、開けてみなければ分からない」</h1>
     <p class="lead" style="margin-top:16px">
-      LINE公式アカウントで何ができるかを、実際の画面でご覧ください。<br>
-      下の内容はすべて、いまお使いの仕組みを変えずに追加できるものです。
+      先日そうお話しされていたのが、ずっと引っかかっていました。<br>
+      開ける前に見えるようにできないか、という話です。
+    </p>
+    <p style="margin-top:18px">
+      会場の大きさ、物販の仕入れ、告知にいくら使うか。<br>
+      当日まで読めないと、どれも決めきれません。演者本人も落ち着かないと思います。
     </p>
   </div>
 </section>
 
-<!-- 1. いま何が起きているか -->
+<!-- 2. なぜ読めないのか -->
 <section>
   <div class="wrap">
-    <h2>タレントさんのページは、たいてい「SNSのボタン」で終わります</h2>
+    <h2>告知が、届いていないのかもしれません</h2>
     <p class="lead">
-      経歴もお写真も充実しているのに、そこから先へ進む道が用意されていないことがあります。
-      ファンの方も、お仕事を頼みたい企業の方も、行き先を探すことになります。
+      SNSで知らせても、思ったほど反応がない。理由のひとつは、たぶんここです。
+    </p>
+
+    <div class="versus">
+      <div class="vs-card no">
+        <div class="t">X・SNS の投稿</div>
+        <div class="m">タイムラインで流れるので、<br>みんな忘れる</div>
+      </div>
+      <div class="vs-card ok">
+        <div class="t">LINE の通知</div>
+        <div class="m">結局、<br>LINEはみんな見る</div>
+      </div>
+    </div>
+
+    <p style="margin-top:20px">
+      投稿した瞬間に見た人しか届きません。数時間後には流れています。
+      「知らなかった」と後から言われるのは、ファンのせいではなく仕組みの問題です。
+    </p>
+    <p>
+      LINEなら通知で届いて、トークに残ります。読み返せます。
+      いまこのページも、LINEでお送りしています。
+    </p>
+  </div>
+</section>
+
+<!-- 3. ★時間軸（主役） -->
+<section>
+  <div class="wrap">
+    <h2>告知から当日まで、途切れさせない</h2>
+    <p class="lead">
+      イベントが決まってから終わるまで、それぞれの場面でできることがあります。
+      すでに動いているものと、これから作るものが混ざっています。
     </p>
 
     <div class="flow">
-      <div class="flow-row">
-        <span class="who">ファンの方</span>
-        <span class="arrow">→</span>
-        <span class="dest">プロフィールページ</span>
-        <span class="arrow">→</span>
-        <span class="dest">X / Instagram のボタン</span>
+      <div class="step">
+        <div class="when">告知</div>
+        <div>
+          <div class="what">LINEで、決まったことを知らせる</div>
+          <div class="why">日程・会場・チケットの取り方。流れずに残ります。</div>
+          <span class="tag live">いま動きます</span>
+        </div>
       </div>
-      <div class="flow-row stop">
-        <span class="who"></span>
-        <span class="arrow">→</span>
-        <span class="dest">ここで途切れる</span>
-      </div>
-      <div class="flow-row">
-        <span class="who">企業の方</span>
-        <span class="arrow">→</span>
-        <span class="dest">メール、または SNSのDM</span>
-      </div>
-      <div class="flow-row stop">
-        <span class="who"></span>
-        <span class="arrow">→</span>
-        <span class="dest">DMは、届かないことがあります（次の項目）</span>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- 2. Xの仕様（一番強い事実） -->
-<section>
-  <div class="wrap">
-    <h2>「お仕事はDMで」は、仕様上とどかない場合があります</h2>
-    <p class="lead">
-      X（旧Twitter）は2023年7月14日以降、DMの受信に制限がかかっています。
-      これは運用でどうにかできるものではなく、プラットフォーム側の仕様です。
-    </p>
+      <div class="step">
+        <div class="when">それから<br>当日まで</div>
+        <div>
+          <div class="what">「あと何日」がパソコンやスマホに出ている</div>
+          <div class="why">
+            一度知らせて終わりにしない。目に入り続けるので、忘れられません。
+          </div>
+          <span class="tag wip">作っている途中です</span>
+        </div>
+      </div>
 
-    <div class="tbl-wrap">
-      <table>
-        <tr><th>送ってくる方</th><th>届く先</th></tr>
-        <tr>
-          <td>フォローしている方</td>
-          <td class="ok">通常の受信トレイ</td>
-        </tr>
-        <tr>
-          <td>フォロー外・X有料プラン加入</td>
-          <td>メッセージリクエスト（別のトレイ）</td>
-        </tr>
-        <tr>
-          <td>フォロー外・無料アカウント</td>
-          <td class="no">届きません</td>
-        </tr>
-      </table>
+      <div class="step">
+        <div class="when">事前</div>
+        <div>
+          <div class="what">「行く」と答えた人が見える</div>
+          <div class="why">
+            どの地域に何人いるかが地図で埋まっていきます。開ける前に規模が読めます。<br>
+            <a href="https://doin-challenge.com/demo" target="_blank" rel="noopener">画面を触ってみる（登録不要）→</a>
+          </div>
+          <span class="tag wip">触れます・育てている途中です</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="when">当日<br>道中</div>
+        <div>
+          <div class="what">「これから行くよ」が、同じ会場へ向かう人に伝わる</div>
+          <div class="why">
+            移動中に、同じイベントへ向かう人とすれ違います。会場に着く前から始まっています。<br>
+            <a href="https://surechigai.kimito.link" target="_blank" rel="noopener">動いているものを見る →</a>
+          </div>
+          <span class="tag live">いま動きます</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="when">配信</div>
+        <div>
+          <div class="what">応援してくれた人が、記録に残る</div>
+          <div class="why">
+            配信のコメントは流れて消えます。残しておくと、次に誰へ届ければいいかが分かります。
+            いまはニコニコ生放送だけですが、YouTubeにも広げる予定です。<br>
+            <a href="https://tsuioku-no-kirameki.com/" target="_blank" rel="noopener">紹介ページ</a> ／
+            <a href="https://chromewebstore.google.com/detail/cjbabignmmodaickpeckiojjabnlogdb" target="_blank" rel="noopener">Chrome ウェブストアで公開中</a>
+          </div>
+          <span class="tag live">いま使えます</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="when">終わった<br>あと</div>
+        <div>
+          <div class="what">次の告知が、また同じ場所に届く</div>
+          <div class="why">
+            一度きりで終わらせない。来てくれた人に、次を知らせられます。
+          </div>
+          <span class="tag live">いま動きます</span>
+        </div>
+      </div>
     </div>
 
     <p class="note">
-      つまり、Xに課金していない企業のご担当者は、送信ボタンを押すことすらできません。
-      届く場合も別のトレイに入るため、見落としが起きます。
-    </p>
-    <p class="src">
-      出典: <a href="https://www.itmedia.co.jp/news/articles/2306/15/news093.html" target="_blank" rel="noopener">ITmedia NEWS（2023-06-15）</a> ／
-      <a href="https://www.sharecoto.co.jp/twitterlab/news/specification-changes/" target="_blank" rel="noopener">X Lab.</a>
+      ライブ・舞台に限りません。撮影会、握手会、写真展、即売会、海外のイベント。
+      人が集まる予定なら、同じ仕組みで扱えます。
     </p>
   </div>
 </section>
 
-<!-- 3. 実際に動く画面 -->
+<!-- 4. 実際の画面 -->
 <section>
   <div class="wrap">
-    <h2>LINE公式アカウントだと、こうなります</h2>
-    <p class="lead">
-      下は実際の画面です。友だち追加のあと、目的に応じて自動で振り分けます。
-    </p>
+    <h2>LINEでは、こう届きます</h2>
+    <p class="lead">実際の画面です。知らせて、答えてもらうところまで。</p>
 
     <div class="demo-grid">
       <div class="phone">
         <div class="ph-header">
           <img src="assets/talent-avatar.png" alt="">
           <div>
-            <div class="nm">〇〇（タレント名）公式</div>
+            <div class="nm">〇〇（タレント名）</div>
             <div class="sb">認証済みアカウント</div>
           </div>
         </div>
@@ -263,212 +300,229 @@
           <div class="row">
             <img class="ico" src="assets/talent-avatar.png" alt="">
             <div class="bub bot">
-              <div class="nm">〇〇 公式</div>
-              はじめまして、ご登録ありがとうございます。<br>
-              どちらのご用件でしょうか？
+              <div class="nm">〇〇</div>
+              11月23日、〇〇ホールで舞台に出ます。<br>
+              チケットは今週末から受付です。<br><br>
+              よかったら、来られそうか教えてください。
               <div class="opts">
-                <span>ファンの方はこちら</span>
-                <span>お仕事のご依頼</span>
-                <span>グッズ・写真集について</span>
+                <span>行きます</span>
+                <span>行けたら行きます</span>
+                <span>今回は難しそう</span>
               </div>
             </div>
           </div>
           <div class="row me">
-            <div class="bub me">お仕事のご依頼</div>
+            <div class="bub me">行きます</div>
           </div>
           <div class="row">
             <img class="ico" src="assets/talent-avatar.png" alt="">
             <div class="bub bot">
-              <div class="nm">〇〇 公式</div>
+              <div class="nm">〇〇</div>
               ありがとうございます。<br>
-              担当者にお繋ぎしますので、差し支えなければ次をお知らせください。<br><br>
-              ・貴社名／ご担当者さま<br>
-              ・ご依頼の内容<br>
-              ・撮影・収録の時期
-            </div>
-          </div>
-          <div class="row me">
-            <div class="bub me">
-              〇〇株式会社の△△と申します。<br>
-              11月のWEB CMへのご出演を…
+              近くなったらまたお知らせしますね。
             </div>
           </div>
         </div>
         <div class="ph-menu">
           <div><span class="ic">📅</span>出演情報</div>
-          <div><span class="ic">🛍</span>グッズ</div>
-          <div><span class="ic">✉️</span>お仕事依頼</div>
+          <div><span class="ic">🎫</span>チケット</div>
+          <div><span class="ic">✉️</span>お問い合わせ</div>
         </div>
       </div>
 
       <div class="points">
         <div class="point">
-          <h3>入口は「友だち追加」の1タップだけ</h3>
-          <p>メールの書式に悩んだり、DMが届くか不安になったりする必要がありません。</p>
+          <h3>ファンは、なにも入れなくていい</h3>
+          <p>もう使っているアプリで届きます。新しく登録してもらう必要がありません。</p>
         </div>
         <div class="point">
-          <h3>用件ごとに、自動で振り分きます</h3>
-          <p>ファンの方への案内と、お仕事のご依頼を、同じ窓口で受けながら分けて扱えます。</p>
+          <h3>答えがそのまま数になる</h3>
+          <p>「行きます」を押した人が集まります。何人来そうかが、開ける前に見えてきます。</p>
         </div>
         <div class="point">
-          <h3>複数のご担当者で見られます</h3>
-          <p>個人アカウントのパスワードを共有する必要がありません。権限を分けて設定できます。</p>
+          <h3>下のボタンはいつも出ている</h3>
+          <p>出演情報・チケット・お問い合わせ。見てほしいものを常に置いておけます。</p>
         </div>
         <div class="point">
-          <h3>下のメニューは常に表示されます</h3>
-          <p>出演情報・グッズ・お仕事依頼など、見てほしいものをいつでも出しておけます。</p>
+          <h3>複数の方で見られる</h3>
+          <p>個人アカウントのパスワードを共有せずに、担当を分けて運用できます。</p>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- 4. 個人情報 -->
+<!-- 5. 事前に分かると -->
 <section>
   <div class="wrap">
-    <h2>ファンの方の連絡先を、預からずに済みます</h2>
-    <p class="lead">
-      LINE公式アカウントで受け取れる情報は限られています。
-      これは制約ではなく、事務所さまにとっての安全につながります。
-    </p>
-
-    <div class="tbl-wrap">
-      <table>
-        <tr><th>受け取るもの</th><th>受け取らないもの</th></tr>
-        <tr>
-          <td>アカウント内だけで有効な識別子</td>
-          <td class="no">お電話番号</td>
-        </tr>
-        <tr>
-          <td>表示名（ニックネーム）</td>
-          <td class="no">ご本名</td>
-        </tr>
-        <tr>
-          <td>プロフィール画像</td>
-          <td class="no">メールアドレス</td>
-        </tr>
-      </table>
+    <h2>事前に見えると、決められることがあります</h2>
+    <div class="points two">
+      <div class="point">
+        <h3>会場の大きさ</h3>
+        <p>大きすぎれば空席が目立ち、小さすぎれば入れない人が出ます。</p>
+      </div>
+      <div class="point">
+        <h3>物販の数</h3>
+        <p>余れば在庫、足りなければ売り逃し。どちらもそのまま損になります。</p>
+      </div>
+      <div class="point">
+        <h3>告知にかける費用</h3>
+        <p>足りていれば抑えられます。届いていなければ、早めに手を打てます。</p>
+      </div>
+      <div class="point">
+        <h3>演者の気持ち</h3>
+        <p>当日まで分からないのは、出る本人が一番落ち着かないと思います。</p>
+      </div>
     </div>
-
-    <div class="callout">
-      <h3>メールで受けているほうが、実は情報を抱えています</h3>
-      <p>
-        メールでのお問い合わせは、送ってくださった方の実際のアドレスが手元に残ります。
-        LINEの場合、事務所さまがお預かりするのはアカウント内でのみ有効な識別子だけです。
-      </p>
-    </div>
-    <p class="src">
-      参考: <a href="https://www.lycbiz.com/jp/service/line-official-account/verified-account/" target="_blank" rel="noopener">LINEヤフー for Business「認証済アカウント」</a>
-    </p>
-  </div>
-</section>
-
-<!-- 5. なりすまし -->
-<section>
-  <div class="wrap">
-    <h2>「公式はここだけ」と示せます</h2>
-    <p class="lead">
-      認証済アカウント（緑のバッジ）は<strong>申請は無料</strong>、審査は5〜10営業日です。
-      2026年4月には未認証アカウントのバッジが廃止され、緑のバッジに一本化されます。
-      LINEヤフー社はその目的を「なりすまし防止の強化」と説明しています。
-    </p>
-
-    <div class="callout">
-      <h3>先にお伝えしておきたいこと</h3>
-      <p>
-        「詳しくはLINEで」と誘導する詐欺の手口も実在します。ただしそれらが使うのは
-        個人のLINEや未認証のアカウントです。<strong>事務所さまが認証済アカウントを持ち、
-        公式サイトから案内すること自体が、その対策になります。</strong>
-      </p>
-    </div>
-    <p class="src">
-      出典: <a href="https://www.lycbiz.com/jp/news/line-official-account/20260107/" target="_blank" rel="noopener">LINEヤフー for Business（2026-01-07 お知らせ）</a>
-    </p>
   </div>
 </section>
 
 <!-- 6. 音声（動画） -->
 <section>
   <div class="wrap">
-    <h2>音声メッセージにも、声で返せます</h2>
+    <h2>声で返すこともできます</h2>
     <p class="lead">
-      文字を打つのが手間なときや、声のほうが自然な場面で使えます。
-      下は実際に動かした様子です（約20秒・音が出ます）。
+      音声メッセージを受け取って、声で返します。実際に動かした様子です（約20秒・音が出ます）。
     </p>
-    <video controls preload="none"
-           poster="assets/voice-demo-poster.jpg"
-           src="assets/voice-demo.mp4"></video>
+    <video controls preload="none" poster="assets/voice-demo-poster.jpg" src="assets/voice-demo.mp4"></video>
     <p class="note">
       ▶ を押すと音が鳴ります。音声合成には VOICEVOX を使用しています（VOICEVOX：白上虎太郎）。
     </p>
   </div>
 </section>
 
-<!-- 7. 費用 -->
+<!-- 7. 窓口としても -->
 <section>
   <div class="wrap">
-    <h2>お問い合わせの窓口としてなら、月額0円で始められます</h2>
+    <h2>お仕事のご依頼窓口としても</h2>
     <p class="lead">
-      LINE公式アカウントは、届いたメッセージへの返信（応答メッセージ・自動応答）に
-      配信通数を消費しません。窓口として使うだけなら無料プランの範囲に収まります。
+      本題ではありませんが、同じアカウントで受けられます。ひとつだけお伝えしたいことがあります。
     </p>
 
     <div class="tbl-wrap">
       <table>
-        <tr><th>プラン</th><th>月額</th><th>無料メッセージ通数</th></tr>
-        <tr><td>コミュニケーション</td><td class="ok">0円</td><td>200通</td></tr>
-        <tr><td>ライト</td><td>5,000円</td><td>5,000通</td></tr>
-        <tr><td>スタンダード</td><td>15,000円</td><td>30,000通＋従量</td></tr>
+        <tr><th>Xで DM を送ってくる方</th><th>届く先</th></tr>
+        <tr><td>フォローしている方</td><td class="ok">通常の受信トレイ</td></tr>
+        <tr><td>フォロー外・X有料プラン</td><td>メッセージリクエスト（別のトレイ）</td></tr>
+        <tr><td>フォロー外・無料アカウント</td><td class="no">届きません</td></tr>
       </table>
     </div>
     <p class="note">
-      ファンの方へ一斉配信を始める段階になってから、上のプランをご検討いただければ十分です。
-      なお、のちのち月額制のファンクラブを作る場合も、LINEの機能（メンバーシップ）で対応できます。
+      2023年7月14日以降の仕様です。X に課金していない企業のご担当者は、送信ボタンを押せません。
+      運用でどうにかできる話ではないので、窓口をひとつ置いておくと取りこぼしが減ります。
+    </p>
+    <p class="src">
+      出典: <a href="https://www.itmedia.co.jp/news/articles/2306/15/news093.html" target="_blank" rel="noopener">ITmedia NEWS（2023-06-15）</a>
+    </p>
+
+    <div class="callout">
+      <h3>ファンの方の連絡先は、預かりません</h3>
+      <p>
+        LINE公式アカウントで受け取るのは、アカウント内だけで有効な識別子と表示名だけです。
+        お電話番号・ご本名・メールアドレスは取得しません。
+        メールでのお問い合わせのほうが、かえって実際のアドレスが手元に残ります。
+      </p>
+    </div>
+
+    <p class="note" style="margin-top:16px">
+      認証済アカウント（緑のバッジ）は申請無料・審査5〜10営業日です。
+      2026年4月に未認証アカウントのバッジが廃止されるため、
+      「公式はこれだけ」と示せること自体が、なりすまし対策になります。
     </p>
   </div>
 </section>
 
-<!-- 8. できないこと -->
+<!-- 8. できること / これから -->
 <section>
   <div class="wrap">
-    <h2>できないことも、先にお伝えします</h2>
-    <div class="points">
-      <div class="point">
-        <h3>ブロックはされます</h3>
-        <p>
-          業種を問わず、ブロック率は平均で3割ほどというデータがあります。
-          配信は週1〜2回程度に抑える設計が前提になります。宣伝ばかりだと外されます。
+    <h2>いまできること、これから作ること</h2>
+    <p class="lead">
+      先にお伝えしておきます。全部が完成しているわけではありません。
+    </p>
+
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>できること</th><th>状態</th></tr>
+        <tr><td>LINEで告知を届ける・お問い合わせを受ける</td><td class="ok">動きます</td></tr>
+        <tr><td>音声メッセージに声で返す</td><td class="ok">動きます</td></tr>
+        <tr><td>配信の応援を記録に残す</td><td class="ok">公開中（ニコニコ生放送）</td></tr>
+        <tr><td>当日「これから行く」でつながる</td><td class="ok">動きます</td></tr>
+        <tr><td>参加表明を集めて人数を見る</td><td>画面は触れます。育てている途中です</td></tr>
+        <tr><td>「あと何日」を出し続ける</td><td>作っている途中です</td></tr>
+        <tr><td>YouTubeの配信にも対応</td><td>これからです</td></tr>
+      </table>
+    </div>
+
+    <div class="callout" style="margin-top:22px">
+      <h3>うまくいかないこともお伝えします</h3>
+      <p>
+        LINEは、送りすぎるとブロックされます。業種を問わず3割ほどというデータがあります。
+        週に1〜2回、知らせる意味があるときだけ送る前提です。宣伝ばかりだと外されます。
+      </p>
+      <p>
+        作っただけでは使われません。何をいつ送るかを決めて、続けて初めて動きます。
+        そこも含めてお手伝いできます。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- 9. 守る側 / 届ける側 -->
+<section>
+  <div class="wrap">
+    <h2>守る側の仕事も、同じところでやっています</h2>
+    <p class="lead">
+      検索したときのサジェスト対策の資料を、以前お渡ししていたかと思います。あれと同じ場所です。
+    </p>
+
+    <div class="versus" style="margin-top:22px">
+      <div class="vs-card">
+        <div class="t">リバースハック</div>
+        <div class="m" style="color:var(--fg)">守る</div>
+        <p class="note" style="margin-top:8px">
+          お名前で検索したときに、望まない語が並ぶことがあります。
+          サジェスト・検索結果・風評への対策です。歯科・美容・通販と、
+          業種ごとに作り分けてきました。
+        </p>
+        <p class="src">
+          <a href="https://soushin-suggest.link/" target="_blank" rel="noopener">soushin-suggest.link</a>
         </p>
       </div>
-      <div class="point">
-        <h3>作っただけでは、使われません</h3>
-        <p>
-          友だちが増えるほど、配信の企画と問い合わせ対応に手がかかります。
-          置いておくだけでは死蔵します。運用まで含めてお手伝いできます。
+      <div class="vs-card">
+        <div class="t">きみとりんく</div>
+        <div class="m" style="color:var(--fg)">育てる</div>
+        <p class="note" style="margin-top:8px">
+          このページでご紹介しているものは、すべてこちらから伸びています。
+          クリエイターが買い叩かれないように、という考えで作っています。
         </p>
-      </div>
-      <div class="point">
-        <h3>会員管理・予約は、LINE単体では弱い部分です</h3>
-        <p>
-          細かなセグメント配信や予約の管理は、標準機能だけでは足りません。
-          そこは別途、仕組みを足す形になります。
+        <p class="src">
+          <a href="https://kimito-link.com/" target="_blank" rel="noopener">kimito-link.com</a>
         </p>
       </div>
     </div>
+
+    <p style="margin-top:20px">
+      タレントさんにとっては、たぶん両方が要ります。
+      名前が知られるほど、良いことも良くないことも書かれます。
+      届けることと守ることを、別々の会社に頼まなくて済みます。
+    </p>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <h2 style="margin-bottom:10px">この画面は、事務所さまごとに作り替えられます</h2>
+    <h2 style="margin-bottom:10px">事務所さまに合わせて作れます</h2>
     <p class="lead" style="margin-bottom:24px">
-      上の内容は一例です。所属タレントさまの数、扱われている商品、
-      普段のご連絡の流れに合わせて、お作りします。
+      ここに書いたのは一例です。所属タレントさまの人数、イベントの種類、
+      普段のご連絡の流れに合わせてお作りします。<br>
+      できないことは、先にお伝えします。
     </p>
     <a class="cta" href="https://line.me/R/ti/p/@kimitolink?ref=talent">LINEで相談する →</a>
-    <p class="note" style="margin-top:20px">
-      Kimito Talk ／ 株式会社ベストトラスト<br>
-      <a href="/privacy/" style="color:var(--muted)">プライバシーポリシー</a>
+    <p class="note" style="margin-top:22px">
+      株式会社ベストトラスト<br>
+      <a href="https://kimito-link.com/" target="_blank" rel="noopener">きみとりんく</a>（つくる・届ける） ／
+      <a href="https://soushin-suggest.link/" target="_blank" rel="noopener">リバースハック</a>（守る）<br>
+      <a href="/privacy/">プライバシーポリシー</a>
     </p>
   </div>
 </footer>
