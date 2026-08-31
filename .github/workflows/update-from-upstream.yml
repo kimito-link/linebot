@@ -49,6 +49,10 @@ jobs:
           branch="upstream/update-$(date -u +%Y%m%d-%H%M%S)"
           git switch -c "$branch"
           echo "name=$branch" >> "$GITHUB_OUTPUT"
+          # マージ前のこちら側を固定して覚えておく。
+          # 後段で HEAD~1 / HEAD~2 と数えると、衝突の有無でコミット数が
+          # 変わって指す先がズレる。SHAで持てばズレない。
+          echo "base=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       # 衝突しても止めない。
       #
@@ -102,23 +106,44 @@ jobs:
       - name: Exclude upstream workflow changes
         if: steps.detect.outputs.has_changes == 'true'
         id: exclude
+        env:
+          BASE: ${{ steps.branch.outputs.base }}
         run: |
-          changed=$(git diff --name-only HEAD~1 HEAD -- .github/workflows/ || true)
+          # BASE はマージ前のこちら側（SHAで固定）。そこと比べて
+          # .github/workflows/ に差分があるものを全部拾う（変更・追加・削除）。
+          changed=$(git diff --name-status "$BASE" HEAD -- .github/workflows/ || true)
           if [ -n "$changed" ]; then
             echo "excluded=true" >> "$GITHUB_OUTPUT"
             {
               echo "### 取り込まなかった上流のworkflow変更"
               echo ""
               echo "GITHUB_TOKENではworkflowファイルをpushできないため、以下は**元に戻してある**。"
-              echo "必要なら手で移すこと。"
+              echo "必要なら手で移すこと（\`A\`=上流で新規追加 / \`M\`=変更 / \`D\`=削除）。"
               echo ""
               echo '```'
               echo "$changed"
               echo '```'
             } > /tmp/excluded.md
-            # マージ前の状態に戻す。HEAD~1 はこちら側の直前のコミット。
-            git checkout HEAD~1 -- .github/workflows/
+
+            # マージ前の状態に完全に戻す。
+            #
+            # `git checkout HEAD~1 -- .github/workflows/` だけでは足りない。
+            # 上流にしか無いファイル（こちらに存在しないもの）は「復元元が
+            # 無い」ので消えずに残り、またpushで弾かれる。実際に
+            # publish-update-cli.yml で踏んだ（2026-08-31）。
+            # そこでディレクトリごと消してから復元する。
+            git rm -rq -- .github/workflows
+            git checkout "$BASE" -- .github/workflows/
+            git add -A -- .github/workflows
             git commit -qm "chore: 上流のworkflow変更を除外（GITHUB_TOKENでは push できないため）"
+
+            # 本当に差分ゼロになったか確認する。残っていればここで落として
+            # 気づけるようにする（pushで落ちるより原因が分かりやすい）。
+            left=$(git diff --name-only "$BASE" HEAD -- .github/workflows/ || true)
+            if [ -n "$left" ]; then
+              echo "::error::workflowの除外に失敗した。残った差分: $left"
+              exit 1
+            fi
           else
             echo "excluded=false" >> "$GITHUB_OUTPUT"
           fi
