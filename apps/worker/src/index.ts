@@ -370,6 +370,21 @@ app.get('/r/:ref', async (c) => {
   if (iga) liffParams.set('iga', iga);
   const igan = c.req.query('igan');
   if (igan) liffParams.set('igan', igan);
+
+  // 広告のクリックIDとUTMを引き継ぐ。
+  //
+  // /auth/line は自分のクエリ文字列を丸ごと /r/:ref に渡すのに、ここで
+  // liffParams を許可リストで組み直すときに拾っていなかった。結果、
+  // **モバイルの主経路で広告の計測が黙って消えていた**
+  // （cross-account の OAuth 分岐だけが生き残っていた）。
+  //
+  // このリストは /auth/line が読むパラメータと対で保つこと。
+  // 片方だけ増やすと、また静かに落ちる。
+  for (const key of ['gclid', 'fbclid', 'twclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign']) {
+    const value = c.req.query(key);
+    if (value) liffParams.set(key, value);
+  }
+
   // LIFF in-app navigation passthrough — OpenChat strips raw liff.line.me
   // URLs, so we accept `page` / `id` here and forward them to the resolved
   // LIFF target. Limited to pages whose client initializer enforces the
