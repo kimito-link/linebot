@@ -1,17 +1,17 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { LineClient } from '@line-crm/line-sdk';
 import {
-  getLineAccounts,
   getTrafficPoolBySlug,
   getTrafficPoolById,
   getRandomPoolAccount,
   getPoolAccounts,
   getEntryRouteByRefCode,
+  getLineAccountByChannelId,
   getLineAccountById,
   getAffiliateLinkByRefCode,
   incrementAffiliateLinkClick,
 } from '@line-crm/db';
+<<<<<<< HEAD
 import { processStepDeliveries } from './services/step-delivery.js';
 import { processScheduledBroadcasts, processQueuedBroadcasts } from './services/broadcast.js';
 import { processReminderDeliveries } from './services/reminder-delivery.js';
@@ -26,6 +26,10 @@ import { processDueFollowups } from './services/followup-nudge.js';
 import { sendEventBookingNotification } from './services/event-booking-notifier.js';
 import { sendBookingNotification } from './services/booking-notifier.js';
 import { DEFAULT_ACCOUNT_SETTINGS } from './services/booking-types.js';
+=======
+import { scheduled } from './scheduled.js';
+import { TenantScheduler } from './durable-objects/tenant-scheduler.js';
+>>>>>>> upstream/main
 import { authMiddleware } from './middleware/auth.js';
 import { rateLimitMiddleware } from './middleware/rate-limit.js';
 import { webhook } from './routes/webhook.js';
@@ -41,6 +45,7 @@ import { affiliates } from './routes/affiliates.js';
 import { affiliateOffers } from './routes/affiliate-offers.js';
 import { duplicates } from './routes/duplicates.js';
 import { usersGrouped } from './routes/users-grouped.js';
+import { usage } from './routes/usage.js';
 import { inbox } from './routes/inbox.js';
 import { openapi } from './routes/openapi.js';
 import { liffRoutes } from './routes/liff.js';
@@ -48,6 +53,7 @@ import { affiliateSelfRoutes } from './routes/affiliate-self.js';
 // Round 3 ルート
 import { webhooks } from './routes/webhooks.js';
 import { calendar } from './routes/calendar.js';
+import { meetConsultations } from './routes/meet-consultations.js';
 import { reminders } from './routes/reminders.js';
 import { scoring } from './routes/scoring.js';
 import { templates } from './routes/templates.js';
@@ -82,11 +88,20 @@ import { messageTemplates } from './routes/message-templates.js';
 import dedupPreview from './routes/dedup-preview.js';
 import { profileRefresh } from './routes/profile-refresh.js';
 import { richMenuGroups } from './routes/rich-menu-groups.js';
+import { lineProxy } from './routes/line-proxy.js';
+import { webinarRoutes } from './routes/webinars.js';
+import { instagramEngagement } from './routes/instagram-engagement.js';
 import adminVersion from './routes/admin-version.js';
 import adminUpdate from './routes/admin-update.js';
+<<<<<<< HEAD
 import { diag } from './routes/diag.js';
+=======
+import { adminSso } from './routes/admin-sso.js';
+import { mediaInquiries } from './routes/media-inquiries.js';
+>>>>>>> upstream/main
 import { isLinkPreviewBot } from './lib/og-bot.js';
 import { buildOgHtml } from './lib/og-html.js';
+import { loginUnconfiguredPage } from './lib/login-unconfigured.js';
 import {
   resolveOgForEvent,
   resolveOgForForm,
@@ -111,6 +126,11 @@ export type Env = {
     ADMIN_ORIGIN?: string;          // Comma-separated admin web origin allowlist for credentialed CORS
     ADMIN_COOKIE_SAMESITE?: string; // Optional override: 'Strict' | 'Lax' | 'None'
     ADMIN_ALLOW_CROSS_SITE?: string; // 'true' opts into SameSite=None cross-site cookies
+    // External SSO into the admin session (GET /admin/sso). Optional: when the
+    // secret is unset the route answers like any unregistered path, so the
+    // feature is entirely absent unless an operator opts in. ≥32 chars, shared
+    // with the token issuer. See routes/admin-sso.ts and docs/ADMIN-AUTH.md.
+    ADMIN_SSO_SECRET?: string;
     X_HARNESS_URL?: string;  // Optional: X Harness API URL for account linking
     IG_HARNESS_URL?: string;  // Optional: IG Harness API URL for cross-platform linking
     IG_HARNESS_LINK_SECRET?: string;  // Shared secret for IG Harness link-line webhook
@@ -170,9 +190,34 @@ export type Env = {
     WORKER_PUBLIC_URL?: string;
     ADMIN_PUBLIC_URL?: string;
     LIFF_PUBLIC_URL?: string;
+<<<<<<< HEAD
     // /shindan/ 診断ページ（2026-07-18追加）が叩く GET /api/diag/bot-health のパスワード。
     // 未設定時はエンドポイントが503を返す(fail-closed。誰でも見られる状態を既定にしない)。
     DIAG_VIEW_PASSWORD?: string;
+=======
+    // Google Calendar booking sync. Store the private key as a Worker secret.
+    // Calendar owners only enter/share their Google Calendar ID in admin UI.
+    GOOGLE_SERVICE_ACCOUNT_EMAIL?: string;
+    GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY?: string;
+    // Keyless Google Calendar connection. User grants access once via OAuth;
+    // the Worker keeps a refresh token and never needs a service-account key.
+    GOOGLE_OAUTH_CLIENT_ID?: string;
+    GOOGLE_OAUTH_CLIENT_SECRET?: string;
+    /** Days to keep messages_log rows. Unset/invalid = keep forever. */
+    LOG_RETENTION_DAYS?: string;
+    /** Max friends (is_following=1). Unset/invalid = unlimited. */
+    QUOTA_FRIENDS_MAX?: string;
+    /** Max outgoing push messages per JST month. Unset/invalid = unlimited. */
+    QUOTA_MONTHLY_MESSAGES_MAX?: string;
+    /** Optional URL shown to admins when a quota is exceeded. */
+    QUOTA_NOTICE_URL?: string;
+    // 分・6時間の定期ジョブを自走させる DO。バインディング名 TENANT_SCHEDULER は
+    // テナントを自動プロビジョニングする側 (scripts/lib/tenant-wrangler.ts) にも
+    // 同名で書いてあり、ここと食い違うと「デプロイは成功するがアラームは一生
+    // armed されない」という気づきにくい壊れ方をするので、変更するときは
+    // 両方揃えること。実体は durable-objects/tenant-scheduler.ts の TenantScheduler。
+    TENANT_SCHEDULER: DurableObjectNamespace<TenantScheduler>;
+>>>>>>> upstream/main
   };
   Variables: {
     staff: { id: string; name: string; role: 'owner' | 'admin' | 'staff' };
@@ -180,6 +225,21 @@ export type Env = {
 };
 
 const app = new Hono<Env>();
+
+// Public form endpoint used by the-harness.com. Keep this allowlist separate
+// from credentialed admin CORS so the media origin gains access to this route
+// only, never to the admin API surface.
+app.use('/api/public/media-inquiries', cors({
+  origin: (origin) => [
+    'https://the-harness.com',
+    'https://www.the-harness.com',
+    'http://localhost:4321',
+    'http://127.0.0.1:4321',
+  ].includes(origin) ? origin : '',
+  allowMethods: ['POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type'],
+  maxAge: 600,
+}));
 
 // CORS — credentialed cookie auth cannot use a wildcard origin. Reflect only
 // same-origin requests and origins on the ADMIN_ORIGIN allowlist; everything
@@ -213,14 +273,17 @@ app.route('/', affiliates);
 app.route('/', affiliateOffers);
 app.route('/', duplicates);
 app.route('/', usersGrouped);
+app.route('/', usage);
 app.route('/', inbox);
 app.route('/', openapi);
 app.route('/', liffRoutes);
 app.route('/', affiliateSelfRoutes);
+app.route('/', mediaInquiries);
 
 // Mount route groups — Round 3
 app.route('/', webhooks);
 app.route('/', calendar);
+app.route('/', meetConsultations);
 app.route('/', reminders);
 app.route('/', scoring);
 app.route('/', templates);
@@ -251,7 +314,14 @@ app.route('/', messageTemplates);
 app.route('/', dedupPreview);
 app.route('/', profileRefresh);
 app.route('/', richMenuGroups);
+<<<<<<< HEAD
 app.route('/', diag);
+=======
+app.route('/', webinarRoutes);
+app.route('/', instagramEngagement);
+// LINE Messaging API 互換プロキシ — 外部エージェントの直接送信を messages_log に残す
+app.route('/', lineProxy);
+>>>>>>> upstream/main
 
 // Phase 5 (upgrade flow) — public build metadata endpoint. Mounted under
 // /admin/ but intentionally unauthenticated: the dashboard fetches /admin/version
@@ -262,6 +332,10 @@ app.route('/admin', adminVersion);
 // Phase 5 Task 18 — self-update endpoints guarded by x-admin-api-key.
 // authMiddleware skips non-/api/ paths so this router owns its own auth gate.
 app.route('/admin/update', adminUpdate);
+// External SSO — establishes the admin session from a signed, single-use token.
+// Inert (404) unless ADMIN_SSO_SECRET is configured. authMiddleware skips
+// non-/api/ paths, so this route owns its own verification.
+app.route('/', adminSso);
 
 // Self-hosted QR code proxy — prevents leaking ref tokens to third-party services
 app.get('/api/qr', async (c) => {
@@ -289,11 +363,28 @@ app.get('/r/:ref', async (c) => {
   const formId = c.req.query('form') || '';
 
   // Resolve LIFF URL — priority:
+  //   0. URL query ?account= (explicit single-account pin — admin-issued
+  //      per-account links must never be re-routed by a colliding ref_code)
   //   1. entry_route.pool_id (if ref maps to a referral link)
   //   2. URL query ?pool=
   //   3. 'main' fallback
   let liffUrl = c.env.LIFF_URL;
   let pool: Awaited<ReturnType<typeof getTrafficPoolBySlug>> | null = null;
+
+  // 0. ?account= pins the destination account and wins over any ref-derived
+  // pool/affiliate resolution. The ref still rides through to LIFF below, so
+  // attribution (friends.ref_code / ref_tracking via /api/liff/link) keeps
+  // working; only the account choice is fixed. Unknown channel_id or an
+  // account without liff_id falls through to the normal resolution chain.
+  const accountParam = c.req.query('account') || '';
+  let accountResolved = false;
+  if (accountParam) {
+    const account = await getLineAccountByChannelId(c.env.DB, accountParam);
+    if (account?.liff_id) {
+      liffUrl = `https://liff.line.me/${account.liff_id}`;
+      accountResolved = true;
+    }
+  }
 
   // 1. entry_route lookup. getTrafficPoolById (unlike getTrafficPoolBySlug)
   // does not filter on is_active, so we ignore disabled pools explicitly to
@@ -305,7 +396,7 @@ app.get('/r/:ref', async (c) => {
   // double-count every successful click in getEntryRouteFunnel. Landing-page
   // drop-off (clicks that never reach OAuth) is therefore not visible in the
   // funnel; that limitation is intentional pending a dedicated click table.
-  const route = await getEntryRouteByRefCode(c.env.DB, ref);
+  const route = accountResolved ? null : await getEntryRouteByRefCode(c.env.DB, ref);
   if (route?.pool_id) {
     const candidate = await getTrafficPoolById(c.env.DB, route.pool_id);
     if (candidate?.is_active) pool = candidate;
@@ -321,7 +412,7 @@ app.get('/r/:ref', async (c) => {
   // through to LIFF state below so the existing ref_tracking flow attributes
   // the eventual friend-add via /auth/callback + /api/liff/link.
   let affiliateResolved = false;
-  if (!route) {
+  if (!route && !accountResolved) {
     const affiliateLink = await getAffiliateLinkByRefCode(c.env.DB, ref);
     if (affiliateLink) {
       await incrementAffiliateLinkClick(c.env.DB, ref);
@@ -337,7 +428,7 @@ app.get('/r/:ref', async (c) => {
   // 2 / 3. fallback to URL query or 'main'. Skipped for affiliate refs, whose
   // account is already resolved above; falling through to the 'main' pool would
   // override the affiliate's chosen account.
-  if (!pool && !affiliateResolved) {
+  if (!pool && !affiliateResolved && !accountResolved) {
     const poolSlug = c.req.query('pool') || 'main';
     pool = await getTrafficPoolBySlug(c.env.DB, poolSlug);
   }
@@ -354,6 +445,7 @@ app.get('/r/:ref', async (c) => {
     }
   }
 
+<<<<<<< HEAD
   // LIFF URL が無いと、この先の liffUrl.match() が undefined を触って
   // 500（真っ白な Internal Server Error）になる。実際に本番で起きていた
   // （2026-08-31 実測。LIFF_URL secret が未設定だった）。
@@ -361,6 +453,13 @@ app.get('/r/:ref', async (c) => {
   if (!liffUrl) {
     console.warn('[/r/:ref] LIFF_URL が未設定のため処理できない');
     return c.text('LIFF の設定が未完了です。管理者にお問い合わせください。', 503);
+=======
+  // L Harness Cloud tenants are provisioned without LIFF config. When neither
+  // env LIFF_URL nor the resolved pool/affiliate account provides one,
+  // `liffUrl.match()` below throws on undefined (500) — return setup guidance.
+  if (!liffUrl) {
+    return c.html(loginUnconfiguredPage(), 503);
+>>>>>>> upstream/main
   }
 
   // Build LIFF URL with params (direct link for Universal Link)
@@ -369,6 +468,8 @@ app.get('/r/:ref', async (c) => {
   if (liffIdMatch) liffParams.set('liffId', liffIdMatch[1]);
   if (ref) liffParams.set('ref', ref);
   if (formId) liffParams.set('form', formId);
+  // Parity with /auth/line's qrParams — keeps the account hint on the LIFF URL.
+  if (accountParam) liffParams.set('account', accountParam);
   const gate = c.req.query('gate');
   if (gate) liffParams.set('gate', gate);
   const xh = c.req.query('xh');
@@ -400,11 +501,22 @@ app.get('/r/:ref', async (c) => {
   // friend-add gate (initSalonBooking, initEventBooking); page=book/form
   // would bypass that gate and bypass ref-based attribution, so they are
   // intentionally excluded until those initializers are unified.
-  const PAGE_PASSTHROUGH_ALLOWED = new Set(['salon-book', 'event', 'event-me']);
+  const PAGE_PASSTHROUGH_ALLOWED = new Set(['salon-book', 'event', 'event-me', 'webinar']);
   const page = c.req.query('page');
   if (page && PAGE_PASSTHROUGH_ALLOWED.has(page)) liffParams.set('page', page);
   const id = c.req.query('id');
   if (id) liffParams.set('id', id);
+  const slug = c.req.query('slug');
+  if (slug) liffParams.set('slug', slug);
+
+  // Ad click IDs + UTM passthrough. /auth/line forwards its full query string
+  // to /r/:ref, but rebuilding liffParams here without these keys silently
+  // drops ad attribution for the primary mobile path. Keep this list in sync
+  // with the params /auth/line reads.
+  for (const key of ['gclid', 'fbclid', 'twclid', 'ttclid', 'utm_source', 'utm_medium', 'utm_campaign']) {
+    const value = c.req.query(key);
+    if (value) liffParams.set(key, value);
+  }
   const liffTarget = liffParams.toString() ? `${liffUrl}?${liffParams.toString()}` : liffUrl;
 
   // Help link carries the *resolved* liff target as `t=` so the help page
@@ -688,11 +800,13 @@ app.get('/o', async (c) => {
 
   const liffParams = new URLSearchParams();
   liffParams.set('liffId', liffId);
-  const PAGE_PASSTHROUGH_ALLOWED = new Set(['salon-book', 'event', 'event-me']);
+  const PAGE_PASSTHROUGH_ALLOWED = new Set(['salon-book', 'event', 'event-me', 'webinar']);
   const page = c.req.query('page');
   if (page && PAGE_PASSTHROUGH_ALLOWED.has(page)) liffParams.set('page', page);
   const id = c.req.query('id');
   if (id) liffParams.set('id', id);
+  const slug = c.req.query('slug');
+  if (slug) liffParams.set('slug', slug);
   const liffTarget = `https://liff.line.me/${liffId}?${liffParams.toString()}`;
 
   const ua = (c.req.header('user-agent') || '').toLowerCase();
@@ -895,7 +1009,11 @@ export async function notFoundHandler(
     return c.html(html);
   }
 
-  // Serve static assets (admin dashboard, LIFF pages).
+  // Serve static assets. Since the three-surfaces bundle (2026-08-24) the ASSETS
+  // binding can hold up to three surfaces at once — root (this Worker's own
+  // dist/client, i.e. the LIFF app / friend-add flow), `/<adminBasePath>` (admin
+  // dashboard), `/liff-app` (apps/liff) — see the SPA-fallback comment below for
+  // how a deep link under one of those prefixes finds its own index.html.
   // ASSETS binding is missing when wrangler runs without a built `dist/client`
   // (fresh clone, vitest, or a deploy where the assets directive was stripped).
   // Without this guard every GET / surfaces as
@@ -903,10 +1021,45 @@ export async function notFoundHandler(
   if (!c.env.ASSETS || typeof c.env.ASSETS.fetch !== 'function') {
     return c.json({ success: false, error: 'Not found' }, 404);
   }
-  return c.env.ASSETS.fetch(c.req.raw);
+  const assetRes = await c.env.ASSETS.fetch(c.req.raw);
+  if (assetRes.status !== 404) return assetRes;
+
+  // SPA fallback: LIFF deep links (/webinar/:slug, /events/:id など) は
+  // アセットストアに実ファイルが無く 404 で返る。HTML を要求する GET
+  // ナビゲーションに限り index.html を返してクライアントルーターに任せる。
+  // それ以外 (存在しない .js/.png への参照など) は 404 のまま透過する。
+  //
+  // three-surfaces bundle（2026-08-24）
+  // 以降、このオリジンは複数のクライアントルート SPA を配信する — root は LIFF アプリ
+  // （friend-add フロー本体）、`/<adminBasePath>/*`（例: `/console`）は admin、
+  // `/liff-app/*` は apps/liff。フォールバック先を root 固定にすると、admin や
+  // apps/liff の深いリンクが LIFF アプリの index.html に着地して壊れる。
+  // どのプレフィックスが実際に存在するかは line-harness 側のビルド（basePath 設定）が
+  // 決めるので、ここでは決め打ちせず「先頭パスセグメント配下に index.html があれば
+  // それを使う、無ければ root にフォールバック」という汎用ロジックにしてある —
+  // 既存の root 直下ルート（/webinar/:slug, /events/:id, /book 等）はどのみち
+  // 該当セグメント名のディレクトリを持たないので、1回余分に 404 を踏んで root へ
+  // 落ちるだけで従来の挙動と変わらない。
+  const accept = c.req.header('accept') ?? '';
+  if (c.req.method === 'GET' && accept.includes('text/html')) {
+    const firstSegment = path.split('/').find((s) => s.length > 0);
+    if (firstSegment) {
+      const prefixedRes = await c.env.ASSETS.fetch(
+        new Request(new URL(`/${firstSegment}/index.html`, c.req.url).toString(), {
+          headers: c.req.raw.headers,
+        }),
+      );
+      if (prefixedRes.status !== 404) return prefixedRes;
+    }
+    return c.env.ASSETS.fetch(
+      new Request(new URL('/', c.req.url).toString(), { headers: c.req.raw.headers }),
+    );
+  }
+  return assetRes;
 }
 app.notFound(notFoundHandler);
 
+<<<<<<< HEAD
 // Scheduled handler for cron triggers — runs for all active LINE accounts
 async function scheduled(
   event: ScheduledEvent,
@@ -1052,6 +1205,12 @@ async function scheduled(
   // (apps/worker/src/services/duplicate-detect.ts) and the existing
   // `重複:` tag rows untouched until that replacement lands.
 }
+=======
+// wrangler.toml の [[durable_objects.bindings]] class_name は同スクリプトからの
+// named export を解決するので、メインエントリである index.ts から再 export する
+// 必要がある（実装自体は durable-objects/tenant-scheduler.ts に置いてある）。
+export { TenantScheduler };
+>>>>>>> upstream/main
 
 export default {
   fetch: app.fetch,

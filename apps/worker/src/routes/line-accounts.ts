@@ -11,7 +11,15 @@ import {
 } from '@line-crm/db';
 import type { LineAccount as DbLineAccount } from '@line-crm/db';
 import { requireRole } from '../middleware/role-guard.js';
+import {
+  detectFollowerImportCapability,
+  getFollowerImportState,
+  processFollowerImportStep,
+  startFollowerImport,
+} from '../services/follower-import.js';
+import type { FollowerImportClient } from '../services/follower-import.js';
 import type { Env } from '../index.js';
+import { monthStartJst } from '../services/quota.js';
 
 const lineAccounts = new Hono<Env>();
 
@@ -46,6 +54,29 @@ function serializeLineAccountFull(row: DbLineAccount) {
     channelAccessToken: row.channel_access_token,
     channelSecret: row.channel_secret,
     loginChannelSecret: row.login_channel_secret,
+  };
+}
+
+/** Show the last 4 chars so the UI can say "configured" without leaking the value. */
+function maskSecret(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return `****${value.slice(-4)}`;
+}
+
+/**
+ * GET responses carry masked secrets only. The admin UI never reads these back
+ * (its edit form leaves the fields blank and only sends a value when changing
+ * one), so masking costs nothing there — but an API key handed to an MCP agent
+ * is owner-role, and returning the plaintext channel token would let a leaked
+ * key take over the LINE channel itself, far beyond this harness.
+ * POST/PUT still echo the full values: those are the caller's own input.
+ */
+function serializeLineAccountMasked(row: DbLineAccount) {
+  return {
+    ...serializeLineAccount(row),
+    channelAccessToken: maskSecret(row.channel_access_token),
+    channelSecret: maskSecret(row.channel_secret),
+    loginChannelSecret: maskSecret(row.login_channel_secret),
   };
 }
 
@@ -85,10 +116,12 @@ lineAccounts.get('/api/line-accounts', async (c) => {
             // 揃える設計: push 系のみ + 当月 1 日 00:00 以降。reply API 経由 (1-on-1 chat) は LINE quota 外なので
             // delivery_type='push' で除外。以前は date('now', '-30 days') の rolling window で月初に bias 残って
             // 公式 dashboard と数桁ズレてた (例: 公式 10 通 vs UI 10,609 通) → start of month に揃えた。
+            // month start is computed in JST to match created_at (SQLite's
+            // date('now') is UTC and lags 9h behind on the 1st of the month).
             `SELECT COUNT(*) as count FROM messages_log ml
              INNER JOIN friends f ON f.id = ml.friend_id
-             WHERE ml.direction = 'outgoing' AND (ml.delivery_type IS NULL OR ml.delivery_type = 'push') AND ml.created_at >= date('now', 'start of month') AND f.line_account_id = ?`,
-          ).bind(item.id).first<{ count: number }>(),
+             WHERE ml.direction = 'outgoing' AND (ml.delivery_type IS NULL OR ml.delivery_type = 'push') AND ml.created_at >= ? AND f.line_account_id = ?`,
+          ).bind(monthStartJst(), item.id).first<{ count: number }>(),
         ]);
 
         return {
@@ -111,7 +144,7 @@ lineAccounts.get('/api/line-accounts', async (c) => {
   }
 });
 
-// GET /api/line-accounts/:id - get single (secrets only for owner/admin)
+// GET /api/line-accounts/:id - get single (secrets masked; staff sees none at all)
 lineAccounts.get('/api/line-accounts/:id', async (c) => {
   try {
     const account = await getLineAccountById(c.env.DB, c.req.param('id'));
@@ -121,7 +154,7 @@ lineAccounts.get('/api/line-accounts/:id', async (c) => {
     const staff = c.get('staff');
     const data = staff?.role === 'staff'
       ? serializeLineAccount(account)
-      : serializeLineAccountFull(account);
+      : serializeLineAccountMasked(account);
     return c.json({ success: true, data });
   } catch (err) {
     console.error('GET /api/line-accounts/:id error:', err);
@@ -161,6 +194,72 @@ lineAccounts.get('/api/line-accounts/:id/follower-insight', async (c) => {
     return c.json({ success: false, error: 'Failed to fetch LINE follower insight' }, 502);
   }
 });
+
+// Existing-follower migration is an explicit, persisted, one-time job.
+// No cron polls LINE: connection/UI performs a one-item capability probe, then
+// operator-approved step requests advance the D1 cursor until completion.
+lineAccounts.get('/api/line-accounts/:id/follower-import', async (c) => {
+  const account = await getLineAccountById(c.env.DB, c.req.param('id')!);
+  if (!account) return c.json({ success: false, error: 'LINE account not found' }, 404);
+  const state = await getFollowerImportState(c.env.DB, account.id);
+  return c.json({ success: true, data: state });
+});
+
+lineAccounts.post(
+  '/api/line-accounts/:id/follower-import/detect',
+  requireRole('owner', 'admin'),
+  async (c) => {
+    try {
+      const account = await getLineAccountById(c.env.DB, c.req.param('id')!);
+      if (!account) return c.json({ success: false, error: 'LINE account not found' }, 404);
+      const client = new LineClient(account.channel_access_token);
+      const state = await detectFollowerImportCapability(
+        c.env.DB,
+        client as unknown as FollowerImportClient,
+        account.id,
+      );
+      return c.json({ success: true, data: state });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error('follower import capability detection error:', message);
+      return c.json({ success: false, error: '利用可否の確認に失敗しました' }, 502);
+    }
+  },
+);
+
+lineAccounts.post(
+  '/api/line-accounts/:id/follower-import/start',
+  requireRole('owner', 'admin'),
+  async (c) => {
+    const account = await getLineAccountById(c.env.DB, c.req.param('id')!);
+    if (!account) return c.json({ success: false, error: 'LINE account not found' }, 404);
+    try {
+      const state = await startFollowerImport(c.env.DB, account.id);
+      return c.json({ success: true, data: state });
+    } catch (err) {
+      if (err instanceof Error && err.message === 'FOLLOWER_IMPORT_NOT_AVAILABLE') {
+        return c.json({ success: false, error: 'このアカウントでは既存友だち取得を利用できません' }, 409);
+      }
+      throw err;
+    }
+  },
+);
+
+lineAccounts.post(
+  '/api/line-accounts/:id/follower-import/step',
+  requireRole('owner', 'admin'),
+  async (c) => {
+    const account = await getLineAccountById(c.env.DB, c.req.param('id')!);
+    if (!account) return c.json({ success: false, error: 'LINE account not found' }, 404);
+    const client = new LineClient(account.channel_access_token);
+    const result = await processFollowerImportStep(
+      c.env.DB,
+      client as unknown as FollowerImportClient,
+      account.id,
+    );
+    return c.json({ success: true, data: result });
+  },
+);
 
 // Normalize optional string inputs from the UI:
 //   undefined → undefined (caller skips the column)
@@ -305,6 +404,19 @@ lineAccounts.post('/api/line-accounts', requireRole('owner'), async (c) => {
       ogDefaultImageUrl: normalizeOptionalString(body.ogDefaultImageUrl) ?? null,
       ogDefaultDescription: normalizeOptionalString(body.ogDefaultDescription) ?? null,
     });
+
+    // One read-only request at connection time records whether this account
+    // can use followers/ids. This never starts the migration and is non-fatal:
+    // a temporary LINE outage must not roll back account registration.
+    try {
+      await detectFollowerImportCapability(
+        c.env.DB,
+        new LineClient(account.channel_access_token) as unknown as FollowerImportClient,
+        account.id,
+      );
+    } catch (err) {
+      console.error('[line-accounts] follower import capability probe failed', err);
+    }
 
     // Auto-enroll new account into the 'main' traffic pool.
     // If migration 039 ran before any LINE accounts existed (fresh tenant),
@@ -613,7 +725,10 @@ lineAccounts.put('/api/line-accounts/:id', requireRole('owner'), async (c) => {
       }
     }
 
-    return c.json({ success: true, data: serializeLineAccountFull(updated) });
+    // Masked, not full: an update may touch only non-secret fields (or send an
+    // empty body), in which case the echoed secrets would be the *stored* ones —
+    // reopening exactly the read path the GET masking above closes.
+    return c.json({ success: true, data: serializeLineAccountMasked(updated) });
   } catch (err) {
     console.error('PUT /api/line-accounts/:id error:', err);
     return c.json({ success: false, error: 'Internal server error' }, 500);

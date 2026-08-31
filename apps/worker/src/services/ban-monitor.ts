@@ -77,6 +77,7 @@ async function checkSingleAccount(
     riskLevel = 'warning'; // 大量送信の警告
   }
 
+<<<<<<< HEAD
   // 直前の記録と同じ状態なら書かない。
   //
   // この関数は毎分の cron tick ごとに呼ばれる（index.ts の scheduled が
@@ -96,6 +97,16 @@ async function checkSingleAccount(
     latest.risk_level === riskLevel &&
     (latest.error_code ?? null) === (errorCode ?? null)
   ) {
+=======
+  // 直前の記録と同じ状態なら書かない。この関数は分足の tick ごとに呼ばれるので、
+  // 毎回 INSERT すると異常が1件も無いアカウントでも 1日1,440行のゴミが積み上がる
+  // (2026-08-26 実測: 43テナント・24時間で 53,908行)。ヘルスログは「チェックした
+  // 記録」ではなく「状態が変わった履歴」で、UI (apps/web/src/app/health/page.tsx)
+  // も最新50件をそのまま並べるだけなので、同じ状態の連投は履歴を潰すだけになる。
+  // risk_level が同じでもエラーコードが変われば別の事象なので、両方を比較する。
+  const [latest] = await getAccountHealthLogs(db, account.id, 1);
+  if (latest && latest.risk_level === riskLevel && (latest.error_code ?? null) === errorCode) {
+>>>>>>> upstream/main
     return;
   }
 

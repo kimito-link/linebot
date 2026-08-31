@@ -282,6 +282,7 @@ export interface RichMenuObject {
 export interface PushMessageRequest {
   to: string;
   messages: Message[];
+  customAggregationUnits?: string[];
 }
 
 export interface MulticastRequest {
