@@ -187,7 +187,12 @@ function FlexBubble({ bubble, maxWidth }: { bubble: FlexNode; maxWidth?: number 
 
   return (
     <div style={{
-      width: w,
+      // 固定 width にすると、親が w より狭いときにバブルが親を押し広げて
+      // 横スクロールを生む。チャット画面の吹き出しは max-w が % 指定なので、
+      // 中央カラムが狭い構成でこれが起きる。
+      // 上限として扱い、狭ければ縮ませる。
+      width: '100%',
+      maxWidth: w,
       backgroundColor: '#fff',
       borderRadius: '12px',
       overflow: 'hidden',
