@@ -43,7 +43,11 @@ header nav a {
 header nav a:hover { background: var(--site-chrome-accent-soft); color: var(--site-chrome-accent); }
 header nav a.active { background: var(--site-chrome-accent); color: white; }
 
-/* ── ハンバーガーメニュー（幅1100px以下でnavを折りたたむ） ── */
+/* ── ハンバーガーメニュー（幅760px以下でnavを折りたたむ） ──
+   ★金型の既定は1100pxだが、このサイトはnav5項目・短い文言なので
+     デスクトップ〜タブレットではヘッダーに直接並べる。
+     1100pxのままだとノートPCでもハンバーガーになり、
+     メニューが畳まれて存在に気づかれない（2026-09-01 実機で指摘を受けた）。 */
 .nav-toggle {
   display: none;
   margin-left: auto;
@@ -81,7 +85,7 @@ header nav a.active { background: var(--site-chrome-accent); color: white; }
 .nav-toggle[aria-expanded="true"] span::before { transform: translateY(7px) rotate(45deg); }
 .nav-toggle[aria-expanded="true"] span::after { transform: translateY(-7px) rotate(-45deg); }
 
-@media (max-width: 1100px) {
+@media (max-width: 760px) {
   .nav-toggle { display: flex; }
   header nav {
     display: none;

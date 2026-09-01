@@ -31,7 +31,7 @@
   var SITE_CONFIG = {
     brandName: 'Kimito Talk',
     brandCopyright: '株式会社ベストトラスト',
-    logoSrc: '/assets/kimito-link-logo-rect.png',
+    logoSrc: '/assets/kimito-link-logo-rect.png?v=2',  // ★?v= はキャッシュ対策。ロゴを差し替えたら数字を上げる
     homeLabel: 'トップ',
   };
 
