@@ -431,6 +431,23 @@
                          押すのは「Xで続ける」の1回。新規登録もパスワードも無い。 -->
                 <img src="assets/genba/x-login.svg" alt="Xのアカウントで「Xで続ける」を押すだけ。新規登録・パスワード・メール確認はありません。"
                      style="width:100%;max-width:300px;margin-top:12px;display:block;border:1px solid var(--line);border-radius:12px;background:var(--panel)">
+
+                <!-- ★実物の画面を録画して載せる（2026-09-01 追加）。
+                     kimito.link にある「ログインすると、もうこのページが出来ています」の
+                     追体験デモを、実際にスクロールしながら録ったもの。
+                     ★向こうはReactのスクロール連動UI（実ページをiframeで表示）で、
+                       このLPは素のHTML1枚・JS0行なので同じ仕掛けは持ち込めない。
+                     ★別サイトへ飛ばすと戻ってきてもらえないので、
+                       **このページの中で見られる形**にした（動画なら確実に動く）。
+                     8秒・音なし。作り物ではなく本物の画面。 -->
+                <video class="tall" controls loop muted playsinline preload="none"
+                       poster="assets/kimito-demo-poster.jpg"
+                       src="assets/kimito-demo.mp4"
+                       style="margin-top:12px;max-width:260px"></video>
+                <span style="margin-top:6px">
+                  ▶ 実際の画面です（8秒・音は出ません）。
+                  ログインすると、もうこの状態のページが出来ています。
+                </span>
               </div>
             </div>
           </div>
