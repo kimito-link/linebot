@@ -154,6 +154,9 @@
   .tbl-wrap { overflow-x: auto; }
 
   video { width: 100%; border-radius: 14px; display: block; border: 1px solid var(--line); }
+  /* ★縦長の動画（ロック画面のモック・4:5）。他の動画は横長なので、
+       同じ width:100% だと縦に伸びてページを占領してしまう。幅を抑える。 */
+  video.tall { max-width: 340px; margin: 0 auto; }
   .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .src { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
   .src a, .note a { color: var(--muted); }
@@ -361,6 +364,19 @@
             アプリを開かなくても、ロック画面に出続けます。
             通知のように一度見たら消えるのではなく、その日まで残ります。
           </div>
+
+          <!-- ★モック動画（2026-09-01 追加）。
+               「ロック画面に出続ける」は文字だけだと想像しにくいので、動くものを見せる。
+               ★まだ実装していないので、動画の中にも「実装予定のイメージです」と入れてある。
+                 音は無し・6秒・ループ。実機のスクショは使わず白紙から描いている。 -->
+          <video class="tall" controls loop muted playsinline preload="none"
+                 poster="assets/lockscreen-demo-poster.jpg"
+                 src="assets/lockscreen-demo.mp4"
+                 style="margin-top:14px"></video>
+          <p class="note" style="text-align:center">
+            イメージです（6秒・音は出ません）。まだ作っている途中のものです。
+          </p>
+
           <span class="tag wip">作っている途中です</span>
         </div>
       </div>
