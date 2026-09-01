@@ -6,14 +6,14 @@
          XMLのコメントは「ハイフン2つ」を含められない決まりで、書くとファイル全体が
          パースエラーになり、画像がまるごと表示されなくなる（2026-09-01 実際に踏んだ）。
          ブラウザは黙って壊れた画像アイコンを出すだけで、理由を教えてくれない。 -->
-  <rect x="10" y="14" width="300" height="172" rx="10" fill="#fff" stroke="#ECE4DC" stroke-width="1.5"/>
+  <rect x="10" y="14" width="300" height="172" rx="10" fill="#fff" stroke="#E4DACF" stroke-width="1.5"/>
 
   <!-- 見出しの帯（文字は入れない。イメージなので） -->
-  <rect x="26" y="30" width="96" height="7" rx="3.5" fill="#EAE2DA"/>
-  <rect x="26" y="43" width="60" height="6" rx="3" fill="#F0EAE4"/>
+  <rect x="26" y="30" width="96" height="7" rx="3.5" fill="#DED3C8"/>
+  <rect x="26" y="43" width="60" height="6" rx="3" fill="#E8DFD6"/>
 
   <!-- 30マス（10列 × 3段） -->
-  <g fill="none" stroke="#E2D6CB" stroke-width="1.4">
+  <g fill="none" stroke="#D8C9BB" stroke-width="1.4">
     <!-- 1段目 -->
     <rect x="26"  y="62" width="24" height="24" rx="5"/>
     <rect x="54"  y="62" width="24" height="24" rx="5"/>
@@ -50,7 +50,7 @@
   </g>
 
   <!-- ★押された印は最初の4つだけ。「まだ途中」が伝わる -->
-  <g fill="#6B9080" opacity="0.5">
+  <g fill="#59786B" opacity="0.5">
     <circle cx="38"  cy="74" r="7"/>
     <circle cx="66"  cy="74" r="7"/>
     <circle cx="94"  cy="74" r="7"/>
@@ -58,6 +58,6 @@
   </g>
 
   <!-- 下の注記（線で表現。文字は入れない） -->
-  <rect x="26" y="158" width="180" height="5" rx="2.5" fill="#EFE8E1"/>
-  <rect x="26" y="169" width="130" height="5" rx="2.5" fill="#EFE8E1"/>
+  <rect x="26" y="158" width="180" height="5" rx="2.5" fill="#E5DBD1"/>
+  <rect x="26" y="169" width="130" height="5" rx="2.5" fill="#E5DBD1"/>
 </svg>

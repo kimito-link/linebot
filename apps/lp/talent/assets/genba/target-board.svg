@@ -12,14 +12,14 @@
             「わずかな傾き」「行ごとに角度を変える」「勢いのある下線」で作る。
             数字が読めることに意味がある図なので、抽象化してはいけない。 -->
 
-  <rect x="10" y="14" width="300" height="172" rx="10" fill="#fff" stroke="#ECE4DC" stroke-width="1.5"/>
+  <rect x="10" y="14" width="300" height="172" rx="10" fill="#fff" stroke="#E4DACF" stroke-width="1.5"/>
 
   <!-- 印刷部分（ビジュアルの面。ここは文字を入れない） -->
   <rect x="24" y="28" width="126" height="58" rx="6" fill="#F1EBE4"/>
   <rect x="160" y="28" width="126" height="58" rx="6" fill="#F1EBE4"/>
 
   <!-- ★手書きで足された白い帯。ここだけ質感が違う -->
-  <rect x="24" y="94" width="262" height="66" rx="5" fill="#FFFDF8" stroke="#E6DCD1" stroke-width="1.2"/>
+  <rect x="24" y="94" width="262" height="66" rx="5" fill="#FFFDF8" stroke="#D8CCC0" stroke-width="1.2"/>
 
   <!-- ★手書き文字。行ごとに角度を変えるのが効く -->
   <g font-family="'Yu Gothic UI','Yu Gothic','Hiragino Sans',sans-serif" fill="#41576A">
@@ -35,14 +35,14 @@
 
   <!-- ★「いま何人か」は空欄のまま。ここが図の要点 -->
   <rect x="206" y="106" width="70" height="42" rx="5"
-        fill="#FAF7F2" stroke="#D5C9BD" stroke-width="1.3" stroke-dasharray="5 4"/>
+        fill="#FAF7F2" stroke="#C4B6A8" stroke-width="1.3" stroke-dasharray="5 4"/>
   <text x="241" y="127" text-anchor="middle"
         font-family="'Hiragino Sans', system-ui, sans-serif"
-        font-size="21" fill="#B0A498">?</text>
+        font-size="21" fill="#9A8F84">?</text>
   <text x="241" y="141" text-anchor="middle"
         font-family="'Hiragino Sans', system-ui, sans-serif"
-        font-size="9" fill="#B0A498">いま</text>
+        font-size="9" fill="#9A8F84">いま</text>
 
   <!-- 下の注記帯 -->
-  <rect x="24" y="170" width="150" height="5" rx="2.5" fill="#EFE8E1"/>
+  <rect x="24" y="170" width="150" height="5" rx="2.5" fill="#E5DBD1"/>
 </svg>
