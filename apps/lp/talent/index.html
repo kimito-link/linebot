@@ -155,6 +155,13 @@
   .callout h3 { color: var(--warn); }
   .callout p { font-size: 14px; margin-top: 5px; }
 
+  /* キャラ3体（下部にだけ置く。上部の意思決定導線には出さない） */
+  .chars {
+    display: flex; justify-content: center; align-items: flex-end;
+    gap: 8px; margin-top: 26px; flex-wrap: wrap;
+  }
+  .chars img { width: 88px; height: 88px; object-fit: contain; }
+
   footer { padding: 42px 0 62px; text-align: center; }
   /* ★.foot-brands は使われているのに定義が無かった（2026-09-01 に発見・修正）。
      ロゴ2枚が無スタイルのまま縦に並んでいた。 */
@@ -624,6 +631,23 @@
         そこも含めてお手伝いできます。
       </p>
     </div>
+
+    <!-- ★キャラはここから下にだけ置く（2026-09-01）。
+         社内のBtoB設計書（web-health-check の DESIGN-lp-b2b-reputation）にある
+         「キャラのゾーニング」に従っている:
+           メインCTAより上の意思決定導線からは消す
+           （最初の30秒でゆっくり系キャラが出ると法人向けのトーンが崩れるため）
+           ただし全撤去はしない（実物のサービスと乖離して、後で会ったときに驚かれる）
+         このページで実際に動いているもの（LINE・動員・すれ違い）には
+         この3体が出てくるので、ここで一度顔を見せておく。 -->
+    <div class="chars">
+      <img src="/assets/characters/link.png" alt="りんく">
+      <img src="/assets/characters/konta.png" alt="こん太">
+      <img src="/assets/characters/tanunee.png" alt="たぬ姉">
+    </div>
+    <p class="note" style="text-align:center">
+      ご案内に出てくる3人です。動員ちゃれんじや、すれ違ひ通信にも登場します。
+    </p>
   </div>
 </section>
 
@@ -655,9 +679,9 @@
       </div>
       <div class="vs-card">
         <div class="brand-head">
-          <img src="assets/logo-kimitolink.png?v=2" alt="きみとりんく" class="brand-logo">
+          <img src="assets/logo-kimitolink.png?v=2" alt="Kimito-Link" class="brand-logo">
           <div>
-            <div class="t">きみとりんく</div>
+            <div class="t">Kimito-Link</div>
             <div class="m" style="color:var(--fg)">育てる</div>
           </div>
         </div>
@@ -701,8 +725,8 @@
     <a class="cta" href="https://line.me/R/ti/p/@kimitolink?ref=talent">LINEで相談する →</a>
     <div class="foot-brands">
       <a href="https://kimito-link.com/" target="_blank" rel="noopener">
-        <img src="assets/logo-kimitolink.png?v=2" alt="きみとりんく">
-        <span>きみとりんく</span>
+        <img src="assets/logo-kimitolink.png?v=2" alt="Kimito-Link">
+        <span>Kimito-Link</span>
       </a>
       <a href="https://soushin-suggest.link/" target="_blank" rel="noopener">
         <img src="assets/logo-reversehack.png" alt="リバースハック">
