@@ -1,5 +1,6 @@
-import { createTrackedLink } from '@line-crm/db';
+import { getOrCreateAutoTrackedLink, getLineAccountById } from '@line-crm/db';
 import { resolveTrackedLinkBaseUrl } from '../lib/link-base-url.js';
+import { renderBroadcastMessageContent } from './render-message.js';
 
 // Domains where Universal Links / App Links should be used
 const APP_LINK_DOMAINS = new Set([
@@ -76,13 +77,14 @@ async function createTrackingMap(
   linkBase: string,
   lineAccountId?: string | null,
 ): Promise<Map<string, { trackingUrl: string; originalUrl: string; label: string }>> {
-  // Inserts are independent (each generates its own id/short_code), so run
-  // them concurrently — a carousel can hold 10+ URIs and sequential D1
-  // round-trips add up inside per-friend delivery loops.
+  // Lookups are independent per URL, so run them concurrently — a carousel
+  // can hold 10+ URIs and sequential D1 round-trips add up inside per-friend
+  // delivery loops.
   const entries = await Promise.all(
     [...urls].map(async (url) => {
-      const link = await createTrackedLink(db, {
-        name: `auto: ${url.slice(0, 60)}`,
+      // Reuses the one auto link per (url, account) — per-friend delivery
+      // loops must not mint a fresh tracked_links row on every send.
+      const link = await getOrCreateAutoTrackedLink(db, {
         originalUrl: url,
         lineAccountId: lineAccountId ?? null,
       });
@@ -191,6 +193,12 @@ export async function appendFriendToTrackedLinks(
   friendId: string | null | undefined,
 ): Promise<string> {
   if (!friendId) return content;
+  // Tracked links are always built as `${base}/t/${code}` (worker base, short
+  // domain, and legacy UUID form alike), so content without the literal
+  // '/t/' cannot contain one. Skip the settings read — this runs in front of
+  // reply-token sends where pre-send latency matters, and URL-free content
+  // is the common case.
+  if (!content.includes('/t/')) return content;
   const workerBase = workerUrl.replace(/\/$/, '');
   const linkBase = await resolveTrackedLinkBaseUrl(db, workerUrl);
   const bases = [...new Set([workerBase, linkBase])];
@@ -214,8 +222,8 @@ export async function appendFriendToTrackedLinks(
 
 /**
  * Auto-wrap URLs in message content with tracking links.
- * For text messages with URLs, converts to Flex with button.
- * For flex messages, replaces URLs inline.
+ * Text and flex messages both get their URLs replaced inline with tracked
+ * links; the message type is preserved.
  */
 export async function autoTrackContent(
   db: D1Database,
@@ -339,4 +347,56 @@ function rewriteActionUris(node: unknown, fn: (u: string) => string): void {
   visitActionUris(node, (holder, key) => {
     holder[key] = fn(holder[key] as string);
   });
+}
+
+/**
+ * Full per-friend outgoing decoration pipeline: wrap raw URLs into tracked
+ * links (autoTrackContent), then bake f=<friendId> into /t links
+ * (appendFriendToTrackedLinks) so clicks attribute without the LIFF
+ * identification hop.
+ *
+ * Single implementation shared by the cron step delivery
+ * (step-delivery.ts) and the instant first-step push
+ * (immediate-first-step.ts) so the two pipelines cannot drift — whichever
+ * side wins the delivery claim, the friend receives identically decorated
+ * content.
+ *
+ * Per-friend sends only — never use for multicast/broadcast content (see
+ * appendFriendToTrackedLinks). Returns the input unchanged when workerUrl
+ * is not configured.
+ */
+export async function decorateForFriendPush(
+  db: D1Database,
+  messageType: string,
+  content: string,
+  workerUrl: string | undefined,
+  opts: { lineAccountId: string | null; friendId: string },
+): Promise<AutoTrackResult> {
+  // {{liff_id}} → the delivering account's LIFF. A LIFF URL must belong to the
+  // recipient's own account or LINE shows the other account's consent screen
+  // and the funnel dies mid-hop. Broadcasts already substitute per account
+  // (broadcast.ts / dedup-broadcast.ts); this brings scenario steps, instant
+  // welcomes, and every other decorate caller in line so one shared scenario
+  // can serve friends across accounts.
+  let rendered = content;
+  if (/\{\{\s*liff_id\s*\}\}/.test(content)) {
+    let liffId: string | null = null;
+    if (opts.lineAccountId) {
+      const account = await getLineAccountById(db, opts.lineAccountId);
+      liffId = (account as { liff_id?: string | null } | null)?.liff_id ?? null;
+    }
+    if (liffId) {
+      rendered = renderBroadcastMessageContent(messageType, content, { liffId });
+    } else {
+      console.error(
+        `[decorate] {{liff_id}} in content but no LIFF resolvable (account=${opts.lineAccountId ?? 'none'}) — left unresolved`,
+      );
+    }
+  }
+  if (!workerUrl) return { messageType, content: rendered };
+  const tracked = await autoTrackContent(db, messageType, rendered, workerUrl, {
+    lineAccountId: opts.lineAccountId,
+  });
+  const decorated = await appendFriendToTrackedLinks(db, tracked.content, workerUrl, opts.friendId);
+  return { messageType: tracked.messageType, content: decorated };
 }
