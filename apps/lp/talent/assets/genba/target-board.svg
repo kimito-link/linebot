@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" role="img" aria-labelledby="t d">
+  <title id="t">手書きの動員目標</title>
+  <desc id="d">配布物の余白に、手書きで動員の目標人数が書き足されている様子。いまの人数の欄は空いたまま。</desc>
+  <!-- ★イメージ図。実在の告知物の再現ではない。
+       ★この図の要点: 目標は手で書ける。でも「いま何人か」は書けない。
+         LPのH1「動員は、開けてみなければ分からない」を絵にしている。
+
+       ★文字の扱いで2回失敗しているので記録しておく（2026-09-01 実測）:
+         1回目 … フォント指定で普通に組んだ → 印刷物に見えて「手書き」感が出ない
+         2回目 … 波線で文字を抽象化した → ★ただの落書きに見えて、何も書いてないのと同じ
+         → 結論: **文字は読める形で書く**。手書きらしさは
+            「わずかな傾き」「行ごとに角度を変える」「勢いのある下線」で作る。
+            数字が読めることに意味がある図なので、抽象化してはいけない。 -->
+
+  <rect x="10" y="14" width="300" height="172" rx="10" fill="#fff" stroke="#ECE4DC" stroke-width="1.5"/>
+
+  <!-- 印刷部分（ビジュアルの面。ここは文字を入れない） -->
+  <rect x="24" y="28" width="126" height="58" rx="6" fill="#F1EBE4"/>
+  <rect x="160" y="28" width="126" height="58" rx="6" fill="#F1EBE4"/>
+
+  <!-- ★手書きで足された白い帯。ここだけ質感が違う -->
+  <rect x="24" y="94" width="262" height="66" rx="5" fill="#FFFDF8" stroke="#E6DCD1" stroke-width="1.2"/>
+
+  <!-- ★手書き文字。行ごとに角度を変えるのが効く -->
+  <g font-family="'Yu Gothic UI','Yu Gothic','Hiragino Sans',sans-serif" fill="#41576A">
+    <text x="38" y="119" font-size="13.5" font-weight="700"
+          transform="rotate(-2.4 38 119)">3/22（土）ワンマン！</text>
+    <text x="38" y="145" font-size="18" font-weight="700"
+          transform="rotate(-1.4 38 145)">動員 150人 目標！</text>
+  </g>
+
+  <!-- 勢いのある下線（少し跳ねさせる） -->
+  <path d="M 36 152 q 60 -6 118 1 q 8 1 12 -2" stroke="#41576A" stroke-width="2.3"
+        fill="none" opacity="0.62" stroke-linecap="round"/>
+
+  <!-- ★「いま何人か」は空欄のまま。ここが図の要点 -->
+  <rect x="206" y="106" width="70" height="42" rx="5"
+        fill="#FAF7F2" stroke="#D5C9BD" stroke-width="1.3" stroke-dasharray="5 4"/>
+  <text x="241" y="127" text-anchor="middle"
+        font-family="'Hiragino Sans', system-ui, sans-serif"
+        font-size="21" fill="#B0A498">?</text>
+  <text x="241" y="141" text-anchor="middle"
+        font-family="'Hiragino Sans', system-ui, sans-serif"
+        font-size="9" fill="#B0A498">いま</text>
+
+  <!-- 下の注記帯 -->
+  <rect x="24" y="170" width="150" height="5" rx="2.5" fill="#EFE8E1"/>
+</svg>

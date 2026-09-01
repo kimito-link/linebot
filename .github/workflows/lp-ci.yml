@@ -18,12 +18,14 @@ on:
     paths:
       - 'apps/lp/**'
       - 'scripts/check-lp-links.mjs'
+      - 'scripts/check-lp-svg.mjs'
       - '.github/workflows/lp-ci.yml'
   push:
     branches: [main]
     paths:
       - 'apps/lp/**'
       - 'scripts/check-lp-links.mjs'
+      - 'scripts/check-lp-svg.mjs'
       - '.github/workflows/lp-ci.yml'
   workflow_dispatch:
 
@@ -43,3 +45,14 @@ jobs:
       # 依存ゼロの素のNodeスクリプト。pnpm install は要らない。
       - name: リンク切れ検査
         run: node scripts/check-lp-links.mjs --offline
+
+      # ★SVGがXMLとして壊れていないかを見る（2026-09-01 追加）。
+      #   コメントにCSS変数名（ハイフン2つ）を書いてファイル全体が
+      #   パースエラーになり、画像が丸ごと消えた事故があった。
+      #   ★HTTP 200 でも Content-Type が正しくても表示されない。
+      #     ブラウザは黙って壊れた画像を出すだけなので、機械で見るしかない。
+      - name: SVGの検査（まず計器の自己点検）
+        run: node scripts/check-lp-svg.mjs --selftest
+
+      - name: SVGの検査
+        run: node scripts/check-lp-svg.mjs

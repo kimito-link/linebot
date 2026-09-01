@@ -162,6 +162,22 @@
   }
   .chars img { width: 88px; height: 88px; object-fit: contain; }
 
+  /* ★現場のイメージ図（2026-09-01 追加）。
+       実物の写真は使えない（他の事務所さま・演者さまが写っているため）ので、
+       「こういうものがあります」が伝わる絵を描き起こした。
+       ★SVGなので拡大しても粗くならず、LPの配色をそのまま使っている。 */
+  .genba { margin-top: 20px; }
+  .genba img {
+    width: 100%; max-width: 420px; display: block; margin: 0 auto;
+    border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  }
+  .genba figcaption {
+    font-size: 12.5px; color: var(--muted); text-align: center; margin-top: 9px;
+  }
+  /* 2枚並べるとき。狭い画面では自然に縦積みになる */
+  .genba.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+  .genba.two figure { margin: 0; }
+
   footer { padding: 42px 0 62px; text-align: center; }
   /* ★.foot-brands は使われているのに定義が無かった（2026-09-01 に発見・修正）。
      ロゴ2枚が無スタイルのまま縦に並んでいた。 */
@@ -479,6 +495,17 @@
 <section>
   <div class="wrap">
     <h2>事前に見えると、決められることがあります</h2>
+
+    <!-- ★H1「動員は、開けてみなければ分からない」を絵にしたもの（2026-09-01 追加）。
+         目標は手書きで足せるのに、「いま何人か」の欄だけ空いたまま、という図。
+         ★実物の写真は使えない（他の事務所さま・演者さまが写っているため）ので、
+           構造だけを描き起こしたイメージ図にしている。 -->
+    <figure class="genba">
+      <img src="assets/genba/target-board.svg"
+           alt="配布物の余白に「動員150人 目標！」と手書きで書き足されている。いまの人数の欄は空いたまま。">
+      <figcaption>目標は書けます。いま何人来そうかは、書けません。</figcaption>
+    </figure>
+
     <div class="points two">
       <div class="point">
         <h3>会場の大きさ</h3>
@@ -532,6 +559,19 @@
       並んでいる人にとっても、待たせている側にとっても、一番もったいないところです。
     </p>
 
+    <!-- ★「数えるところが紙になっている」という現場の事実（2026-09-01 追加）。
+         ★これも構造の事実: 紙のカードは、なくす・忘れる。そして
+           誰が何回来たかは、演者さま側からは分からない。
+         実物の写真は使えないので、構造だけを描き起こしたイメージ図。 -->
+    <figure class="genba">
+      <img src="assets/genba/point-card.svg"
+           alt="30個のマス目が並んだ紙のポイントカード。最初の数マスだけ印が付いている。">
+      <figcaption>
+        何回来てくれたかは、いまは紙で数えていることが多いようです。
+        なくしたら最初からで、誰が何回目かは、渡した側からは分かりません。
+      </figcaption>
+    </figure>
+
     <div class="points two">
       <div class="point">
         <h3>かざすだけで済みます</h3>
@@ -547,6 +587,23 @@
           フォローが、その日かぎりで終わらなくなります。
         </p>
       </div>
+    </div>
+
+    <!-- ★カードの現状と、かざす場合の対比（2026-09-01 追加）。
+         ★この2枚で言いたいのは「面積が返ってくる」こと。
+           QRは行き先の数だけ場所を取る。かざすなら1つも要らないので、絵に使える。
+         実物の写真は使えないため、構造だけを描き起こしたイメージ図。 -->
+    <div class="genba two">
+      <figure>
+        <img src="assets/genba/many-qr.svg"
+             alt="1枚の配布物に、行き先の違うQRコードが5つ並んでいる様子。">
+        <figcaption>行き先が増えるほど、並べるしかなくなります。</figcaption>
+      </figure>
+      <figure>
+        <img src="assets/genba/card-compare.svg"
+             alt="QRをいくつも入れたカードと、かざすだけで開くカードの比較。後者は絵に使える面積が広い。">
+        <figcaption>かざす形にすると、その分の面積が空きます。</figcaption>
+      </figure>
     </div>
 
     <p class="lead" style="margin-top:20px">
