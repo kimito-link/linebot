@@ -178,6 +178,27 @@
   .genba.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
   .genba.two figure { margin: 0; }
 
+  /* ★図に添える3人の掛け合い（2026-09-01 追加）。
+       図だけだと「構造」は分かっても「なぜ困るのか」が伝わらないので、
+       りんく・こん太・たぬ姉が短く補足する。
+       ★LINEの画面再現（.phone）とは別物にする。あちらは「LINEではこう届く」の
+         実物再現で、こちらは説明の声。同じ見た目にすると意味が混ざる。
+       ★ゾーニングの例外にあたるので、扱いは控えめに:
+         本文より小さい文字・淡い地・アイコンは28px。図の補足に留める。 */
+  .talk { margin-top: 14px; display: grid; gap: 8px; }
+  .talk .t-row { display: flex; align-items: flex-start; gap: 9px; }
+  .talk img {
+    width: 28px; height: 28px; flex-shrink: 0; object-fit: contain;
+    border-radius: 50%; background: var(--panel-soft);
+  }
+  .talk .t-body {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+    padding: 9px 12px; font-size: 13.5px; color: var(--fg); line-height: 1.65;
+  }
+  .talk .t-name { display: block; font-size: 11px; color: var(--muted); margin-bottom: 2px; }
+  /* たぬ姉のまとめだけ、うっすら色を変えて締めに見せる */
+  .talk .t-row.sum .t-body { background: var(--accent-soft); border-color: #D9E6E0; }
+
   footer { padding: 42px 0 62px; text-align: center; }
   /* ★.foot-brands は使われているのに定義が無かった（2026-09-01 に発見・修正）。
      ロゴ2枚が無スタイルのまま縦に並んでいた。 */
@@ -506,6 +527,32 @@
       <figcaption>目標は書けます。いま何人来そうかは、書けません。</figcaption>
     </figure>
 
+    <!-- ★3人の掛け合いで補う（2026-09-01 追加）。
+         図だけだと構造は分かるが「なぜ困るのか」が伝わらない。
+         ★役割は既存の動画と同じにする（ここだけ変えると別人になる）:
+           りんく=気づく側 / こん太=仕組みを説明する側 / たぬ姉=まとめる側 -->
+    <div class="talk">
+      <div class="t-row">
+        <img src="/assets/characters/link.png" alt="">
+        <div class="t-body"><span class="t-name">りんく</span>
+          目標って、書いて貼るところまではできるんだよね。
+        </div>
+      </div>
+      <div class="t-row">
+        <img src="/assets/characters/konta.png" alt="">
+        <div class="t-body"><span class="t-name">こん太</span>
+          うん。でも「いま何人来そうか」は、どこにも書けないんだ。
+          数える手段がないから、当日まで空欄のままになる。
+        </div>
+      </div>
+      <div class="t-row sum">
+        <img src="/assets/characters/tanunee.png" alt="">
+        <div class="t-body"><span class="t-name">たぬ姉</span>
+          決めなきゃいけないことは、その空欄の手前にあるのよね。
+        </div>
+      </div>
+    </div>
+
     <div class="points two">
       <div class="point">
         <h3>会場の大きさ</h3>
@@ -572,6 +619,22 @@
       </figcaption>
     </figure>
 
+    <div class="talk">
+      <div class="t-row">
+        <img src="/assets/characters/link.png" alt="">
+        <div class="t-body"><span class="t-name">りんく</span>
+          これ、お財布に入れたまま忘れちゃうやつだ。
+        </div>
+      </div>
+      <div class="t-row">
+        <img src="/assets/characters/konta.png" alt="">
+        <div class="t-body"><span class="t-name">こん太</span>
+          なくすと最初からになるしね。しかも渡した側は、
+          その人が何回目なのかを見る方法がないんだ。
+        </div>
+      </div>
+    </div>
+
     <div class="points two">
       <div class="point">
         <h3>かざすだけで済みます</h3>
@@ -604,6 +667,30 @@
              alt="QRをいくつも入れたカードと、かざすだけで開くカードの比較。後者は絵に使える面積が広い。">
         <figcaption>かざす形にすると、その分の面積が空きます。</figcaption>
       </figure>
+    </div>
+
+    <!-- ★2枚まとめて1つの掛け合いで受ける（2026-09-01）。
+         図ごとに毎回3人が喋ると、うるさくなって本文が読めなくなる。 -->
+    <div class="talk">
+      <div class="t-row">
+        <img src="/assets/characters/link.png" alt="">
+        <div class="t-body"><span class="t-name">りんく</span>
+          QRがいっぱいあると、どれ押せばいいか分かんなくなる。
+        </div>
+      </div>
+      <div class="t-row">
+        <img src="/assets/characters/konta.png" alt="">
+        <div class="t-body"><span class="t-name">こん太</span>
+          押してほしい先は、その時々で変わるからね。新曲が出たとか、
+          次のライブが近いとか。でも印刷したあとは動かせないから、全部並べておくことになる。
+        </div>
+      </div>
+      <div class="t-row sum">
+        <img src="/assets/characters/tanunee.png" alt="">
+        <div class="t-body"><span class="t-name">たぬ姉</span>
+          かざす形なら、行き先はあとから変えられるのよ。カードはそのままでね。
+        </div>
+      </div>
     </div>
 
     <p class="lead" style="margin-top:20px">
