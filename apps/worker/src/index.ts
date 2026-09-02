@@ -280,6 +280,43 @@ app.get('/api/qr', async (c) => {
 });
 
 // Short link: /r/:ref → universal landing page with LINE open button
+// ============================================================
+// LIFF エンドポイント
+//
+// ★2026-09-03: 実装した。**これが無くて画面が真っ白だった。**
+//
+//   LINE Developers 側の LIFF「kimitolink」の Endpoint URL は
+//   この Worker の /liff を指している。ところが**ハンドラが無く 404**（本文も空）で、
+//   スマホの LINE で開くと真っ白になっていた。
+//   capabilities.ts:64 は liff: '/liff' を「あるはずのもの」として宣言していたので、
+//   宣言と実装が食い違っていた状態。
+//
+//   LIFF は開かれたパスを `liff.state` クエリに入れて Endpoint へ渡す:
+//     https://liff.line.me/{ID}/events/xxx
+//       → {Endpoint}/liff?liff.state=%2Fevents%2Fxxx
+//   ここではそれを LIFF 配信サイト（LIFF_URL）の同じパスへ転送する。
+//
+// ★LIFF_URL が未設定のときは 503 と案内文を返す（/r/:ref と同じ作法）。
+//   真っ白のまま放置すると、何が起きているのか誰にも分からない。
+app.get('/liff', (c) => {
+  const liffUrl = c.env.LIFF_URL;
+  if (!liffUrl) {
+    console.warn('[/liff] LIFF_URL が未設定のため転送できない');
+    return c.text('LIFF の設定が未完了です。管理者にお問い合わせください。', 503);
+  }
+
+  // liff.state は「/events/xxx」のようなパス。付いていなければトップへ。
+  const state = c.req.query('liff.state') ?? '';
+  const base = liffUrl.replace(/\/+$/, '');
+
+  // ★オープンリダイレクトにしない。
+  //   liff.state は外から来る値なので、**必ず自サイト内の相対パスに限る**。
+  //   「//evil.com」や「https://evil.com」を渡されても外へ飛ばさない。
+  const safePath = state.startsWith('/') && !state.startsWith('//') ? state : '/';
+
+  return c.redirect(`${base}${safePath}`, 302);
+});
+
 // Supports query params: ?form=FORM_ID (auto-push form after friend add)
 // Mobile: single CTA → LIFF URL (Universal Link). No UA detection.
 // Desktop: QR code encodes LIFF URL.
