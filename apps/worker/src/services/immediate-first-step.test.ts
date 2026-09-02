@@ -27,6 +27,10 @@ const dbMocks = vi.hoisted(() => ({
   enrollFriendInScenario: vi.fn(),
   getLineAccountByChannelId: vi.fn(),
   getLineAccountById: vi.fn(),
+  // 既定は env をそのまま返す（＝従来挙動）。テナントに有効なアカウントが1本
+  // しか無いときだけ line_accounts を正とする実装の、単体テスト側のスタブ。
+  // 既定は「1本に決まらない」= null（＝従来どおり env / 既存の解決に委ねる）。
+  resolveDefaultLineAccount: vi.fn(async () => null),
   addTagToFriend: vi.fn(),
   jstNow: vi.fn(),
   toJstString: vi.fn(),
@@ -41,6 +45,9 @@ vi.mock('@line-crm/line-sdk', () => ({
   LineClient: vi.fn().mockImplementation(() => lineClientMock),
 }));
 
+const stepDeliveryMocks = vi.hoisted(() => ({
+  evaluateCondition: vi.fn(async (_db: unknown, _friendId: string, _step: { id: string }) => true),
+}));
 vi.mock('./step-delivery.js', () => ({
   buildMessage: vi.fn((type: string, content: string) => ({ type, text: content })),
   expandVariables: vi.fn((content: string) => content),
@@ -49,7 +56,15 @@ vi.mock('./step-delivery.js', () => ({
     messageType: msg.type,
     content: msg.text,
   })),
+  evaluateCondition: stepDeliveryMocks.evaluateCondition,
 }));
+
+// Cron-parity decoration (shared decorateForFriendPush pipeline).
+// Identity by default; the decoration suite overrides per-test.
+const autoTrackMocks = vi.hoisted(() => ({
+  decorateForFriendPush: vi.fn(),
+}));
+vi.mock('./auto-track.js', () => autoTrackMocks);
 
 import { pushImmediateFirstStep } from './immediate-first-step.js';
 
@@ -127,6 +142,9 @@ beforeEach(() => {
   dbMocks.enrollFriendInScenario.mockResolvedValue({ id: 'fs-1', current_step_order: 0 });
   lineClientMock.pushMessage.mockResolvedValue({});
   lineClientMock.replyMessage.mockResolvedValue({});
+  autoTrackMocks.decorateForFriendPush.mockImplementation(
+    async (_db: unknown, messageType: string, content: string) => ({ messageType, content }),
+  );
 });
 
 describe("mode 'once' (default) — claim protocol with the cron", () => {
@@ -397,6 +415,118 @@ describe('reply option — webhook follow sends via the free reply token', () =>
   });
 });
 
+describe('decoration — cron parity via the shared decorateForFriendPush pipeline', () => {
+  it('pipes expanded content through decorateForFriendPush and sends/logs the decorated output', async () => {
+    autoTrackMocks.decorateForFriendPush.mockResolvedValue({
+      messageType: 'flex',
+      content: 'tracked!&f=friend-1',
+    });
+    const { db, calls } = makeDb();
+    const sent = await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+    });
+
+    expect(sent).toBe(true);
+    // Same helper + argument shape as processStepDeliveries.
+    expect(autoTrackMocks.decorateForFriendPush).toHaveBeenCalledWith(
+      db,
+      'text',
+      'welcome!',
+      ctx.workerUrl,
+      { lineAccountId: null, friendId: 'friend-1' },
+    );
+    // What LINE receives AND what messages_log records is the decorated
+    // message, mirroring the cron.
+    expect(lineClientMock.pushMessage).toHaveBeenCalledWith('U-1', [
+      { type: 'flex', text: 'tracked!&f=friend-1' },
+    ]);
+    const log = insertedLog(calls);
+    expect(log!.args[2]).toBe('flex');
+    expect(log!.args[3]).toBe('tracked!&f=friend-1');
+  });
+
+  it('owns tracked links by the friend’s line_account_id when it is wired', async () => {
+    dbMocks.getFriendById.mockResolvedValue({
+      id: 'friend-1',
+      line_user_id: 'U-1',
+      line_account_id: 'acct-7',
+      user_id: null,
+      metadata: '{}',
+    });
+    const { db } = makeDb();
+    await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+    });
+    expect(autoTrackMocks.decorateForFriendPush).toHaveBeenCalledWith(
+      db,
+      'text',
+      'welcome!',
+      ctx.workerUrl,
+      { lineAccountId: 'acct-7', friendId: 'friend-1' },
+    );
+  });
+
+  it('falls back to the caller-resolved account as link owner when friend.line_account_id is not yet wired (LIFF-before-webhook)', async () => {
+    dbMocks.getLineAccountByChannelId.mockResolvedValue({
+      id: 'acct-9',
+      channel_access_token: 'tok-9',
+    });
+    const { db } = makeDb();
+    await pushImmediateFirstStep(
+      db,
+      'friend-1',
+      'scn-1',
+      { ...ctx, accountChannelId: 'CH-9' },
+      { enrollment: { id: 'fs-1', current_step_order: 0 } },
+    );
+    expect(dbMocks.getLineAccountByChannelId).toHaveBeenCalledWith(db, 'CH-9');
+    expect(autoTrackMocks.decorateForFriendPush).toHaveBeenCalledWith(
+      db,
+      'text',
+      'welcome!',
+      ctx.workerUrl,
+      { lineAccountId: 'acct-9', friendId: 'friend-1' },
+    );
+  });
+
+  it('passes workerUrl through even when unset — the helper is the single no-op gate', async () => {
+    const { db } = makeDb();
+    const sent = await pushImmediateFirstStep(
+      db,
+      'friend-1',
+      'scn-1',
+      { defaultAccessToken: 'default-token' },
+      { enrollment: { id: 'fs-1', current_step_order: 0 } },
+    );
+    expect(sent).toBe(true);
+    expect(autoTrackMocks.decorateForFriendPush).toHaveBeenCalledWith(
+      db,
+      'text',
+      'welcome!',
+      undefined,
+      { lineAccountId: null, friendId: 'friend-1' },
+    );
+    expect(lineClientMock.pushMessage).toHaveBeenCalledWith('U-1', [{ type: 'text', text: 'welcome!' }]);
+  });
+
+  it('decorates the reply-token path too — follow-webhook welcomes carry tracked links', async () => {
+    autoTrackMocks.decorateForFriendPush.mockResolvedValue({
+      messageType: 'text',
+      content: 'welcome!&f=friend-1',
+    });
+    const replyClient = { replyMessage: vi.fn().mockResolvedValue({}) };
+    const { db } = makeDb();
+    const sent = await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+      reply: { client: replyClient, replyToken: 'rt-1' },
+    });
+    expect(sent).toBe(true);
+    expect(replyClient.replyMessage).toHaveBeenCalledWith('rt-1', [
+      { type: 'text', text: 'welcome!&f=friend-1' },
+    ]);
+  });
+});
+
 describe('on_reach_tag', () => {
   it('attaches the reach tag after advancing', async () => {
     dbMocks.getScenarioById.mockResolvedValue({
@@ -410,5 +540,95 @@ describe('on_reach_tag', () => {
       enrollment: { id: 'fs-1', current_step_order: 0 },
     });
     expect(dbMocks.addTagToFriend).toHaveBeenCalledWith(db, 'friend-1', 'tag-9');
+  });
+});
+
+describe('step conditions — cron parity on the instant path', () => {
+  const COND_STEP1 = {
+    id: 'step-1',
+    step_order: 1,
+    delay_minutes: 0,
+    on_reach_tag_id: null,
+    condition_type: 'tag_exists',
+    condition_value: 'tag-answered',
+  };
+  const COND_STEP2 = {
+    id: 'step-2',
+    step_order: 2,
+    delay_minutes: 0,
+    on_reach_tag_id: null,
+    condition_type: 'tag_not_exists',
+    condition_value: 'tag-answered',
+  };
+
+  beforeEach(() => {
+    dbMocks.getScenarioById.mockResolvedValue({
+      id: 'scn-1',
+      is_active: 1,
+      delivery_mode: 'relative',
+      steps: [COND_STEP1, COND_STEP2],
+    });
+  });
+
+  it("delivers step 1 when its condition passes (evaluated via the cron's evaluateCondition)", async () => {
+    stepDeliveryMocks.evaluateCondition.mockImplementation(
+      async (_db: unknown, _friendId: string, step: { id: string }) => step.id === 'step-1',
+    );
+    dbMocks.resolveStepContent.mockResolvedValue({
+      messageType: 'text',
+      messageContent: 'reward!',
+      templateIdAtSend: null,
+    });
+    const { db } = makeDb();
+    const sent = await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+    });
+    expect(sent).toBe(true);
+    expect(lineClientMock.pushMessage).toHaveBeenCalledWith('U-1', [{ type: 'text', text: 'reward!' }]);
+    // advanced to step 1's order, next scheduled from step 2
+    expect(dbMocks.advanceFriendScenario).toHaveBeenCalledWith(db, 'fs-1', 1, expect.any(String));
+  });
+
+  it('skips a failing step 1 and instantly delivers the next immediate step whose condition passes', async () => {
+    stepDeliveryMocks.evaluateCondition.mockImplementation(
+      async (_db: unknown, _friendId: string, step: { id: string }) => step.id === 'step-2',
+    );
+    const { db } = makeDb();
+    const sent = await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+    });
+    expect(sent).toBe(true);
+    // delivered step 2 and completed (no step after it)
+    expect(dbMocks.completeFriendScenario).toHaveBeenCalledWith(db, 'fs-1');
+  });
+
+  it('does not walk past a non-immediate step: a failing delay-0 step 1 followed by a delayed step leaves the row to the cron', async () => {
+    dbMocks.getScenarioById.mockResolvedValue({
+      id: 'scn-1',
+      is_active: 1,
+      delivery_mode: 'relative',
+      steps: [COND_STEP1, { ...STEP2, condition_type: null, condition_value: null }],
+    });
+    stepDeliveryMocks.evaluateCondition.mockResolvedValue(false);
+    const { db } = makeDb();
+    const sent = await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+    });
+    expect(sent).toBe(false);
+    expect(lineClientMock.pushMessage).not.toHaveBeenCalled();
+    // untouched: no claim, no advance — the cron owns the skip
+    expect(dbMocks.claimFriendScenarioForDelivery).not.toHaveBeenCalled();
+    expect(dbMocks.advanceFriendScenario).not.toHaveBeenCalled();
+  });
+
+  it('sends nothing and touches nothing when every immediate step fails its condition', async () => {
+    stepDeliveryMocks.evaluateCondition.mockResolvedValue(false);
+    const { db } = makeDb();
+    const sent = await pushImmediateFirstStep(db, 'friend-1', 'scn-1', ctx, {
+      enrollment: { id: 'fs-1', current_step_order: 0 },
+    });
+    expect(sent).toBe(false);
+    expect(lineClientMock.pushMessage).not.toHaveBeenCalled();
+    expect(dbMocks.claimFriendScenarioForDelivery).not.toHaveBeenCalled();
   });
 });

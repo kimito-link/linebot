@@ -10,6 +10,7 @@ on:
       - 'packages/db/**'
       - 'packages/shared/**'
       - 'packages/line-sdk/**'
+      - 'packages/update-engine/**'
       - '.github/workflows/deploy-cloudflare-worker.yml'
       # bot.config.json は groq-config.ts で静的 import されて Worker に
       # バンドルされる。ここに無いと、プロジェクト登録を足しても

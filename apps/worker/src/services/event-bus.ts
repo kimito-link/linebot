@@ -75,14 +75,22 @@ export async function fireEvent(
   await processAutomations(db, eventType, enrichedPayload, lineAccessToken, lineAccountId);
 }
 
-/** 送信Webhookへの通知 */
-async function fireOutgoingWebhooks(
+/**
+ * 送信Webhookへの通知。fireEvent の Phase 1 で呼ばれるほか、friend を伴わない
+ * システムイベント (quota_alert 等) の単独発火にも使う (services/quota-alert.ts)。
+ * 失敗はすべて握りつぶす (best-effort)。戻り値は 2xx で受理された配信数 —
+ * 呼び出し元 (quota-alert 等) が「実際に届いたか」を記録に反映できるようにする。
+ * prefetched: 呼び出し元が購読者リストを取得済みなら渡すと再クエリを省ける。
+ */
+export async function fireOutgoingWebhooks(
   db: D1Database,
   eventType: string,
   payload: EventPayload,
-): Promise<void> {
+  prefetched?: Awaited<ReturnType<typeof getActiveOutgoingWebhooksByEvent>>,
+): Promise<number> {
+  let delivered = 0;
   try {
-    const webhooks = await getActiveOutgoingWebhooksByEvent(db, eventType);
+    const webhooks = prefetched ?? (await getActiveOutgoingWebhooksByEvent(db, eventType));
     for (const wh of webhooks) {
       try {
         const body = JSON.stringify({
@@ -110,7 +118,12 @@ async function fireOutgoingWebhooks(
           headers['X-Webhook-Signature'] = hexSignature;
         }
 
-        await fetch(wh.url, { method: 'POST', headers, body });
+        const res = await fetch(wh.url, { method: 'POST', headers, body });
+        if (res.ok) {
+          delivered += 1;
+        } else {
+          console.error(`送信Webhook ${wh.id} への通知失敗: HTTP ${res.status}`);
+        }
       } catch (err) {
         console.error(`送信Webhook ${wh.id} への通知失敗:`, err);
       }
@@ -118,6 +131,7 @@ async function fireOutgoingWebhooks(
   } catch (err) {
     console.error('fireOutgoingWebhooks error:', err);
   }
+  return delivered;
 }
 
 /** スコアリングルール適用 */
@@ -205,7 +219,7 @@ function matchConditions(
     if (payload.eventData.tagId !== conditions.tag_id) return false;
   }
 
-  // keyword チェック（message_received イベント用）
+  // keyword チェック（message_received / postback_received イベント用）
   if (conditions.keyword !== undefined && payload.eventData) {
     const text = payload.eventData.text as string | undefined;
     if (!text || !text.includes(conditions.keyword as string)) return false;
@@ -402,7 +416,7 @@ async function executeAction(
 }
 
 /** 送信メッセージを messages_log に記録（失敗しても例外を上げない） */
-async function logOutgoingMessage(
+export async function logOutgoingMessage(
   db: D1Database,
   params: {
     friendId: string;
