@@ -15,7 +15,7 @@ import {
 import { processStepDeliveries } from './services/step-delivery.js';
 import { processScheduledBroadcasts, processQueuedBroadcasts } from './services/broadcast.js';
 import { processReminderDeliveries } from './services/reminder-delivery.js';
-import { checkAccountHealth } from './services/ban-monitor.js';
+import { checkAccountHealth, shouldRunAccountHealthCheck } from './services/ban-monitor.js';
 import { refreshLineAccessTokens } from './services/token-refresh.js';
 import { processInsightFetch } from './services/insight-fetcher.js';
 import { processDueReminders } from './services/booking-reminders.js';
@@ -988,7 +988,11 @@ async function scheduled(
     processReminderDeliveries(env.DB, defaultLineClient),
   );
   jobs.push(processQueuedBroadcasts(env.DB, defaultLineClient, env.WORKER_URL));
-  jobs.push(checkAccountHealth(env.DB));
+  // checkAccountHealth は 5 分間隔にだけ絞る（理由は shouldRunAccountHealthCheck 参照。
+  // D1 rows_read 急増の実測対応、2026-09-02）。他ジョブは毎分のまま・影響しない。
+  if (shouldRunAccountHealthCheck(event.scheduledTime)) {
+    jobs.push(checkAccountHealth(env.DB));
+  }
 
   await Promise.allSettled(jobs);
 

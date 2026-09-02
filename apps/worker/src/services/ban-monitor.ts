@@ -11,6 +11,22 @@ import {
   getAccountHealthLogs,
 } from '@line-crm/db';
 
+/**
+ * checkAccountHealth を呼んでよい cron tick か判定する純関数。
+ *
+ * checkAccountHealth は毎分 tick のたびに「messages_log への SELECT」「LINE API への実
+ * HTTP リクエスト」「account_health_logs への SELECT（重複排除判定）」をアカウント数分
+ * 実行するため、毎分実行すると D1 の rows_read が急速に膨らむ（実測: 2026-09-02、
+ * Workers Free プランの D1 日次上限 500万 rows_read をわずか数時間で使い切った）。
+ * BAN の前兆（429/403）は通常連続して発生するため 5 分間隔でも検知の実務上の遅れは
+ * ほぼ無い。5 の倍数分の tick でだけ true を返す。
+ *
+ * @param scheduledTimeMs ScheduledEvent.scheduledTime（epoch ms）
+ */
+export function shouldRunAccountHealthCheck(scheduledTimeMs: number): boolean {
+  return new Date(scheduledTimeMs).getUTCMinutes() % 5 === 0;
+}
+
 export async function checkAccountHealth(
   db: D1Database,
 ): Promise<void> {
