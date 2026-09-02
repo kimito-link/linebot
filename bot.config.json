@@ -92,6 +92,9 @@
     },
     "yukkuri-exosome": {
       "knowledgePack": "./knowledge-packs/yukkuri-exosome"
+    },
+    "talent-oshikatsu": {
+      "knowledgePack": "./knowledge-packs/talent-oshikatsu"
     }
   }
 }

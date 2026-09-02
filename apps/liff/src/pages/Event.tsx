@@ -76,6 +76,10 @@ export default function Event() {
   const myCount = myActive.length;
   const max = event.max_bookings_per_friend;
   const overLimit = max != null && myCount >= max;
+  // ★2026-09-02: この公演に何人来る予定か（全枠の合計）。
+  //   active_count は API が枠ごとに返している（lib/api.ts の EventSlot）。
+  //   合計を出すのはここだけなので、サーバー側に集計を足さずに済ませる。
+  const totalGoing = slots.reduce((sum, s) => sum + (s.active_count ?? 0), 0);
 
   return (
     <div className="pb-16">
@@ -113,6 +117,21 @@ export default function Event() {
           </div>
         )}
 
+        {/* ★2026-09-02: 「いま何人来る予定か」を出す。
+            talent LP が「答えがそのまま数になる」と約束している中核。
+            API は以前から active_count を返していたが、画面は
+            「残N / 定員なし」しか出しておらず、**人数そのものが見えなかった**。
+            主催者が知りたいのは残席ではなく「何人来るか」なので、そちらを主役にする。 */}
+        {totalGoing > 0 && (
+          <div className="mt-4 rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-center">
+            <div className="text-2xl font-bold text-emerald-700">
+              {totalGoing}
+              <span className="text-base font-normal ml-1">人</span>
+            </div>
+            <div className="text-xs text-emerald-800 mt-0.5">が参加予定です</div>
+          </div>
+        )}
+
         <h2 className="font-semibold mt-5 mb-2">日時を選択</h2>
         {slots.length === 0 ? (
           <div className="text-sm text-gray-500">現在予約可能な枠はありません。</div>
@@ -132,11 +151,15 @@ export default function Event() {
                   >
                     <span className="text-sm">{formatJp(s.starts_at)}</span>
                     <span className="text-xs">
+                      {/* ★2026-09-02: 人数を主役にした。
+                          直す前は「残N / 定員なし」で、**何人来るかが分からなかった**。
+                          定員を決めていない公演（多くの場合そう）では「定員なし」としか
+                          出ず、参加表明が集まっている実感が伝わらない。 */}
                       {full
                         ? '満員'
-                        : s.capacity == null
-                        ? '定員なし'
-                        : `残 ${s.remaining}`}
+                        : s.active_count > 0
+                        ? `${s.active_count}人が参加`
+                        : '受付中'}
                     </span>
                   </button>
                 </li>

@@ -1,4 +1,5 @@
 import * as aiShain from './groq-knowledge-content.js';
+import * as talentOshikatsu from './talent-oshikatsu-knowledge-content.js';
 import * as soushinSuggest from './soushin-suggest-knowledge-content.js';
 import * as henshinHisho from './henshin-hisho-knowledge-content.js';
 import * as webHealthCheck from './web-health-check-knowledge-content.js';
@@ -15,6 +16,15 @@ export interface BundledKnowledgePack {
 }
 
 const PACKS: Record<string, BundledKnowledgePack> = {
+  // ★2026-09-02: タレント事務所さま向け。出演のお知らせ → 3択で参加表明 →
+  //   当日を迎える前に人数が見える、という一連を担当する。
+  //   正本は knowledge-packs/talent-oshikatsu/（md を直したら content.ts も作り直す）
+  'talent-oshikatsu': {
+    project: 'talent-oshikatsu',
+    buildSystemPrompt: talentOshikatsu.buildSystemPrompt,
+    matchCannedResponse: talentOshikatsu.matchCannedResponse,
+    getFailClosedEscalationText: talentOshikatsu.getFailClosedEscalationText,
+  },
   'ai-shain-link': {
     project: 'ai-shain-link',
     buildSystemPrompt: aiShain.buildSystemPrompt,
