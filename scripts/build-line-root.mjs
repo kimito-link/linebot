@@ -57,6 +57,38 @@ for (const link of liveLinks) {
 }
 const groupList = [...groups.values()].sort((a, b) => b.links.length - a.links.length);
 
+// ── 配線図のためのデータ（リポジトリ → アカウント）────────────
+// ★表では「複雑さ」が伝わらない。線で結んで初めて、
+//   22のリポジトリが5つの窓口に絡んでいることが目で分かる。
+//   ぐちゃぐちゃに描くのではなく、整列させて描く
+//   （複雑だが管理されている、という状態をそのまま映す）。
+const wiring = (() => {
+  const idOf = (u) => {
+    const i = identityOf(u);
+    return i && i.account ? i.account : '名前非公開の窓口';
+  };
+  const accSet = new Map();   // アカウント名 -> { name, verified, repos:Set }
+  const repoSet = new Map();  // リポジトリ名 -> Set(アカウント名)
+  for (const l of liveLinks) {
+    const a = idOf(l.url);
+    const ident = identityOf(l.url);
+    if (!accSet.has(a)) accSet.set(a, { name: a, verified: !!ident?.verified, repos: new Set() });
+    if (ident?.verified) accSet.get(a).verified = true;
+    for (const h of l.hits.filter((x) => !x.archive)) {
+      accSet.get(a).repos.add(h.repo);
+      if (!repoSet.has(h.repo)) repoSet.set(h.repo, new Set());
+      repoSet.get(h.repo).add(a);
+    }
+  }
+  // 窓口は本数の多い順、リポジトリは名前順（毎回同じ並びにする）
+  const accounts = [...accSet.values()].sort((a, b) => b.repos.size - a.repos.size);
+  const repos = [...repoSet.entries()]
+    .map(([name, accs]) => ({ name, accs: [...accs] }))
+    .sort((a, b) => b.accs.length - a.accs.length || a.name.localeCompare(b.name));
+  const edges = repos.flatMap((r) => r.accs.map((a) => ({ repo: r.name, acc: a })));
+  return { accounts, repos, edges, multi: repos.filter((r) => r.accs.length > 1) };
+})();
+
 // ── 導線の鎖（LP → リンク → ref → project） ────────────────
 // ★ここが地図の核心。各段が繋がっているかを、根拠つきで示す。
 // ★CSSのクラス名（b-ok / b-ng / b-unk）と一致させる。
@@ -163,6 +195,26 @@ const html = `<!doctype html>
   th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
   .how{color:var(--muted);font-size:12px;margin-top:5px}
   .how::before{content:"確かめ方: "}
+  /* ── 配線図 ──
+     ★複雑さは線の本数で、秩序は整列で見せる。
+       ぐちゃぐちゃに描くと「管理できていない」に見えてしまう。 */
+  .wiring{background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:14px 10px 18px;margin:14px 0 22px;overflow-x:auto}
+  .wiring svg{display:block;min-width:900px}
+  .w-line{fill:none;stroke:#3b5570;stroke-width:1}
+  .w-line.branch{stroke:#c98a2b;stroke-width:1.4}
+  .w-dot{fill:#5b7a99}
+  .w-dot.branch{fill:#e0a33e}
+  .w-repo{fill:#7f93a8;font-size:11px;text-anchor:end;font-family:ui-monospace,Consolas,monospace}
+  .w-repo.branch{fill:#e0a33e;font-weight:700}
+  .w-acc-dot{fill:#06c755}
+  .w-acc{fill:#e6edf5;font-size:13.5px;font-weight:800}
+  .w-acc-sub{fill:#8fa3b8;font-size:11px}
+  .w-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted);
+    padding:0 10px 12px;align-items:center}
+  .w-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  .dot-repo{background:#5b7a99}.dot-acc{background:#06c755}
+  .dot-edge{background:#3b5570}.dot-multi{background:#e0a33e}
   /* ── LINE Official Account Manager のアカウント一覧を模した表 ──
      ★実物（manager.line.biz）と同じ見た目にすることで、
        「管理画面で見えているあのアカウント」と地図上の行が
@@ -268,6 +320,67 @@ ${rows(chain, (c) => `
   <div style="margin-top:7px">${esc(c.detail)}</div>
   <div class="how">${esc(c.how)}</div>
 </div>`)}
+
+<h2>1.5 配線図 — いま何本の導線が走っているか</h2>
+<p class="sub">
+  左が出どころ（${wiring.repos.length}のサイト・アプリ）、右が受け口（${wiring.accounts.length}のLINE公式アカウント）。
+  線が${wiring.edges.length}本。うち${wiring.multi.length}のサイトは<b>複数の窓口に分岐</b>しています。
+</p>
+
+<div class="wiring">
+  <div class="w-legend">
+    <span><i class="dot-repo"></i>出どころ ${wiring.repos.length}</span>
+    <span><i class="dot-acc"></i>受け口 ${wiring.accounts.length}</span>
+    <span><i class="dot-edge"></i>結線 ${wiring.edges.length}本</span>
+    <span><i class="dot-multi"></i>分岐しているサイト ${wiring.multi.length}</span>
+  </div>
+  ${(() => {
+    const RH = 26, AH = 74, PAD = 22, LX = 300, RX = 660, W = 960;
+    const H = Math.max(wiring.repos.length * RH, wiring.accounts.length * AH) + PAD * 2;
+    const ry = (i) => PAD + i * RH + RH / 2;
+    const ay = (i) => PAD + i * AH + AH / 2 + 10;
+    const accIdx = new Map(wiring.accounts.map((a, i) => [a.name, i]));
+    const paths = wiring.edges.map((e) => {
+      const i = wiring.repos.findIndex((r) => r.name === e.repo);
+      const j = accIdx.get(e.acc);
+      const y1 = ry(i), y2 = ay(j), mx = (LX + RX) / 2;
+      const branching = wiring.repos[i].accs.length > 1;
+      return `<path d="M ${LX} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${RX} ${y2}" class="w-line${branching ? ' branch' : ''}"/>`;
+    }).join('');
+    const repoNodes = wiring.repos.map((r, i) => `
+      <circle cx="${LX}" cy="${ry(i)}" r="3.5" class="w-dot${r.accs.length > 1 ? ' branch' : ''}"/>
+      <text x="${LX - 10}" y="${ry(i) + 4}" class="w-repo${r.accs.length > 1 ? ' branch' : ''}">${esc(r.name)}</text>`).join('');
+    const accNodes = wiring.accounts.map((a, i) => `
+      <circle cx="${RX}" cy="${ay(i)}" r="6" class="w-acc-dot"/>
+      <text x="${RX + 14}" y="${ay(i) - 2}" class="w-acc">${esc(a.name)}${a.verified ? ' ✓' : ''}</text>
+      <text x="${RX + 14}" y="${ay(i) + 15}" class="w-acc-sub">${a.repos.size}のサイトから</text>`).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="LINE導線の配線図">
+      ${paths}${repoNodes}${accNodes}</svg>`;
+  })()}
+</div>
+
+<div class="card" style="margin-top:-8px">
+  <div><span class="badge b-ok">蓄積している</span>
+    <b style="margin-left:8px">線が増えるほど、一次情報が濃くなります</b></div>
+  <div style="margin-top:7px">
+    この線1本ごとに「どのサイトから来た人か」（<code>ref_code</code>）が残り、
+    窓口ごとに何人溜まったかが数えられます。<b>広告費を払って買うデータではなく、
+    自分の導線から出てくる一次情報</b>なので、貯まるほど次の判断が速くなります。
+  </div>
+  <div class="how">apps/worker/src/routes/liff.ts:800（ref_code の記録）／friends・ref_tracking テーブル</div>
+</div>
+
+<div class="card">
+  <div><b>この配線を、増やしながら壊さずに保つ</b></div>
+  <div style="margin-top:7px">
+    サイトが1つ増えるたびに線が増え、窓口を1つ足すと分岐が増えます。
+    どこを直せば何に響くかは、この図を持っていないと追えません。
+    ${wiring.multi.length}のサイトが既に複数の窓口に分かれており、
+    ${wiring.edges.length}本すべてが正しく繋がっているかは、
+    人の記憶ではなく<b>測って確かめる</b>しかない段階に来ています。
+  </div>
+  <div class="how">この図は scripts/collect-line-root.mjs が毎回実測して描き直しています（推測値は含みません）</div>
+</div>
 
 <h2>2. アカウント別 — 同じ窓口に何本向いているか</h2>
 <p class="sub">
