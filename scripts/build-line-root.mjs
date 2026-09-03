@@ -62,6 +62,7 @@ const groupList = [...groups.values()].sort((a, b) => b.links.length - a.links.l
 //   22のリポジトリが5つの窓口に絡んでいることが目で分かる。
 //   ぐちゃぐちゃに描くのではなく、整列させて描く
 //   （複雑だが管理されている、という状態をそのまま映す）。
+let wiringAccountNo = new Map();
 const wiring = (() => {
   const idOf = (u) => {
     const i = identityOf(u);
@@ -80,13 +81,51 @@ const wiring = (() => {
       repoSet.get(h.repo).add(a);
     }
   }
-  // 窓口は本数の多い順、リポジトリは名前順（毎回同じ並びにする）
+  // 窓口は本数の多い順（この順を軸に、左側を並べ替える）
   const accounts = [...accSet.values()].sort((a, b) => b.repos.size - a.repos.size);
+
+  // ★交差最小化（barycenter法）。
+  //   左を「繋がっている窓口の平均位置」順に並べ替えるだけで、線の交差が大きく減る。
+  //   Sugiyama の層別グラフ描画で使われる古典的な手法で、32本程度なら1回で十分効く。
+  //   これをやらないと中央で線が団子になり、「混沌」に見えてしまう。
+  const accPos = new Map(accounts.map((a, i) => [a.name, i]));
   const repos = [...repoSet.entries()]
-    .map(([name, accs]) => ({ name, accs: [...accs] }))
-    .sort((a, b) => b.accs.length - a.accs.length || a.name.localeCompare(b.name));
-  const edges = repos.flatMap((r) => r.accs.map((a) => ({ repo: r.name, acc: a })));
-  return { accounts, repos, edges, multi: repos.filter((r) => r.accs.length > 1) };
+    .map(([name, accs]) => {
+      const list = [...accs].sort((x, y) => accPos.get(x) - accPos.get(y));
+      const bary = list.reduce((n, a) => n + accPos.get(a), 0) / list.length;
+      return { name, accs: list, bary };
+    })
+    .sort((a, b) => a.bary - b.bary || a.name.localeCompare(b.name));
+  // ★配線図らしく、線ごとに「何箇所で使われているか」を持たせる。
+  //   太さに反映すると、主幹線と支線の区別が図の上で付く。
+  const weight = new Map();  // "repo|acc" -> 使用箇所数
+  for (const l of liveLinks) {
+    const a = idOf(l.url);
+    for (const h of l.hits.filter((x) => !x.archive)) {
+      const k = h.repo + '|' + a;
+      weight.set(k, (weight.get(k) ?? 0) + 1);
+    }
+  }
+  const edges = repos.flatMap((r) => r.accs.map((a) => ({
+    repo: r.name, acc: a, n: weight.get(r.name + '|' + a) ?? 1,
+  })));
+
+  // ★左の並びを2群に分ける。Sankey の定石（1カラム8〜12ノード）を22件が
+  //   超えているため、そのまま縦一列に並べるとラベルが潰れて流れが読めない。
+  //   ★分け方は実測値だけで決める（分岐しているか否か）。
+  //     「マーケ系」「サポート系」のような恣意的な分類はしない
+  //     — データから来ない区分は、見る人が検証できない＝嘘になりうる。
+  const groups = [
+    { key: 'multi', label: '複数の窓口に分かれているサイト',
+      note: 'どこに繋ぐかの判断が要る', items: repos.filter((r) => r.accs.length > 1) },
+    { key: 'single', label: '1つの窓口だけに繋がるサイト',
+      note: '経路が確定している', items: repos.filter((r) => r.accs.length === 1) },
+  ].filter((g) => g.items.length);
+  // 回路番号（L-01…）。図と表を突き合わせるための通し番号。
+  wiringAccountNo = new Map(accounts.map((a, i) => [a.name, `L-${String(i + 1).padStart(2, '0')}`]));
+  // 組み合わせの総数（22×5）。「整理されている」ことを算数で示すために使う。
+  const possible = repos.length * accounts.length;
+  return { accounts, repos, edges, groups, possible, multi: repos.filter((r) => r.accs.length > 1) };
 })();
 
 // ── 導線の鎖（LP → リンク → ref → project） ────────────────
@@ -207,12 +246,17 @@ const html = `<!doctype html>
   .w-dot.branch{fill:#e0a33e}
   .w-repo{fill:#7f93a8;font-size:11px;text-anchor:end;font-family:ui-monospace,Consolas,monospace}
   .w-repo.branch{fill:#e0a33e;font-weight:700}
+  .w-group{fill:#c8d6e5;font-size:11.5px;font-weight:800;text-anchor:end}
+  .w-group-note{fill:#6b7f94;font-size:10.5px}
   .w-acc-dot{fill:#06c755}
   .w-acc{fill:#e6edf5;font-size:13.5px;font-weight:800}
   .w-acc-sub{fill:#8fa3b8;font-size:11px}
   .w-legend{display:flex;flex-wrap:wrap;gap:16px;font-size:12px;color:var(--muted);
     padding:0 10px 12px;align-items:center}
   .w-legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+  /* ★対比は控えめに。数字を大きく出すと押し付けになる（会議での指摘）。 */
+  .w-foot{color:var(--muted);font-size:12.5px;margin:-10px 0 20px;padding:0 4px;line-height:1.8}
+  .w-foot b{color:var(--ink)}
   .dot-repo{background:#5b7a99}.dot-acc{background:#06c755}
   .dot-edge{background:#3b5570}.dot-multi{background:#e0a33e}
   /* ── LINE Official Account Manager のアカウント一覧を模した表 ──
@@ -335,29 +379,62 @@ ${rows(chain, (c) => `
     <span><i class="dot-multi"></i>分岐しているサイト ${wiring.multi.length}</span>
   </div>
   ${(() => {
-    const RH = 26, AH = 74, PAD = 22, LX = 300, RX = 660, W = 960;
-    const H = Math.max(wiring.repos.length * RH, wiring.accounts.length * AH) + PAD * 2;
-    const ry = (i) => PAD + i * RH + RH / 2;
-    const ay = (i) => PAD + i * AH + AH / 2 + 10;
+    const RH = 25, AH = 78, PAD = 20, GAP = 30, LX = 300, RX = 660, W = 960;
+
+    // 群見出しを挟みながら、左の縦位置を決める（Sankeyの8〜12上限への対処）
+    const rowY = new Map();
+    const headings = [];
+    let cursor = PAD + 8;
+    for (const g of wiring.groups) {
+      headings.push({ y: cursor, label: g.label, note: g.note, n: g.items.length });
+      cursor += 18;
+      for (const r of g.items) { rowY.set(r.name, cursor + RH / 2); cursor += RH; }
+      cursor += GAP;
+    }
+    const leftH = cursor;
+    const accH = wiring.accounts.length * AH;
+    const H = Math.max(leftH, accH + PAD * 2);
+    // 右は左の高さに合わせて中央寄せ（左右のバランスを取る）
+    const accTop = Math.max(PAD, (H - accH) / 2);
+    const ay = (i) => accTop + i * AH + AH / 2;
     const accIdx = new Map(wiring.accounts.map((a, i) => [a.name, i]));
+
+    // ★線の太さは「何箇所で使われているか」。実測で49倍の開きがあり、
+    //   太さに出すと主幹線と支線が図の上で区別できる（装飾ではなく情報）。
+    const maxN = Math.max(...wiring.edges.map((e) => e.n), 1);
     const paths = wiring.edges.map((e) => {
-      const i = wiring.repos.findIndex((r) => r.name === e.repo);
-      const j = accIdx.get(e.acc);
-      const y1 = ry(i), y2 = ay(j), mx = (LX + RX) / 2;
-      const branching = wiring.repos[i].accs.length > 1;
-      return `<path d="M ${LX} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${RX} ${y2}" class="w-line${branching ? ' branch' : ''}"/>`;
+      const y1 = rowY.get(e.repo), y2 = ay(accIdx.get(e.acc));
+      const mx = (LX + RX) / 2;
+      const branching = wiring.repos.find((r) => r.name === e.repo).accs.length > 1;
+      const w = (1 + 2.6 * Math.sqrt(e.n / maxN)).toFixed(2);
+      return `<path d="M ${LX} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${RX} ${y2}" class="w-line${branching ? ' branch' : ''}" style="stroke-width:${w}"/>`;
     }).join('');
-    const repoNodes = wiring.repos.map((r, i) => `
-      <circle cx="${LX}" cy="${ry(i)}" r="3.5" class="w-dot${r.accs.length > 1 ? ' branch' : ''}"/>
-      <text x="${LX - 10}" y="${ry(i) + 4}" class="w-repo${r.accs.length > 1 ? ' branch' : ''}">${esc(r.name)}</text>`).join('');
+
+    const headNodes = headings.map((h) => `
+      <text x="${LX - 10}" y="${h.y + 2}" class="w-group">${esc(h.label)}（${h.n}）</text>
+      <text x="${LX + 8}" y="${h.y + 2}" class="w-group-note">${esc(h.note)}</text>`).join('');
+
+    const repoNodes = wiring.repos.map((r) => {
+      const y = rowY.get(r.name), b = r.accs.length > 1;
+      return `<circle cx="${LX}" cy="${y}" r="3.5" class="w-dot${b ? ' branch' : ''}"/>
+      <text x="${LX - 10}" y="${y + 4}" class="w-repo${b ? ' branch' : ''}">${esc(r.name)}</text>`;
+    }).join('');
+
     const accNodes = wiring.accounts.map((a, i) => `
       <circle cx="${RX}" cy="${ay(i)}" r="6" class="w-acc-dot"/>
       <text x="${RX + 14}" y="${ay(i) - 2}" class="w-acc">${esc(a.name)}${a.verified ? ' ✓' : ''}</text>
       <text x="${RX + 14}" y="${ay(i) + 15}" class="w-acc-sub">${a.repos.size}のサイトから</text>`).join('');
+
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="LINE導線の配線図">
-      ${paths}${repoNodes}${accNodes}</svg>`;
+      ${paths}${headNodes}${repoNodes}${accNodes}</svg>`;
   })()}
 </div>
+
+<p class="w-foot">
+  22のサイトと5つの窓口で、繋ぎ方は最大 <b>${wiring.possible}通り</b>ありえます。
+  いまは <b>${wiring.edges.length}本</b>に絞ってあり、
+  どのサイトがどの窓口に出ているかが1本ずつ確定しています。
+</p>
 
 <div class="card" style="margin-top:-8px">
   <div><span class="badge b-ok">蓄積している</span>
@@ -368,6 +445,41 @@ ${rows(chain, (c) => `
     自分の導線から出てくる一次情報</b>なので、貯まるほど次の判断が速くなります。
   </div>
   <div class="how">apps/worker/src/routes/liff.ts:800（ref_code の記録）／friends・ref_tracking テーブル</div>
+</div>
+
+<div class="card">
+  <div><span class="badge b-ok">実装済み</span>
+    <b style="margin-left:8px">線の先で、会話がそのまま貯まり続けます</b></div>
+  <div style="margin-top:7px">
+    友だち追加の後に交わされたやりとりは、往復とも <code>messages_log</code> に残ります。
+    誰と・どちら向きに・いつ・どのアカウントで。<b>これが消えないので、
+    次に話しかけるときに「前回の続き」から始められます。</b>
+  </div>
+  <div class="tbl"><table style="margin-top:8px">
+    <tr><th>残るもの</th><th>使われ方</th></tr>
+    <tr><td>会話の本文（往復）</td><td>間が空いた相手へ、履歴を踏まえた一言を自動で送る</td></tr>
+    <tr><td>どの導線から来たか</td><td>応対する人格（ナレッジパック）の切り替え</td></tr>
+    <tr><td>どの窓口・いつ</td><td>窓口ごとの溜まり具合、時間帯の偏り</td></tr>
+  </table></div>
+  <div class="how">packages/db/bootstrap.sql:540（messages_log）／apps/worker/src/services/followup-nudge.ts（履歴を踏まえた自発的な一言）</div>
+</div>
+
+<div class="card">
+  <div><span class="badge b-ok">出願済み</span>
+    <b style="margin-left:8px">貯めた文脈の扱いについて、特許を出しています</b></div>
+  <div class="tbl"><table style="margin-top:8px">
+    <tr><th>発明の名称</th><th>何をするものか</th></tr>
+    <tr><td>文脈OS</td>
+      <td>表示された情報から文脈を自動で取り出し、保存する</td></tr>
+    <tr><td>AI返信秘書</td>
+      <td>省略された指示を解決して、返信の内容を組み立てる</td></tr>
+    <tr><td>感情影響可視化型 多段階意思決定支援システム</td>
+      <td>送る前に、受け取る側がどう感じるかを可視化する</td></tr>
+  </table></div>
+  <div style="margin-top:9px">
+    いずれも株式会社ベストトラストの出願です。
+    <b>会話が貯まること自体と、その使い方の両方</b>を対象にしています。
+  </div>
 </div>
 
 <div class="card">
