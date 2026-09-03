@@ -1,0 +1,20 @@
+/* site-chrome.layout.css — generated from site-chrome.config.json. Do not edit by hand. */
+@media (max-width: 760px) {
+  .nav-toggle { display: flex; }
+  header nav {
+    display: none;
+    position: fixed;
+    top: 60px;
+    left: 0;
+    right: 0;
+    background: white;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 14px 18px;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+  }
+  header nav.nav-open { display: flex; }
+  header nav a { font-size: 0.88rem; padding: 10px 12px; }
+}

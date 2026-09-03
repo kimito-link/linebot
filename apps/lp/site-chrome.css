@@ -1,18 +1,16 @@
-/* site-chrome.css — サイト共通ヘッダー・フッターの見た目（金型）
+/* site-chrome.css — サイト共通ヘッダー・フッターの見た目（Distribution Canonical）
  * 出典: web-ios-androidキット自身のsite/assets/css/common.cssから抽出・一般化。
- * site-chrome.template.js が差し込むHTML（header, nav, footer.site-footer）に対応する。
+ * site-chrome.js が差し込むHTML（header, nav, footer.site-footer）に対応する。
  *
- * ★ここにあるのはヘッダー・フッターのスタイルのみ。ブランド色はCSS変数で外出しして
- *   あるので、対象サイトの色に合わせて :root のカスタムプロパティだけ書き換えれば足りる。
- *   構造（padding・position・breakpoint）はそのまま使い、色だけ変えるのが基本の使い方。
+ * ★このファイルはconsumer側で変更禁止（SHA-256でCURRENT/DRIFTED判定される対象）。
+ *   色はvar(--site-chrome-accent)等の参照のみで、値そのものは持たない
+ *   （site-chrome.theme.css で定義）。ハンバーガー折りたたみのbreakpointも
+ *   持たない（実測2026-09-03: line-botが1100pxから760pxへ意図的に変更していた
+ *   ため、breakpoint自体をconsumer固有のlayout customizationとして分離した。
+ *   site-chrome.layout.css を参照）。
+ *
+ * 読み込み順: site-chrome.theme.css → site-chrome.css(このファイル) → site-chrome.layout.css
  */
-
-:root {
-  --site-chrome-accent: #667eea;
-  --site-chrome-accent-soft: #f0f0ff;
-  --site-chrome-ink: #555;
-  --site-chrome-line: #eee;
-}
 
 /* ── ヘッダー ── */
 header {
@@ -43,11 +41,7 @@ header nav a {
 header nav a:hover { background: var(--site-chrome-accent-soft); color: var(--site-chrome-accent); }
 header nav a.active { background: var(--site-chrome-accent); color: white; }
 
-/* ── ハンバーガーメニュー（幅760px以下でnavを折りたたむ） ──
-   ★金型の既定は1100pxだが、このサイトはnav5項目・短い文言なので
-     デスクトップ〜タブレットではヘッダーに直接並べる。
-     1100pxのままだとノートPCでもハンバーガーになり、
-     メニューが畳まれて存在に気づかれない（2026-09-01 実機で指摘を受けた）。 */
+/* ── ハンバーガーメニューのボタン自体（折りたたみ判定=breakpointはlayout.cssが持つ） ── */
 .nav-toggle {
   display: none;
   margin-left: auto;
@@ -84,26 +78,6 @@ header nav a.active { background: var(--site-chrome-accent); color: white; }
 .nav-toggle[aria-expanded="true"] span { background: transparent; }
 .nav-toggle[aria-expanded="true"] span::before { transform: translateY(7px) rotate(45deg); }
 .nav-toggle[aria-expanded="true"] span::after { transform: translateY(-7px) rotate(-45deg); }
-
-@media (max-width: 760px) {
-  .nav-toggle { display: flex; }
-  header nav {
-    display: none;
-    position: fixed;
-    top: 60px;
-    left: 0;
-    right: 0;
-    background: white;
-    flex-direction: column;
-    gap: 2px;
-    padding: 10px 14px 18px;
-    max-height: calc(100vh - 60px);
-    overflow-y: auto;
-    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-  }
-  header nav.nav-open { display: flex; }
-  header nav a { font-size: 0.88rem; padding: 10px 12px; }
-}
 
 /* ── サイト共通フッター（全ページ主要リンク集） ── */
 .site-footer { margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--site-chrome-line); max-width: 760px; margin-left: auto; margin-right: auto; padding-left: 18px; padding-right: 18px; }

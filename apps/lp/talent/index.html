@@ -225,7 +225,15 @@
     padding: 14px 34px; border-radius: 999px;
   }
 </style>
+<!-- ★2026-09-03: site-chrome を新方式へ移行。
+     読み込み順は core → theme → layout。**この順でないと壊れる。**
+     core は .nav-toggle { display:none } を持っており、layout のメディアクエリで
+     760px 以下だけ display:flex に戻す作り。同じ詳細度なので**後に読んだ方が勝つ**。
+     core を最後に読むと打ち消され、狭い画面でハンバーガーが出ずナビが縦に全展開する
+     （実測でそうなった。移行前より悪化していた）。 -->
 <link rel="stylesheet" href="/site-chrome.css">
+<link rel="stylesheet" href="/site-chrome.theme.css">
+<link rel="stylesheet" href="/site-chrome.layout.css">
 </head>
 <body>
 <div id="site-header"></div>
@@ -1091,6 +1099,8 @@
 </footer>
 
 <div id="site-footer"></div>
+<!-- ★config を先に読む。core はそれを参照して描画する（順序が逆だと何も出ない） -->
+<script src="/site-chrome.config.js"></script>
 <script src="/site-chrome.js"></script>
 </body>
 </html>

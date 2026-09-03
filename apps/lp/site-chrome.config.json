@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "brandName": "Kimito Talk",
+  "brandCopyright": "株式会社ベストトラスト",
+  "logoSrc": "/assets/kimito-link-logo-rect.png?v=2",
+  "homeLabel": "トップ",
+  "navCollapseAt": 760,
+  "colors": {
+    "accent": "#667eea",
+    "accentSoft": "#f0f0ff",
+    "ink": "#555",
+    "line": "#eee"
+  },
+  "navItems": [
+    { "href": "/kimitotalk/", "label": "できること" },
+    { "href": "/talent/", "label": "タレント事務所さまへ" },
+    { "href": "/gpt-hikkoshi/", "label": "GPTお引越し" },
+    { "href": "/privacy/", "label": "プライバシーポリシー" }
+  ]
+}

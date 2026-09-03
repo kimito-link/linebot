@@ -1,4 +1,9 @@
-// site-chrome.js — サイト共通のヘッダー・フッターを実行時に差し込む（金型）。
+// site-chrome.js — サイト共通のヘッダー・フッターを実行時に差し込む（Distribution Canonical）。
+//
+// ★このファイルはconsumer側で変更禁止。全サイトでバイト単位一致を維持する
+//   （SHA-256でCURRENT/DRIFTED判定される対象）。サイト固有値は一切ここに書かない —
+//   読み込み順で先にロードされる site-chrome.config.js が定義する
+//   window.SITE_CHROME_CONFIG を参照するだけ。
 //
 // ★出典・なぜこの方式か（2026-08-22, web-ios-androidキット自身のsite/で実証）:
 //   ビルドツールなしの静的HTMLサイトで、複数ページすべてにヘッダー/フッターの
@@ -7,18 +12,19 @@
 //   ここでリンクを「サイトルート相対の絶対パス」に統一し、1箇所の変更が
 //   全ページに反映されるようにする。
 //
-// ★2026-09-01追記: この仕組み自体は当初 site/scripts/site-chrome.js としてキット
-//   自身のサイトにしか存在せず、他プロジェクトが新規に複数ページのサイト/LPを作る
-//   ときに再利用できる形になっていなかった（line-bot/apps/lp配下でheader/footerが
-//   ページごとに個別実装される事故が実際に起きた）。このファイルはそれを受けて
-//   templates/へ一般化・格上げしたもの。
+// ★2026-09-03: Core/Config/Local extension境界を確定（GPT相談での設計）。
+//   従来の site-chrome.template.js（Core+SITE_CONFIG+NAV_ITEMS混在）から、
+//   consumer固有値を site-chrome.config.js（config/schema.jsonから生成）へ分離した。
+//   これによりCoreファイル自体はhash完全一致でdrift判定できるようになる。
 //
 // 使い方:
-//   1. このファイルを対象サイトへ site-chrome.js としてコピーする
-//   2. 下の SITE_CONFIG を対象サイトの値に書き換える（ブランド名・ロゴ・ナビ項目）
+//   1. このファイルを対象サイトへ site-chrome.js としてコピーする（無改変）
+//   2. site-chrome.config.json（config/schema.json準拠）を書き、generatorで
+//      site-chrome.config.js / site-chrome.theme.css / site-chrome.layout.css を生成する
 //   3. 各ページの <body> 直後に <div id="site-header"></div>、
 //      </body> 直前に <div id="site-footer"></div> を置く
-//   4. site-chrome.template.css も同様にコピーして読み込む（クラス名はそのまま）
+//   4. 読み込み順: config.js → site-chrome.js(このファイル) → layout.css/theme.css →
+//      任意で site-chrome.local.js（"site-chrome:mounted"イベントを購読する）
 //   5. 現在ページに対応する nav リンクには自動で class="active" が付く
 //
 // 対応していないこと:
@@ -27,24 +33,8 @@
 //   - この金型はビルドレスな静的HTML複数ページサイト専用。
 
 (function () {
-  // ★ここを対象サイトの値に書き換える。他は変更不要。
-  var SITE_CONFIG = {
-    brandName: 'Kimito Talk',
-    brandCopyright: '株式会社ベストトラスト',
-    logoSrc: '/assets/kimito-link-logo-rect.png?v=2',  // ★?v= はキャッシュ対策。ロゴを差し替えたら数字を上げる
-    homeLabel: 'トップ',
-  };
-
-  // ★ここを増やすだけで全ページのヘッダー・フッターに反映される。
-  //   以前は5つのLPがそれぞれ別々のフッターを持ち、ページ間を行き来する導線が
-  //   ひとつも無かった（2026-09-01 実測）。
-  //   /dhash-report は技術記事なので nav には出さない（フッターにも出ない）。
-  var NAV_ITEMS = [
-    { href: '/kimitotalk/', label: 'できること' },
-    { href: '/talent/', label: 'タレント事務所さまへ' },
-    { href: '/gpt-hikkoshi/', label: 'GPTお引越し' },
-    { href: '/privacy/', label: 'プライバシーポリシー' },
-  ];
+  var CONFIG = window.SITE_CHROME_CONFIG || {};
+  var NAV_ITEMS = CONFIG.navItems || [];
 
   function isActive(href) {
     var path = window.location.pathname;
@@ -60,10 +50,10 @@
 
     return (
       '<header>\n' +
-      '  <a class="logo-link" href="/"><img class="logo" src="' + SITE_CONFIG.logoSrc + '" alt="' + SITE_CONFIG.brandName + '"></a>\n' +
+      '  <a class="logo-link" href="/"><img class="logo" src="' + CONFIG.logoSrc + '" alt="' + CONFIG.brandName + '"></a>\n' +
       '  <button class="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="メニューを開く"><span></span></button>\n' +
       '  <nav id="site-nav">\n' +
-      '    <a href="/"' + (isActive('/') ? ' class="active"' : '') + '>' + SITE_CONFIG.homeLabel + '</a>\n' +
+      '    <a href="/"' + (isActive('/') ? ' class="active"' : '') + '>' + CONFIG.homeLabel + '</a>\n' +
       '    ' + nav + '\n' +
       '  </nav>\n' +
       '</header>'
@@ -71,7 +61,7 @@
   }
 
   function buildFooter() {
-    var links = ['<a href="/">' + SITE_CONFIG.homeLabel + '</a>']
+    var links = ['<a href="/">' + CONFIG.homeLabel + '</a>']
       .concat(NAV_ITEMS.map(function (item) {
         return '<a href="' + item.href + '">' + item.label + '</a>';
       }))
@@ -82,7 +72,7 @@
       '  <div class="site-footer-links">\n' +
       '    ' + links + '\n' +
       '  </div>\n' +
-      '  <div class="site-footer-copy">' + SITE_CONFIG.brandCopyright + '</div>\n' +
+      '  <div class="site-footer-copy">' + CONFIG.brandCopyright + '</div>\n' +
       '</footer>'
     );
   }
@@ -111,5 +101,9 @@
     if (headerSlot) headerSlot.outerHTML = buildHeader();
     if (footerSlot) footerSlot.outerHTML = buildFooter();
     mountToggle();
+    // ★Local extension（web-ios-androidのAI共有ボタン等）はこのイベントを購読して
+    //   ヘッダー/フッターのDOM構築完了後に動く。Coreはこのイベント発火だけを責務とし、
+    //   Local側の中身は一切知らない（plugin frameworkではなく1個のフックのみ）。
+    document.dispatchEvent(new CustomEvent('site-chrome:mounted'));
   });
 })();
