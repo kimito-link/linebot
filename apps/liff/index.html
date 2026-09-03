@@ -6,7 +6,14 @@
     <title>予約</title>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- ★LINEログインへ飛ぶまでの間、ここが空だと真っ白に見える（実測で約0.5秒）。
+           main.tsx は initLiff() が解決するまで render しないので、
+           HTML 側に置いておく。React が mount すると自動で置き換わる。 -->
+      <div style="padding:3rem 1rem;text-align:center;color:#888;font-family:system-ui,sans-serif;font-size:.875rem">
+        読み込んでいます…
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

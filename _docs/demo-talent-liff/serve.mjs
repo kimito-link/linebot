@@ -21,13 +21,19 @@ import { join, extname, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DIST = join(HERE, '../../apps/liff/dist');
+// ★dist ではなく dist-mock を配信する。
+//   素の dist は liff.init() が LINE のサーバーへ問い合わせるため、
+//   PC のブラウザでは LINE ログインへ飛んで画面まで到達できない
+//   （2026-09-02 に実測済み。d97ca11 の記録と同じ）。
+//   dist-mock は次で作る:
+//     cd apps/liff && VITE_LIFF_MOCK=1 npx vite build --outDir dist-mock
+const DIST = join(HERE, '../../apps/liff/dist-mock');
 const PORT = 5180;
 
 /** ★本番D1に入っているものと同じ内容 */
 const EVENT = {
   id: 'evt-talent-demo-1123',
-  name: '11月23日 〇〇ホール 舞台公演',
+  name: '【デモ】11月23日 〇〇ホール 舞台公演',
   venue_name: '〇〇ホール',
   venue_url: null,
   image_url: null,
@@ -74,9 +80,11 @@ createServer(async (req, res) => {
 
   // ── API モック ──
   if (p === `/api/liff/events/${EVENT.id}`) return json(res, EVENT);
-  if (p === `/api/liff/events/${EVENT.id}/slots`) return json(res, SLOTS);
+  // ★本番は配列そのものではなく {items:[...]} を返す（実測で確認）。
+  //   ここを合わせないと画面側で読めない。
+  if (p === `/api/liff/events/${EVENT.id}/slots`) return json(res, { items: SLOTS });
   // 自分の予約は空（★「まだ答えていない人」の視点を見せたいので）
-  if (p === '/api/liff/events/me') return json(res, []);
+  if (p === '/api/liff/events/me') return json(res, { items: [] });
 
   // ── 静的ファイル ──
   let file = p === '/' ? '/index.html' : p;

@@ -5,3 +5,6 @@ dist
 .env.local
 .env.production
 tsconfig.tsbuildinfo
+
+# 検証用ビルド（VITE_LIFF_MOCK=1）。出荷物ではない。
+dist-mock/
