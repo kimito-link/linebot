@@ -32,6 +32,12 @@ const REPO = join(HERE, '..');
 const GITHUB_DIR = join(REPO, '..');
 const OFFLINE = process.argv.includes('--offline');
 const OUT = join(HERE, '.line-root-data.json');
+// ★CIには github/ 配下の他リポジトリが無いので、静的走査は手元の結果しか
+//   完全にならない。--merge-scan-from <file> で「手元の走査結果を引き継ぎ、
+//   D1と疎通確認だけCIで取り直す」ができる（走査データはコミットしないので
+//   CIへは actions/upload-artifact 経由で渡す）。
+const mergeIdx = process.argv.indexOf('--merge-scan-from');
+const MERGE_FROM = mergeIdx >= 0 ? process.argv[mergeIdx + 1] : null;
 
 /** 走査から外す。成果物・依存・保存済みHTMLは「生きた導線」ではない。 */
 const SKIP_DIRS = new Set([
@@ -53,8 +59,6 @@ const TEXT_EXT = /\.(html?|astro|[jt]sx?|mjs|cjs|php|json|md|ts|vue|svelte|ahk)$
 // ── 1. 静的走査 ──────────────────────────────────────────────
 
 /** LINE の友だち追加URL。check-lp-links.mjs:73 と同じ形。 */
-// ★URLに使える文字だけを拾う。[^"'\s] 方式だと日本語の括弧まで飲み込み、
-//   「lin.ee/JelcWtx）に設定」のような偽のURLが生まれた（実測で発覚）。
 // ★URLに使える文字だけを拾う。[^"'\s] 方式だと日本語の括弧まで飲み込み、
 //   「lin.ee/JelcWtx）に設定」のような偽のURLが生まれた（実測で発覚）。
 // ★?ref= まで拾う。ここを落とすと「どの導線から来たか」が分からず、
@@ -236,20 +240,30 @@ async function checkEndpoint(ep) {
 
 console.log('LINE導線を集めています…');
 
-console.log('  1. github/ 配下を走査');
-const scan = scanRepos();
-console.log(`     導線URL ${scan.links.length}件 / LIFF ID ${scan.liffIds.length}件`);
+let scan, identities = [];
+if (MERGE_FROM && existsSync(MERGE_FROM)) {
+  console.log(`  1. 走査は引き継ぐ（${MERGE_FROM}）`);
+  const prev = JSON.parse(readFileSync(MERGE_FROM, 'utf8'));
+  scan = prev.scan;
+  identities = prev.identities ?? [];
+  console.log(`     導線URL ${scan.links.length}件 / LIFF ID ${scan.liffIds.length}件（引き継ぎ）`);
+} else {
+  console.log('  1. github/ 配下を走査');
+  scan = scanRepos();
+  console.log(`     導線URL ${scan.links.length}件 / LIFF ID ${scan.liffIds.length}件`);
+}
 
-let identities = [];
 let endpoints = [];
 if (!OFFLINE) {
-  console.log('  2. 各URLが実際にどのアカウントを指すか判定');
-  for (const link of scan.links) {
-    const r = await resolveIdentity(link.url);
-    identities.push({ url: link.url, ...r });
-    process.stdout.write('.');
+  if (!(MERGE_FROM && existsSync(MERGE_FROM))) {
+    console.log('  2. 各URLが実際にどのアカウントを指すか判定');
+    for (const link of scan.links) {
+      const r = await resolveIdentity(link.url);
+      identities.push({ url: link.url, ...r });
+      process.stdout.write('.');
+    }
+    console.log('');
   }
-  console.log('');
 
   console.log('  3. エンドポイントの生存確認');
   endpoints = await Promise.all(ENDPOINTS.map(checkEndpoint));

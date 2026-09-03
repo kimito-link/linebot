@@ -2,7 +2,7 @@
 #
 # 【なぜCIでやるか】
 # D1 を読むには Cloudflare の権限が要る。手元のトークンでは
-# Authentication error [code: 10000] で弾かれる（_docs/WEB-HEALTH-CHECK-WIRING.md:16-28）。
+# Authentication error [code: 10000] で弾かれる（Pages配信も同様に弾かれることを実測済み）。
 # CI には deploy-cloudflare-worker.yml が使っている secret が揃っている。
 #
 # 【★生成物をリポジトリにコミットしない】
@@ -13,11 +13,26 @@
 # collect-line-root.mjs は line_accounts から SELECT * をしない
 # （channel_access_token / channel_secret が入っているため）。
 # build-line-root.mjs が出力後に検査し、混入があれば exit 1 で止まる。
+#
+# 【★他リポジトリを含む完全版について】
+# CI がチェックアウトするのはこのリポジトリだけなので、素の実行だと
+# github/ 配下の他リポジトリの導線が拾えない（3本になる）。
+# 手元で `node scripts/collect-line-root.mjs` を実行した結果
+# （scripts/.line-root-data.json）を gzip+base64 にして scan_data に貼ると、
+# その走査結果を引き継いで D1・配信だけを CI が担当する（21本の完全版になる）。
+# 作り方:
+#   gzip -c scripts/.line-root-data.json | base64 -w0
+# 65KB を超えると workflow_dispatch の入力上限に引っかかる（現状20KB程度）。
 
 name: Build LINE Root Map
 
 on:
   workflow_dispatch:
+    inputs:
+      scan_data:
+        description: '手元の走査結果（gzip+base64）。空なら CI 内だけで走査する（3本になる）'
+        required: false
+        type: string
   schedule:
     # 毎週月曜の朝（JST 9時 = UTC 0時）。導線は毎日変わるものではない。
     - cron: '0 0 * * 1'
@@ -33,16 +48,26 @@ jobs:
         with:
           node-version: 22
 
-      # ★CI では github/ 配下の他リポジトリが存在しない。
-      #   走査はこのリポジトリの中だけになるが、D1 と疎通確認は本番の値が取れる。
-      #   他リポジトリの導線も含めた完全版は、手元で collect を回してから
-      #   同じ build を実行する（_docs/LINE-ROOT-MAP.md 参照）。
+      - name: 手元の走査結果を展開（渡されていれば）
+        if: ${{ inputs.scan_data != '' }}
+        env:
+          SCAN_DATA: ${{ inputs.scan_data }}
+        run: |
+          mkdir -p scripts
+          printf '%s' "$SCAN_DATA" | base64 -d | gunzip > scripts/.line-root-data.json
+          echo "展開した: $(wc -c < scripts/.line-root-data.json) バイト"
+
       - name: データを集める
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
-        run: node scripts/collect-line-root.mjs
+        run: |
+          if [ -f scripts/.line-root-data.json ]; then
+            node scripts/collect-line-root.mjs --merge-scan-from scripts/.line-root-data.json
+          else
+            node scripts/collect-line-root.mjs
+          fi
 
       - name: ページを組み立てる
         run: node scripts/build-line-root.mjs
