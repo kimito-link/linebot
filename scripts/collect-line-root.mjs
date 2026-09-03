@@ -164,11 +164,16 @@ async function resolveIdentity(url) {
     const html = await res.text();
     const m = html.match(/<title>([^<]*)<\/title>/i);
     const title = (m ? m[1] : '').replace(/\s*\|\s*LINE Official Account\s*$/i, '').trim();
+    // ★認証済みアカウント（緑バッジ）かどうか。実物の管理画面にも出る情報で、
+    //   「公式はこれだけ」と示せるかに関わるので地図にも載せる。
+    //   2026-09-04 実測: 認証済みのページには verified / badge が含まれ、
+    //   未認証（lin.ee/zMVlevv）には含まれない。
+    const verified = /verified/i.test(html);
     if (!title || title === 'Add LINE friend') {
       // 「Add LINE friend」は実体名を出さない設定のアカウント。実在はする。
-      return { status: res.status, account: null, note: title ? 'アカウント名非公開' : null };
+      return { status: res.status, account: null, verified, note: title ? 'アカウント名非公開' : null };
     }
-    return { status: res.status, account: title, note: null };
+    return { status: res.status, account: title, verified, note: null };
   } catch (e) {
     return { status: null, account: null, note: `取得できず: ${String(e.message).slice(0, 60)}` };
   }

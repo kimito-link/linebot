@@ -50,7 +50,9 @@ for (const link of liveLinks) {
     key = `名前非公開（${link.url.replace(/^https:\/\/(lin\.ee\/|line\.me\/R\/ti\/p\/|page\.line\.me\/)/, '')}）`;
     unknown = true;
   }
-  if (!groups.has(key)) groups.set(key, { name: key, unknown, links: [] });
+  if (!groups.has(key)) groups.set(key, { name: key, unknown, verified: false, links: [] });
+  // 認証済みバッジ（実物の管理画面にも出る）。1本でも認証済みなら、そのアカウントは認証済み。
+  if (id?.verified) groups.get(key).verified = true;
   groups.get(key).links.push({ ...link, identity: id });
 }
 const groupList = [...groups.values()].sort((a, b) => b.links.length - a.links.length);
@@ -161,6 +163,39 @@ const html = `<!doctype html>
   th{color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap}
   .how{color:var(--muted);font-size:12px;margin-top:5px}
   .how::before{content:"確かめ方: "}
+  /* ── LINE Official Account Manager のアカウント一覧を模した表 ──
+     ★実物（manager.line.biz）と同じ見た目にすることで、
+       「管理画面で見えているあのアカウント」と地図上の行が
+       頭の中で一対一に結びつく。別の意匠を作ると対応づけが要る。 */
+  .oam{background:#fff;color:#333;border-radius:10px;overflow:hidden;margin:14px 0 26px;
+    box-shadow:0 2px 14px rgba(0,0,0,.28)}
+  .oam-head{padding:15px 18px 12px;border-bottom:1px solid #e5e5e5}
+  .oam-head h3{margin:0;font-size:16px;font-weight:800;color:#222}
+  .oam-head .n{color:#888;font-weight:600;font-size:13px;margin-left:5px}
+  .oam table{width:100%;border-collapse:collapse;font-size:13px;min-width:600px}
+  .oam thead th{background:#fafafa;color:#666;font-size:12px;font-weight:600;
+    padding:11px 14px;border-bottom:1px solid #e5e5e5;text-align:left;white-space:nowrap}
+  .oam tbody td{padding:13px 14px;border-bottom:1px solid #eee;vertical-align:middle}
+  .oam tbody tr:last-child td{border-bottom:0}
+  /* アカウント名のセル。実物と同じくアイコン＋名前＋認証バッジ */
+  .oam .who{display:flex;align-items:center;gap:10px}
+  .oam .ico{width:30px;height:30px;border-radius:50%;background:#e8eaed;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;font-size:14px;color:#9aa0a6}
+  .oam .nm{color:#1a73c8;font-weight:600;text-decoration:underline;text-underline-offset:2px}
+  .oam .verified{color:#06c755;font-size:12px}
+  /* リンク本数。実物の「友だち」列の位置に置く */
+  .oam .cnt{font-weight:700;color:#333;white-space:nowrap}
+  .oam .cnt .u{font-weight:400;color:#888;font-size:11.5px;margin-left:2px}
+  /* そのアカウントへ向いているURLを、行の中にぶら下げる */
+  .oam .urls{margin-top:7px;display:flex;flex-wrap:wrap;gap:5px}
+  .oam .u-chip{background:#f1f3f4;border:1px solid #e0e0e0;border-radius:5px;
+    padding:2px 7px;font-size:11.5px;font-family:ui-monospace,Consolas,monospace;color:#444}
+  .oam .u-chip.has-ref{background:#e6f4ea;border-color:#b7e0c4;color:#137333}
+  .oam .repos{color:#888;font-size:11.5px;margin-top:6px;line-height:1.6}
+  /* 「同じ窓口に何本も向いている」ことを行そのもので警告する */
+  .oam tr.dup td{background:#fffbf0}
+  .oam .warn{display:inline-block;background:#fef7e0;color:#b06000;border:1px solid #feefc3;
+    border-radius:4px;padding:1px 6px;font-size:11px;font-weight:700;margin-left:6px}
   .acc-name{font-weight:800;font-size:15px;margin-bottom:2px}
   .acc-meta{color:var(--muted);font-size:12px;margin-bottom:9px}
   ul{margin:6px 0;padding-left:20px}
@@ -239,19 +274,34 @@ ${rows(chain, (c) => `
   短縮URL（<code>lin.ee/xxx</code>）を実際に開き、ページタイトルで実体を判定しました。
   ★存在しないURLはタイトルが空になることを対照実験で確認済みです。
 </p>
-${rows(groupList, (g) => `
-<div class="card">
-  <div class="acc-name">${g.unknown ? '⚠️ ' : ''}${esc(g.name)}
-    <span class="badge b-${g.unknown ? 'unk' : g.links.length > 1 ? 'unk' : 'ok'}" style="margin-left:8px">${g.links.length}本</span></div>
-  <div class="acc-meta">${esc([...new Set(g.links.flatMap((l) => l.hits.filter((h) => !h.archive).map((h) => h.repo)))].join(' / '))}</div>
+<div class="oam">
+  <div class="oam-head"><h3>アカウント<span class="n">(${groupList.length})</span></h3></div>
   <div class="tbl"><table>
-    <tr><th>URL</th><th>使われている数</th><th>ref</th></tr>
-    ${rows(g.links.sort((a, b) => b.hits.length - a.hits.length), (l) => `
-    <tr><td><code>${esc(l.url.replace('https://', ''))}</code></td>
-      <td>${l.hits.filter((h) => !h.archive).length}箇所</td>
-      <td>${l.refs.length ? esc(l.refs.join(', ')) : '<span style="color:var(--muted)">—</span>'}</td></tr>`)}
+    <thead><tr>
+      <th>アカウント名</th><th>向いているリンク</th><th>使われている数</th><th>ref</th>
+    </tr></thead>
+    <tbody>
+    ${rows(groupList, (g) => `
+    <tr class="${g.links.length > 1 && !g.unknown ? 'dup' : ''}">
+      <td>
+        <div class="who">
+          <div class="ico">${g.unknown ? '?' : '👤'}</div>
+          <div>
+            <span class="nm">${esc(g.name)}</span>${g.verified ? ' <span class="verified">✔</span>' : ''}
+            ${g.links.length > 1 && !g.unknown ? '<span class="warn">重複</span>' : ''}
+            <div class="repos">${esc([...new Set(g.links.flatMap((l) => l.hits.filter((h) => !h.archive).map((h) => h.repo)))].join(' / '))}</div>
+          </div>
+        </div>
+      </td>
+      <td>
+        <div class="urls">${rows(g.links.sort((a, b) => b.hits.length - a.hits.length), (l) => `<span class="u-chip${l.refs.length ? ' has-ref' : ''}">${esc(l.url.replace('https://', ''))}</span>`)}</div>
+      </td>
+      <td class="cnt">${g.links.reduce((n, l) => n + l.hits.filter((h) => !h.archive).length, 0)}<span class="u">箇所</span></td>
+      <td>${(() => { const r = [...new Set(g.links.flatMap((l) => l.refs))]; return r.length ? esc(r.join(', ')) : '<span style="color:#bbb">—</span>'; })()}</td>
+    </tr>`)}
+    </tbody>
   </table></div>
-</div>`)}
+</div>
 
 ${findings.length ? `
 <h2>3. 実測で見つかった食い違い</h2>
