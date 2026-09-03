@@ -1,0 +1,10 @@
+# 録画の中間物（生の webm・切り出したコマ・確認用スクショ）。
+# 出荷する成果物は apps/lp/talent/assets/talent-demo.mp4 の側。
+_raw/
+_raw2/
+_frames/
+_frames2/
+_pre.png
+_contact*.png
+_lp-*.png
+talent-demo.mp4

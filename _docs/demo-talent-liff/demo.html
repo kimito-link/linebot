@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>タレント事務所さま向けデモ</title>
+<!--
+  ★talent LP の「LINEでは、こう届きます」を**動く形**にしたもの。
+    LP 側は静止画（HTMLモック）なので「押したらどうなるか」が伝わらない。
+    録画してLPに載せるため、同じ見た目のまま実際に押せるようにした。
+
+  ★見た目は LP の .phone / .thread / .bub / .opts / .ph-menu をそのまま使う。
+    ここで独自の意匠を作ると「実際の画面です」と食い違う。
+
+  ★数字は本番の実データと同じ（りんく=行きます / こん太=行けたら / たぬ姉=行きます → 3人）。
+-->
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: #f6f4f0; font-family: "Yu Gothic", "Hiragino Sans", Meiryo, sans-serif;
+    display: flex; align-items: center; justify-content: center; min-height: 100vh; gap: 40px;
+  }
+  /* ── LP の .phone をそのまま ── */
+  .phone {
+    width: 330px; background: #7494c0; border-radius: 30px; overflow: hidden;
+    box-shadow: 0 14px 38px rgba(0,0,0,.14);
+    border: 7px solid #2c2c2c; display: flex; flex-direction: column; height: 620px;
+  }
+  .ph-header {
+    background: #fff; padding: 9px 12px; display: flex; align-items: center; gap: 9px;
+    border-bottom: 1px solid #e8e8e8;
+  }
+  .ph-header img { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+  .ph-header .nm { font-size: 13px; font-weight: 700; color: #222; }
+  .ph-header .sb { font-size: 10px; color: #7a8; }
+  .thread { flex: 1; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+  .row { display: flex; gap: 7px; align-items: flex-end; }
+  .row.me { justify-content: flex-end; }
+  .row .ico { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+  .bub {
+    max-width: 78%; padding: 10px 13px; border-radius: 16px;
+    font-size: 13.5px; line-height: 1.6; box-shadow: 0 1px 1px rgba(0,0,0,.06);
+  }
+  .bub.bot { background: #fff; color: #222; border-top-left-radius: 4px; }
+  .bub.me  { background: #8de055; color: #1c2b12; border-top-right-radius: 4px; }
+  /* 3択 */
+  .opts { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
+  .opts button {
+    border: 1px solid #d8e3d0; background: #fbfdf9; color: #2a4020;
+    padding: 9px 10px; border-radius: 10px; font-size: 12.5px; cursor: pointer;
+    font-family: inherit; transition: background .15s, transform .1s;
+  }
+  .opts button:hover { background: #eef7e8; }
+  .opts button:active { transform: scale(.98); }
+  .ph-menu { display: flex; background: #fff; border-top: 1px solid #e8e8e8; }
+  .ph-menu div {
+    flex: 1; text-align: center; padding: 11px 2px; font-size: 10.5px; color: #444;
+    border-right: 1px solid #eee;
+  }
+  .ph-menu div:last-child { border-right: 0; }
+
+  /* ── 右側: 事務所さまに見えている数 ── */
+  .board {
+    width: 300px; background: #fff; border-radius: 18px; padding: 24px 22px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  .board h3 { margin: 0 0 4px; font-size: 14px; color: #667eea; }
+  .board .sub { margin: 0 0 18px; font-size: 11.5px; color: #888; }
+  .count { text-align: center; padding: 18px 0 14px; border-radius: 14px; background: #f0f4ff; }
+  .count b { font-size: 48px; color: #4a5cc4; line-height: 1; font-weight: 800; }
+  .count .unit { font-size: 17px; color: #4a5cc4; margin-left: 3px; }
+  .count .cap { display: block; margin-top: 6px; font-size: 11.5px; color: #667; }
+  .who { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; }
+  .who .p { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: #333; opacity: 0; transition: opacity .4s; }
+  .who .p.on { opacity: 1; }
+  .who img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; }
+  .who .ans { margin-left: auto; font-size: 11px; color: #7a8; }
+</style>
+</head>
+<body>
+
+<!-- ファン側（LINEの画面） -->
+<div class="phone">
+  <div class="ph-header">
+    <img src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%23dfe4f2'/><circle cx='32' cy='25' r='11' fill='%238c9ec7'/><path d='M10 60c2-13 11-19 22-19s20 6 22 19z' fill='%238c9ec7'/></svg>" alt="">
+    <div>
+      <div class="nm">〇〇（タレント名）</div>
+      <div class="sb">認証済みアカウント</div>
+    </div>
+  </div>
+  <div class="thread" id="thread">
+    <div class="row">
+      <img class="ico" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='32' fill='%23dfe4f2'/><circle cx='32' cy='25' r='11' fill='%238c9ec7'/><path d='M10 60c2-13 11-19 22-19s20 6 22 19z' fill='%238c9ec7'/></svg>" alt="">
+      <div class="bub bot">
+        11月23日、〇〇ホールで舞台に出ます。<br>チケットは今週末から受付です。<br><br>
+        よかったら、来られそうか教えてください。
+        <div class="opts" id="opts">
+          <button data-a="行きます">行きます</button>
+          <button data-a="行けたら行きます">行けたら行きます</button>
+          <button data-a="今回は難しそう">今回は難しそう</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="ph-menu">
+    <div>📅出演情報</div><div>🎫チケット</div><div>✉️お問い合わせ</div>
+  </div>
+</div>
+
+<!-- 主催者側（数が見える） -->
+<div class="board">
+  <h3>事務所さまの画面</h3>
+  <p class="sub">11月23日 〇〇ホール</p>
+  <div class="count">
+    <b id="n">0</b><span class="unit">人</span>
+    <span class="cap">が参加予定</span>
+  </div>
+  <div class="who" id="who">
+    <div class="p" data-i="0">
+      <img src="../../apps/lp/assets/characters/link-normal.png" alt="">りんく
+      <span class="ans">行きます</span>
+    </div>
+    <div class="p" data-i="1">
+      <img src="../../apps/lp/assets/characters/konta.png" alt="">こん太
+      <span class="ans">行けたら行きます</span>
+    </div>
+    <div class="p" data-i="2">
+      <img src="../../apps/lp/assets/characters/tanunee.png" alt="">たぬ姉
+      <span class="ans">行きます</span>
+    </div>
+  </div>
+</div>
+
+<script>
+// ★録画用の台本。押す→答える→数が増える、を自動で進める。
+//   手で操作すると毎回タイミングが変わり、撮り直しのたびに尺がぶれる。
+const thread = document.getElementById('thread');
+const nEl = document.getElementById('n');
+const who = document.getElementById('who');
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function bubble(cls, html) {
+  const row = document.createElement('div');
+  row.className = 'row' + (cls === 'me' ? ' me' : '');
+  if (cls !== 'me') {
+    const ico = document.createElement('img');
+    ico.className = 'ico';
+    ico.src = document.querySelector(".ph-header img").src;
+    row.appendChild(ico);
+  }
+  const b = document.createElement('div');
+  b.className = 'bub ' + cls;
+  b.innerHTML = html;
+  row.appendChild(b);
+  thread.appendChild(row);
+  thread.scrollTop = thread.scrollHeight;
+}
+
+// 数を 0 → n までゆっくり上げる（切り替わりが目で追える速さ）
+async function countTo(n) {
+  const cur = Number(nEl.textContent);
+  for (let v = cur + 1; v <= n; v++) { nEl.textContent = v; await sleep(260); }
+}
+
+async function play() {
+  await sleep(1600);
+
+  // ① ファンが「行きます」を押す
+  // ★押したら選択肢は消す。薄く残すと「まだ押せるのか」が分からない。
+  const opts = document.getElementById('opts');
+  opts.style.transition = 'opacity .3s, max-height .3s';
+  opts.style.opacity = '0';
+  await sleep(320);
+  opts.style.display = 'none';
+  await sleep(300);
+  bubble('me', '行きます');
+  await sleep(700);
+  who.querySelector('[data-i="0"]').classList.add('on');
+  await countTo(1);
+  await sleep(500);
+  bubble('bot', 'ありがとうございます。<br>近くなったらまたお知らせしますね。');
+
+  // ② 別の人が「行けたら行きます」
+  await sleep(1500);
+  who.querySelector('[data-i="1"]').classList.add('on');
+  await countTo(2);
+
+  // ③ もう一人「行きます」
+  await sleep(1200);
+  who.querySelector('[data-i="2"]').classList.add('on');
+  await countTo(3);
+
+  await sleep(2600);
+}
+play();
+</script>
+</body>
+</html>

@@ -157,6 +157,9 @@
   /* ★縦長の動画（ロック画面のモック・4:5）。他の動画は横長なので、
        同じ width:100% だと縦に伸びてページを占領してしまう。幅を抑える。 */
   video.tall { max-width: 340px; margin: 0 auto; }
+  /* 「LINEでは、こう届きます」の動画。横長（900x720）なので幅を抑える。 */
+  .demo-video { max-width: 620px; margin: 22px auto 0; }
+  .demo-video .cap { margin: 10px 0 0; font-size: 13px; color: var(--muted); text-align: center; line-height: 1.7; }
   .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .src { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
   .src a, .note a { color: var(--muted); }
@@ -536,10 +539,16 @@
     <h2>LINEでは、こう届きます</h2>
     <p class="lead">実際の画面です。知らせて、答えてもらうところまで。</p>
 
+    <div class="demo-video">
+      <video controls loop muted playsinline preload="none"
+             poster="assets/talent-demo-poster.jpg" src="assets/talent-demo.mp4"></video>
+      <p class="cap">左がファンの画面、右が事務所さまの画面。押された分だけ、数がその場で増えます。</p>
+    </div>
+
     <div class="demo-grid">
       <div class="phone">
         <div class="ph-header">
-          <img src="assets/talent-avatar.png" alt="">
+          <img src="assets/talent-avatar-neutral.svg" alt="">
           <div>
             <div class="nm">〇〇（タレント名）</div>
             <div class="sb">認証済みアカウント</div>
@@ -547,7 +556,7 @@
         </div>
         <div class="thread">
           <div class="row">
-            <img class="ico" src="assets/talent-avatar.png" alt="">
+            <img class="ico" src="assets/talent-avatar-neutral.svg" alt="">
             <div class="bub bot">
               <div class="nm">〇〇</div>
               11月23日、〇〇ホールで舞台に出ます。<br>
@@ -564,7 +573,7 @@
             <div class="bub me">行きます</div>
           </div>
           <div class="row">
-            <img class="ico" src="assets/talent-avatar.png" alt="">
+            <img class="ico" src="assets/talent-avatar-neutral.svg" alt="">
             <div class="bub bot">
               <div class="nm">〇〇</div>
               ありがとうございます。<br>
