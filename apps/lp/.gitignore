@@ -1,1 +1,5 @@
 .vercel
+
+# LINE導線の地図。CIが生成してPagesへ直接配信する。
+# ★このリポジトリはpublicなので、導線データをコミットしない。
+line-root/

@@ -34,6 +34,9 @@ const notes = [];
 function findPages(dir, acc = []) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     if (e.name.startsWith('.') || e.name === 'node_modules') continue;
+    // ★line-root は CI が生成する成果物で、リポジトリには無い（.gitignore）。
+    //   検査対象に入れると、手元では5枚・CIでは4枚となり結果が食い違う。
+    if (e.name === 'line-root') continue;
     const p = join(dir, e.name);
     if (e.isDirectory()) findPages(p, acc);
     else if (e.name === 'index.html') acc.push(p);

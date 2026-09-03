@@ -1,0 +1,76 @@
+# LINE導線の地図（/line-root/）を生成して Cloudflare Pages へ配信する。
+#
+# 【なぜCIでやるか】
+# D1 を読むには Cloudflare の権限が要る。手元のトークンでは
+# Authentication error [code: 10000] で弾かれる（_docs/WEB-HEALTH-CHECK-WIRING.md:16-28）。
+# CI には deploy-cloudflare-worker.yml が使っている secret が揃っている。
+#
+# 【★生成物をリポジトリにコミットしない】
+# このリポジトリは public。導線データを push すると誰でも読める。
+# 生成 → そのまま Pages へ配信し、リポジトリには残さない。
+#
+# 【★機密を出さない】
+# collect-line-root.mjs は line_accounts から SELECT * をしない
+# （channel_access_token / channel_secret が入っているため）。
+# build-line-root.mjs が出力後に検査し、混入があれば exit 1 で止まる。
+
+name: Build LINE Root Map
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 毎週月曜の朝（JST 9時 = UTC 0時）。導線は毎日変わるものではない。
+    - cron: '0 0 * * 1'
+
+jobs:
+  build:
+    if: github.repository != 'Shudesu/line-harness-oss' && vars.LINE_HARNESS_CLOUDFLARE_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # ★CI では github/ 配下の他リポジトリが存在しない。
+      #   走査はこのリポジトリの中だけになるが、D1 と疎通確認は本番の値が取れる。
+      #   他リポジトリの導線も含めた完全版は、手元で collect を回してから
+      #   同じ build を実行する（_docs/LINE-ROOT-MAP.md 参照）。
+      - name: データを集める
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
+        run: node scripts/collect-line-root.mjs
+
+      - name: ページを組み立てる
+        run: node scripts/build-line-root.mjs
+
+      # ★配信前の最後の砦。build 側の検査を通り抜けたものがあっても、ここで止める。
+      - name: 機密が混ざっていないか検査
+        run: |
+          F=apps/lp/line-root/index.html
+          test -f "$F" || { echo "生成されていない"; exit 2; }
+          for w in channel_access_token channel_secret login_channel_secret \
+                   CLOUDFLARE_API_TOKEN GROQ_API_KEY sk_live Bearer; do
+            # 説明文としての言及（「…は選んでいないため」）は許す
+            if grep -n "$w" "$F" | grep -qv "選んでいない"; then
+              echo "★ $w が混入している"
+              grep -n "$w" "$F" | head -3
+              exit 1
+            fi
+          done
+          echo "機密の混入なし"
+
+      - name: Cloudflare Pages へ配信
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          LP_PAGES_PROJECT_NAME: ${{ vars.LP_PAGES_PROJECT_NAME || 'kimitotalk-lp' }}
+        run: |
+          test -n "$CLOUDFLARE_API_TOKEN"
+          test -n "$CLOUDFLARE_ACCOUNT_ID"
+          npx wrangler pages deploy apps/lp \
+            --project-name="$LP_PAGES_PROJECT_NAME" \
+            --commit-message="line-root map ${GITHUB_SHA}"
