@@ -39,6 +39,9 @@ interface ChatDetail extends Chat {
   friendName: string
   friendPictureUrl: string | null
   messages?: ChatMessage[]
+  // 'human' = Botの自動応答を止めている（担当者が手で返す）。
+  // 詳細APIだけが返す。一覧(Chat)には含まれない。
+  aiReplyMode?: 'bot' | 'human'
 }
 
 type StatusFilter = 'all' | 'unread' | 'in_progress' | 'resolved'
@@ -332,6 +335,7 @@ export default function ChatsPage() {
   const sendLockRef = useRef(false)
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
+  const [switchingMode, setSwitchingMode] = useState(false)
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false)
   const [loadingSeconds, setLoadingSeconds] = useState(5)
   const lastLoadingTriggerAtRef = useRef<Record<string, number>>({})
@@ -755,6 +759,29 @@ export default function ChatsPage() {
     }
   }
 
+  // Botの自動応答を、この相手についてだけ止める / 再開する。
+  // 楽観更新はしない。止まっていないのに「停止中」と表示されるのが一番まずいので、
+  // サーバーが返した値だけを信じる（loadChatDetail で読み直す）。
+  const handleToggleAiReplyMode = async () => {
+    if (!selectedChatId || !chatDetail) return
+    const next = chatDetail.aiReplyMode === 'human' ? 'bot' : 'human'
+    setSwitchingMode(true)
+    try {
+      const res = await api.chats.setAiReplyMode(selectedChatId, next)
+      if (!res.success) {
+        const errMsg = (res as { error?: string }).error ?? '不明なエラー'
+        setError(`自動応答の切り替えに失敗しました: ${errMsg}`)
+        return
+      }
+      await loadChatDetail(selectedChatId)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      setError(`自動応答の切り替えに失敗しました: ${msg}`)
+    } finally {
+      setSwitchingMode(false)
+    }
+  }
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     // IME変換確定のEnterでは送信しない
     if (e.nativeEvent.isComposing || isComposingRef.current || e.keyCode === 229) return
@@ -1078,6 +1105,47 @@ export default function ChatsPage() {
                     )
                   })
                 )}
+              </div>
+
+              {/* Botの自動応答の停止 / 再開。
+                  「チャット:オン + Webhook:オン」の運用で、Botに任せる相手と
+                  手で返す相手を1人単位で分けるための切り替え。
+                  止めても受信の記録は続く（止まるのはBotが喋ることだけ）。 */}
+              <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={
+                      'inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ' +
+                      (chatDetail.aiReplyMode === 'human'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-green-100 text-green-800')
+                    }
+                  >
+                    <span
+                      className={
+                        'w-1.5 h-1.5 rounded-full ' +
+                        (chatDetail.aiReplyMode === 'human' ? 'bg-amber-500' : 'bg-green-500')
+                      }
+                    />
+                    {chatDetail.aiReplyMode === 'human' ? '自動応答: 停止中' : '自動応答: 動作中'}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {chatDetail.aiReplyMode === 'human'
+                      ? 'この方には自分で返信します'
+                      : 'この方にはBotが返信します'}
+                  </span>
+                  <button
+                    onClick={handleToggleAiReplyMode}
+                    disabled={switchingMode}
+                    className="ml-auto px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
+                  >
+                    {switchingMode
+                      ? '切り替え中...'
+                      : chatDetail.aiReplyMode === 'human'
+                        ? 'Botに戻す'
+                        : '自動応答を止める'}
+                  </button>
+                </div>
               </div>
 
               {/* Notes */}

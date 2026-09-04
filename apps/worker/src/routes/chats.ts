@@ -438,9 +438,9 @@ chats.get('/api/chats/:id', async (c) => {
     const createdAt = chatRow?.created_at ?? null;
 
     const friend = await c.env.DB
-      .prepare(`SELECT display_name, picture_url, line_user_id FROM friends WHERE id = ?`)
+      .prepare(`SELECT display_name, picture_url, line_user_id, ai_reply_mode FROM friends WHERE id = ?`)
       .bind(resolvedFriendId)
-      .first<{ display_name: string | null; picture_url: string | null; line_user_id: string }>();
+      .first<{ display_name: string | null; picture_url: string | null; line_user_id: string; ai_reply_mode: string | null }>();
 
     // 新しい1000件を取って昇順に戻す。LIMIT 200 ASC だと古い200件だけで broadcast/scenario 等の
     // 新しい push が欠落していた（Shu で 481件中 281件欠落のバグあり）。一覧側と同様に test 配信は除外。
@@ -463,6 +463,9 @@ chats.get('/api/chats/:id', async (c) => {
         friendId: resolvedFriendId,
         friendName: friend?.display_name || '名前なし',
         friendPictureUrl: friend?.picture_url || null,
+        // 'human' = この相手にはBotが自動応答しない（担当者が手で返す）。
+        // webhook.ts の LLM ゲートと followup-nudge.ts が同じ列を見ている。
+        aiReplyMode: friend?.ai_reply_mode ?? 'bot',
         operatorId,
         status,
         notes,
@@ -517,6 +520,49 @@ chats.put('/api/chats/:id', async (c) => {
     });
   } catch (err) {
     console.error('PUT /api/chats/:id error:', err);
+    return c.json({ success: false, error: 'Internal server error' }, 500);
+  }
+});
+
+// Botの自動応答を、この相手についてだけ止める / 再開する。
+//
+// 【なぜ専用の列を足さなかったか】
+// friends.ai_reply_mode（046_ai_reply_mode.sql）が既に同じ意味を持っている。
+//   - webhook.ts: ai_reply_mode !== 'human' のときだけ LLM 応答を試みる
+//   - followup-nudge.ts: ai_reply_mode != 'human' の相手にだけ時間差フォローを送る
+//   - diag.ts: 'human' のまま放置されている相手を検知して報告する
+// ここに bot_paused という第2の列を足すと、同じ問いに対する正が2つになる。
+//
+// 【止めても記録は続く】
+// 受信メッセージの messages_log への記録は webhook.ts の手前で行われるので、
+// 止めている間の会話も残る。止まるのは「Botが喋ること」だけ。
+//
+// 【auto_replies は止まらない】
+// キーワード完全一致の定型返信（営業時間の案内など）はこのゲートより前にある。
+// 手で対応中でも定型案内は返したい、という運用を壊さないため意図的にそうしている。
+chats.put('/api/chats/:id/ai-reply-mode', async (c) => {
+  try {
+    const id = c.req.param('id');
+    const resolved = await resolveOrCreateChat(c.env.DB, id);
+    if (!resolved) return c.json({ success: false, error: 'Not found' }, 404);
+
+    const body = await c.req.json<{ mode?: string }>();
+    const mode = body.mode;
+    // 'bot' | 'human' 以外は受け取らない。未知の値が入ると webhook 側の
+    // `!== 'human'` 判定が素通りして「止めたつもりが止まっていない」になる。
+    if (mode !== 'bot' && mode !== 'human') {
+      return c.json({ success: false, error: "mode must be 'bot' or 'human'" }, 400);
+    }
+
+    const res = await c.env.DB
+      .prepare(`UPDATE friends SET ai_reply_mode = ?, updated_at = ? WHERE id = ?`)
+      .bind(mode, jstNow(), resolved.friend_id)
+      .run();
+    if (!res.success) return c.json({ success: false, error: 'Update failed' }, 500);
+
+    return c.json({ success: true, data: { id: resolved.friend_id, friendId: resolved.friend_id, aiReplyMode: mode } });
+  } catch (err) {
+    console.error('PUT /api/chats/:id/ai-reply-mode error:', err);
     return c.json({ success: false, error: 'Internal server error' }, 500);
   }
 });

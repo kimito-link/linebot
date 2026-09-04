@@ -888,6 +888,13 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    // 'human' = この相手にはBotが自動応答しない（担当者が手で返す）。
+    // 受信の記録とキーワード定型返信は止まらない。
+    setAiReplyMode: (id: string, mode: 'bot' | 'human') =>
+      fetchApi<ApiResponse<{ id: string; friendId: string; aiReplyMode: 'bot' | 'human' }>>(
+        `/api/chats/${id}/ai-reply-mode`,
+        { method: 'PUT', body: JSON.stringify({ mode }) },
+      ),
   },
   reminders: {
     list: (params?: { accountId?: string }) => {
