@@ -332,6 +332,9 @@ chats.get('/api/chats', async (c) => {
         f.picture_url,
         f.line_user_id,
         f.line_account_id,
+        -- 一覧のカードで「Botを止める / 戻す」を出すために必要。
+        -- これが無いと、開くまでどちらの状態か分からずボタンを押させられない。
+        f.ai_reply_mode,
         c.operator_id,
         COALESCE(c.status, 'resolved') AS status,
         c.notes,
@@ -372,6 +375,9 @@ chats.get('/api/chats', async (c) => {
       lastMessageContent: ch.last_message_content || null,
       lastMessageDirection: ch.last_message_direction || null,
       lastMessageType: ch.last_message_type || null,
+      lineAccountId: ch.line_account_id ?? null,
+      // 'human' = この相手にはBotが自動応答しない。既定は 'bot'。
+      aiReplyMode: (ch.ai_reply_mode as string | null) ?? 'bot',
       createdAt: ch.created_at,
       updatedAt: ch.updated_at,
     }));

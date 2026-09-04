@@ -10,6 +10,8 @@ import CcPromptButton from '@/components/cc-prompt-button'
 import FlexPreviewComponent from '@/components/flex-preview'
 import FriendInfoSidebar from '@/components/chats/friend-info-sidebar'
 import ImageUploader, { type ImageUploaderValue } from '@/components/shared/image-uploader'
+import ChatCard from '@/components/chats/chat-card'
+import { deriveCardFlags } from '@/components/chats/chat-card-flags'
 
 interface Chat {
   id: string
@@ -23,6 +25,9 @@ interface Chat {
   lastMessageContent: string | null
   lastMessageDirection: 'incoming' | 'outgoing' | null
   lastMessageType: string | null
+  // 一覧APIが返す（段6で追加）。'human' = この相手にはBotが自動応答しない。
+  aiReplyMode?: 'bot' | 'human'
+  lineAccountId?: string | null
   createdAt: string
   updatedAt: string
 }
@@ -60,8 +65,12 @@ const statusFilters: { key: StatusFilter; label: string }[] = [
 ]
 
 const SHOW_LOADING_PREF_KEY = 'lh_chat_show_loading_indicator'
-// 一覧の1ページ件数。worker 側 /api/chats のデフォルト LIMIT と揃える。
-const CHAT_PAGE_SIZE = 300
+// 一覧の1ページ件数。
+// ★カード型は1件の縦が伸びるので、行型のときの300から絞る。
+//   「さらに読み込む」で継ぎ足せるので、初回表示の軽さを優先する。
+const CHAT_PAGE_SIZE = 50
+// 未返信セットの取得上限。worker 側 unanswered-inbox の MAX_PAGE_SIZE と同じ。
+const UNANSWERED_PAGE_SIZE = 2000
 const LOADING_SECONDS_PREF_KEY = 'lh_chat_loading_seconds'
 const LOADING_REFRESH_INTERVAL_MS = 4000
 
@@ -165,6 +174,12 @@ export default function ChatsPage() {
   const [notes, setNotes] = useState('')
   const [savingNotes, setSavingNotes] = useState(false)
   const [switchingMode, setSwitchingMode] = useState(false)
+  // 未返信の正は /api/inbox/unanswered（サイドバーの赤バッジ・/notifications と同じ）。
+  // ★一覧の lastMessageDirection では判定できない（受信が1件でもあれば常に incoming を返す）。
+  //   詳細は _docs/MAP-CHATS-LEDGER-REDESIGN.md の訂正1。
+  const [unansweredIds, setUnansweredIds] = useState<ReadonlySet<string>>(new Set())
+  const [unansweredTotal, setUnansweredTotal] = useState(0)
+  const [unansweredCapped, setUnansweredCapped] = useState(false)
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false)
   const [loadingSeconds, setLoadingSeconds] = useState(5)
   const lastLoadingTriggerAtRef = useRef<Record<string, number>>({})
@@ -221,7 +236,12 @@ export default function ChatsPage() {
     setLoading(true)
     setError('')
     try {
-      const chatRes = await api.chats.list(buildListParams(null))
+      // ★未返信は一覧と同時に取る。片方が遅れて「バッジが後から点く」のを避ける。
+      //   未返信の取得が失敗しても一覧は出す（バッジが消えるだけ。一覧まで道連れにしない）。
+      const [chatRes, unansweredRes] = await Promise.all([
+        api.chats.list(buildListParams(null)),
+        api.inbox.unanswered.list({ pageSize: UNANSWERED_PAGE_SIZE }).catch(() => null),
+      ])
       if (chatRes.success) {
         const rows = chatRes.data as unknown as Chat[]
         setChats(rows)
@@ -229,6 +249,13 @@ export default function ChatsPage() {
         nextCursorRef.current = last?.lastMessageAt ? { at: last.lastMessageAt, id: last.id } : null
         // ページ丁度いっぱい返ってきた = 続きがある可能性が高い (unansweredOnly は全件返る)
         setHasMoreChats(!unansweredOnly && rows.length === CHAT_PAGE_SIZE)
+      }
+      if (unansweredRes?.success) {
+        const d = unansweredRes.data
+        setUnansweredIds(new Set(d.rows.map((r) => r.friendId)))
+        setUnansweredTotal(d.total)
+        // ★取り切れていないことを隠さない。バッジが付かない相手がいると分かるようにする。
+        setUnansweredCapped(d.total > d.rows.length)
       }
     } catch {
       setError('チャットの読み込みに失敗しました。もう一度お試しください。')
@@ -549,11 +576,15 @@ export default function ChatsPage() {
     }
   }
 
-  const handleStatusUpdate = async (newStatus: Chat['status']) => {
-    if (!selectedChatId) return
+  // ★台帳型では、開いていないカードからも状態を変えられる（それが要点）。
+  //   chatId を明示的に受け取り、選択中かどうかに依存しない。
+  const handleStatusUpdate = async (newStatus: Chat['status'], chatId?: string) => {
+    const targetId = chatId ?? selectedChatId
+    if (!targetId) return
     try {
-      await api.chats.update(selectedChatId, { status: newStatus })
-      loadChatDetail(selectedChatId)
+      await api.chats.update(targetId, { status: newStatus })
+      // 開いている相手なら詳細も読み直す（閉じたままのカードでは不要な通信をしない）
+      if (selectedChatId === targetId) loadChatDetail(targetId)
       loadChats()
       // 解決済/未読の切替は未対応バッジに影響するので即時更新させる
       window.dispatchEvent(new Event(UNANSWERED_REFRESH_EVENT))
@@ -578,18 +609,25 @@ export default function ChatsPage() {
   // Botの自動応答を、この相手についてだけ止める / 再開する。
   // 楽観更新はしない。止まっていないのに「停止中」と表示されるのが一番まずいので、
   // サーバーが返した値だけを信じる（loadChatDetail で読み直す）。
-  const handleToggleAiReplyMode = async () => {
-    if (!selectedChatId || !chatDetail) return
-    const next = chatDetail.aiReplyMode === 'human' ? 'bot' : 'human'
+  // ★台帳型では、開いていないカードからも切り替えられる。
+  //   現在値は引数で受け取る（chatDetail は開いている相手の分しか持っていない）。
+  const handleToggleAiReplyMode = async (chatId?: string, current?: 'bot' | 'human') => {
+    const targetId = chatId ?? selectedChatId
+    const currentMode = current ?? chatDetail?.aiReplyMode
+    if (!targetId || !currentMode) return
+    const next = currentMode === 'human' ? 'bot' : 'human'
     setSwitchingMode(true)
     try {
-      const res = await api.chats.setAiReplyMode(selectedChatId, next)
+      const res = await api.chats.setAiReplyMode(targetId, next)
       if (!res.success) {
         const errMsg = (res as { error?: string }).error ?? '不明なエラー'
         setError(`自動応答の切り替えに失敗しました: ${errMsg}`)
         return
       }
-      await loadChatDetail(selectedChatId)
+      // ★楽観更新しない。止まっていないのに「停止中」と出るのが一番まずいので、
+      //   サーバーに書けたことを確認してから一覧と詳細を読み直す。
+      setChats((prev) => prev.map((c) => (c.id === targetId ? { ...c, aiReplyMode: next } : c)))
+      if (selectedChatId === targetId) await loadChatDetail(targetId)
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setError(`自動応答の切り替えに失敗しました: ${msg}`)
@@ -611,152 +649,12 @@ export default function ChatsPage() {
     }
   }
 
-  return (
-    <div>
-      <Header title="オペレーターチャット" />
-
-      {/* Error */}
-      {error && (
-        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
-      <div className="flex gap-4 h-[calc(100vh-120px)] lg:h-[calc(100vh-180px)]">
-        {/* Left Panel: Chat List */}
-        <div className={`w-full lg:w-96 lg:flex-shrink-0 bg-white rounded-lg shadow-sm border border-gray-200 flex-col overflow-hidden ${selectedChatId ? 'hidden lg:flex' : 'flex'}`}>
-          {/* タブ (全て / 未読 / 対応中 / 解決済) は意図的に削除。直近メッセージが見やすい LINE 風一覧を優先。 */}
-
-          {/* Filter row */}
-          <div className="px-3 py-2 border-b border-gray-100 flex flex-wrap items-center gap-2">
-            {statusFilters.map((f) => (
-              <button
-                key={f.key}
-                onClick={() => setStatusFilter(f.key)}
-                disabled={unansweredOnly}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                  statusFilter === f.key
-                    ? 'bg-green-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                } ${unansweredOnly ? 'opacity-40 cursor-not-allowed' : ''}`}
-              >
-                {f.label}
-              </button>
-            ))}
-            <label className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ml-auto cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={unansweredOnly}
-                onChange={(e) => setUnansweredOnly(e.target.checked)}
-                className="rounded"
-              />
-              🔥 未対応のみ
-            </label>
-          </div>
-
-          {/* Chat List */}
-          <div className="flex-1 overflow-y-auto">
-            {loading ? (
-              <div>
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="px-4 py-3 border-b border-gray-100 animate-pulse">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-1 space-y-2">
-                        <div className="h-3 bg-gray-200 rounded w-32" />
-                        <div className="h-2 bg-gray-100 rounded w-20" />
-                      </div>
-                      <div className="h-5 bg-gray-100 rounded-full w-12" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                {chats.map((chat) => {
-                  const isSelected = selectedChatId === chat.id
-                  // 「真の自発（要対応）」= chat.status='unread'。webhook 側で auto_reply に
-                  // マッチしなかった incoming のみ unread に設定される。auto_reply trigger
-                  // (キーワード "コスト比較" 等) は matched 扱いで unread 化しない。
-                  // bold / 🟥 の表示はこの status を使う。direction だけだと button 押下も
-                  // 強調してしまって S/N 比が悪化する。
-                  const needsAttention = chat.status === 'unread'
-                  // 最新メッセージの本文 preview。flex/image は文字列で見せても意味が薄いので type 表記に置換。
-                  const previewRaw = chat.lastMessageContent ?? ''
-                  const preview = (() => {
-                    if (chat.lastMessageType === 'image') return '📷 画像'
-                    if (chat.lastMessageType === 'flex') return '📋 Flexメッセージ'
-                    if (chat.lastMessageType === 'sticker') return '🎨 スタンプ'
-                    if (chat.lastMessageType === 'video') return '🎥 動画'
-                    if (chat.lastMessageType === 'audio') return '🎤 音声'
-                    if (chat.lastMessageType === 'file') return '📎 ファイル'
-                    if (chat.lastMessageType === 'location') return '📍 位置情報'
-                    return previewRaw.replace(/\n+/g, ' ').slice(0, 60)
-                  })()
-                  return (
-                    <button
-                      key={chat.id}
-                      onClick={() => handleSelectChat(chat.id)}
-                      className={`w-full text-left px-4 py-3 border-b border-gray-100 transition-colors ${
-                        isSelected ? 'bg-green-50' : 'hover:bg-gray-50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        {chat.friendPictureUrl ? (
-                          <img src={chat.friendPictureUrl} alt="" className="w-10 h-10 rounded-full flex-shrink-0" />
-                        ) : (
-                          <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
-                            <span className="text-gray-500 text-sm">{chat.friendName.charAt(0)}</span>
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                              {chat.status === 'unread' && (
-                                <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" aria-label="未読" />
-                              )}
-                              <p className="text-sm font-medium text-gray-900 truncate">{chat.friendName}</p>
-                            </div>
-                            <span className="text-[10px] text-gray-400 flex-shrink-0">{formatDatetime(chat.lastMessageAt)}</span>
-                          </div>
-                          <p
-                            className={`text-xs mt-0.5 truncate ${
-                              needsAttention
-                                ? 'text-gray-900 font-medium'
-                                : 'text-gray-400'
-                            }`}
-                            title={preview}
-                          >
-                            {chat.lastMessageDirection === 'outgoing' && (
-                              <span className="text-gray-400 mr-1">↪</span>
-                            )}
-                            {preview || <span className="italic text-gray-300">(まだメッセージなし)</span>}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  )
-                })}
-                {hasMoreChats && !unansweredOnly && (
-                  <button
-                    onClick={() => { void loadMoreChats() }}
-                    disabled={loadingMore}
-                    className="w-full px-4 py-3 text-sm text-green-700 hover:bg-green-50 disabled:opacity-50 border-b border-gray-100"
-                  >
-                    {loadingMore ? '読み込み中...' : 'さらに読み込む'}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Right Panel: Chat Detail */}
-        <div className={`flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex-col overflow-hidden ${selectedChatId ? 'flex' : 'hidden lg:flex'}`}>
-          {!selectedChatId ? (
-            <div className="flex-1 flex items-center justify-center">
-              <p className="text-gray-400 text-sm">チャットを選択してください</p>
-            </div>
-          ) : detailLoading ? (
+  // 展開したカードの中身（会話・入力欄・メモ・設定）。
+  // ★元は右ペインだった JSX をそのまま持ってきている。中身は変えない。
+  //   台帳型では「開いたカードの中」がこの置き場所になる。
+  const detailPane = (
+    <div className="flex flex-col max-h-[70vh]">
+          {detailLoading ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-gray-400 text-sm">読み込み中...</p>
             </div>
@@ -915,46 +813,9 @@ export default function ChatsPage() {
                 )}
               </div>
 
-              {/* Botの自動応答の停止 / 再開。
-                  「チャット:オン + Webhook:オン」の運用で、Botに任せる相手と
-                  手で返す相手を1人単位で分けるための切り替え。
-                  止めても受信の記録は続く（止まるのはBotが喋ることだけ）。 */}
-              <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={
-                      'inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium ' +
-                      (chatDetail.aiReplyMode === 'human'
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-green-100 text-green-800')
-                    }
-                  >
-                    <span
-                      className={
-                        'w-1.5 h-1.5 rounded-full ' +
-                        (chatDetail.aiReplyMode === 'human' ? 'bg-amber-500' : 'bg-green-500')
-                      }
-                    />
-                    {chatDetail.aiReplyMode === 'human' ? '自動応答: 停止中' : '自動応答: 動作中'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {chatDetail.aiReplyMode === 'human'
-                      ? 'この方には自分で返信します'
-                      : 'この方にはBotが返信します'}
-                  </span>
-                  <button
-                    onClick={handleToggleAiReplyMode}
-                    disabled={switchingMode}
-                    className="ml-auto px-2 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors disabled:opacity-50"
-                  >
-                    {switchingMode
-                      ? '切り替え中...'
-                      : chatDetail.aiReplyMode === 'human'
-                        ? 'Botに戻す'
-                        : '自動応答を止める'}
-                  </button>
-                </div>
-              </div>
+              {/* ★自動応答の停止/再開は、カードのヘッダ（ChatCard の操作行）へ移した。
+                  台帳型では「開かずに押せる」ことが要点なので、開いた中にも同じものを
+                  置くと二重になり、どちらが正か分からなくなる。 */}
 
               {/* Notes */}
               <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
@@ -1064,7 +925,117 @@ export default function ChatsPage() {
               </div>
             </>
           ) : null}
+    </div>
+  )
+
+  return (
+    <div>
+      <Header title="オペレーターチャット" />
+
+      {/* Error */}
+      {error && (
+        <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+          {error}
         </div>
+      )}
+
+      {/* ★台帳（1人1カード）。以前は左右2ペインで、外枠が高さ固定 + flex だった。
+          カード1列にしたので、その外枠のままだと子が幅0に潰れる（実際に潰れた）。
+          縦に素直に伸びる箱へ戻す。 */}
+      <div>
+        <div className="w-full">
+          {/* Filter row */}
+          <div className="px-3 py-2 mb-2 bg-white rounded-lg border border-gray-200 flex flex-wrap items-center gap-2">
+            {statusFilters.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setStatusFilter(f.key)}
+                disabled={unansweredOnly}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  statusFilter === f.key
+                    ? 'bg-green-500 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                } ${unansweredOnly ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                {f.label}
+              </button>
+            ))}
+            <label className="flex items-center gap-1.5 text-xs font-medium whitespace-nowrap ml-auto cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={unansweredOnly}
+                onChange={(e) => setUnansweredOnly(e.target.checked)}
+                className="rounded"
+              />
+              🔥 未返信のみ
+            </label>
+            {unansweredTotal > 0 && (
+              <span className="text-xs font-bold text-red-600 whitespace-nowrap">
+                未返信 {unansweredCapped ? `${unansweredTotal}+` : unansweredTotal}
+              </span>
+            )}
+          </div>
+
+          {/* Chat List */}
+          <div>
+            {loading ? (
+              <div>
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="px-4 py-3 border-b border-gray-100 animate-pulse">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div className="h-3 bg-gray-200 rounded w-32" />
+                        <div className="h-2 bg-gray-100 rounded w-20" />
+                      </div>
+                      <div className="h-5 bg-gray-100 rounded-full w-12" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {chats.map((chat) => {
+                  const flags = deriveCardFlags(
+                    chat,
+                    unansweredIds,
+                    // 開いている相手は詳細側を優先する（切り替えた直後は詳細のほうが新しい）。
+                    // 閉じているカードは一覧APIの値を使う。
+                    (selectedChatId === chat.id ? chatDetail?.aiReplyMode : undefined) ?? chat.aiReplyMode,
+                  )
+                  return (
+                    <ChatCard
+                      key={chat.id}
+                      chat={chat}
+                      flags={flags}
+                      expanded={selectedChatId === chat.id}
+                      switchingMode={switchingMode}
+                      onToggleExpand={() => {
+                        if (selectedChatId === chat.id) setSelectedChatId(null)
+                        else handleSelectChat(chat.id)
+                      }}
+                      onStatusChange={(next) => { void handleStatusUpdate(next, chat.id) }}
+                      onToggleAiReplyMode={() => {
+                        void handleToggleAiReplyMode(chat.id, flags.humanMode ? 'human' : 'bot')
+                      }}
+                    >
+                      {detailPane}
+                    </ChatCard>
+                  )
+                })}
+                {hasMoreChats && !unansweredOnly && (
+                  <button
+                    onClick={() => { void loadMoreChats() }}
+                    disabled={loadingMore}
+                    className="w-full px-4 py-3 text-sm text-green-700 hover:bg-green-50 disabled:opacity-50 border-b border-gray-100"
+                  >
+                    {loadingMore ? '読み込み中...' : 'さらに読み込む'}
+                  </button>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
 
         {/* Right-most Panel: 友だち詳細サイドバー — chat detail を開いている時のみ表示 */}
         {/*
