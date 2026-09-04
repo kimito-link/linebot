@@ -166,58 +166,43 @@
 
   .demo-video { width: 100%; max-width: 560px; display: block; margin: 0 auto; border-radius: var(--radius); border: 1px solid var(--line); }
 
-  /* ── 担当者側の画面（受信箱のモック）──
-     LINEの画面だけ見せても「担当者に届く」がどう届くのか分からない。
-     実物の画面と同じ並び（一覧 / 会話 / 状態）で見せる。 */
-  .desk {
-    display: grid; grid-template-columns: 190px 1fr; gap: 0;
-    max-width: 620px; margin: 0 auto 6px;
+  /* ── 担当者側の画面（実物の管理画面のモック）──
+     ★2026-09-05 更新: 実物を「1人1カード」の台帳型に作り替えたので、
+       ここも合わせた。以前は一覧＋会話の2ペインを描いていたが、
+       実物がそうでなくなった以上、古い絵を置いておくと嘘になる。
+     ★要点は「カードを開かずに操作できる」こと。だから操作行をカードに描く。 */
+  .desk { max-width: 560px; margin: 0 auto 6px; }
+  .desk-card {
     background: var(--panel); border: 1px solid var(--line);
-    border-radius: var(--radius); overflow: hidden;
+    border-left: 4px solid transparent;
+    border-radius: 12px; padding: 11px 13px; margin-bottom: 8px; text-align: left;
   }
-  @media (max-width: 560px) { .desk { grid-template-columns: 1fr; } }
-  /* 左列は行が尽きても下まで地色を伸ばす。伸ばさないと途中で切れて未完成に見える。 */
-  .desk-list { border-right: 1px solid var(--line); background: var(--panel-soft); }
-  @media (max-width: 560px) { .desk-list { border-right: 0; border-bottom: 1px solid var(--line); } }
-  .desk-list-head, .desk-thread-head {
-    font-size: 11px; font-weight: 700; color: var(--muted);
-    padding: 9px 12px; border-bottom: 1px solid var(--line); letter-spacing: .03em;
-  }
-  .desk-row { padding: 9px 12px; border-bottom: 1px solid var(--line); }
-  .desk-row:last-child { border-bottom: 0; }
-  .desk-row.on { background: var(--panel); }
-  .desk-row .nm { font-size: 12.5px; font-weight: 700; display: block; }
-  .desk-row .pv { font-size: 11px; color: var(--muted); display: block; margin-top: 1px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .desk-card.urgent { border-left-color: #C4453A; }   /* 未返信 */
+  .desk-card.mine   { border-left-color: #C79A2E; }   /* 自分で返信 */
+  .desk-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .desk-head .nm { font-size: 13px; font-weight: 700; }
+  .desk-head .when { font-size: 11px; color: var(--muted); margin-left: auto; }
   .desk-tag {
     display: inline-block; font-size: 10px; font-weight: 700;
-    padding: 1px 6px; border-radius: 999px; margin-top: 4px;
+    padding: 1px 7px; border-radius: 999px;
   }
+  .desk-tag.unrep  { background: #C4453A; color: #fff; }        /* 未返信 */
+  .desk-tag.mine   { background: #C79A2E; color: #fff; }        /* 自分で返信 */
   .desk-tag.unread { background: #FBE9E7; color: #B3451F; }
-  .desk-tag.route  { background: var(--accent-soft); color: var(--accent-strong); }
-  .desk-thread { padding: 12px; display: flex; flex-direction: column; gap: 7px; }
-  .desk-b { max-width: 86%; padding: 7px 11px; border-radius: 13px; font-size: 12px; line-height: 1.6; }
-  .desk-b.in  { align-self: flex-start; background: var(--panel-soft); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
-  .desk-b.bot { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
-  .desk-b .by { display: block; font-size: 10px; font-weight: 700; color: var(--accent-strong); margin-bottom: 2px; }
-  .desk-b.staff { align-self: flex-end; background: var(--fg); color: #fff; border-bottom-right-radius: 4px; }
-  .desk-b.staff .by { color: #fff; opacity: .75; }
-  .desk-bar {
-    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
-    padding: 9px 12px; border-top: 1px solid var(--line); background: var(--panel-soft);
+  .desk-tag.doing  { background: #F6EFDF; color: #8A6A22; }
+  .desk-tag.done   { background: var(--accent-soft); color: var(--accent-strong); }
+  .desk-pv { font-size: 12px; color: var(--muted); margin: 5px 0 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .desk-pv.strong { color: var(--fg); font-weight: 600; }
+  .desk-ops { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+  .desk-op {
+    font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--fg);
   }
-  .desk-state {
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
-    background: #F6EFDF; color: #8A6A22;
-  }
-  .desk-state .dot { width: 6px; height: 6px; border-radius: 50%; background: #C79A2E; }
-  .desk-btn {
-    margin-left: auto; font-size: 11px; font-weight: 700; color: var(--fg);
-    background: var(--panel); border: 1px solid var(--line);
-    padding: 4px 10px; border-radius: 8px;
-  }
-  @media (max-width: 560px) { .desk-btn { margin-left: 0; } }
+  .desk-op.go   { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
+  .desk-op.warn { background: #C79A2E; color: #fff; border-color: #C79A2E; }
+  .desk-op.sel  { color: var(--muted); }
+  .desk-note { font-size: 11px; color: var(--muted); }
   .desk-cap { text-align: center; font-size: 12px; color: var(--muted); margin: 0 auto 26px; max-width: 520px; }
 
   /* 蓄積されるもの（3つ並び） */
@@ -341,42 +326,57 @@
     <h2>「担当者へ届く」の、届いた先です</h2>
     <p class="section-lead">Botに任せる方と、ご自分で返す方を、お一人ずつ分けられます。切り替えても、会話はそのまま残ります。</p>
 
-    <!-- ★実物の画面（apps/web の オペレーターチャット）と同じ並びで描く。
+    <!-- ★実物の画面（apps/web のオペレーターチャット）と同じ形で描く。
+         1人1カードで、カードを開かずに操作できる、が実物の要点。
          ここで独自の意匠を作ると「実際の画面です」と食い違う。 -->
     <div class="desk">
-      <div class="desk-list">
-        <div class="desk-list-head">お問い合わせ一覧</div>
-        <div class="desk-row on">
-          <span class="nm">佐藤さま</span>
-          <span class="pv">見積もりの件ですが…</span>
+      <div class="desk-card urgent">
+        <div class="desk-head">
+          <span class="desk-tag unrep">未返信</span>
           <span class="desk-tag unread">未読</span>
+          <span class="nm">佐藤さま</span>
+          <span class="when">11時間前</span>
         </div>
-        <div class="desk-row">
-          <span class="nm">鈴木さま</span>
-          <span class="pv">ありがとうございました</span>
-          <span class="desk-tag route">Instagramから</span>
-        </div>
-        <div class="desk-row">
-          <span class="nm">高橋さま</span>
-          <span class="pv">明日の14時でお願いします</span>
-          <span class="desk-tag route">チラシのQRから</span>
+        <p class="desk-pv strong">見積もりの件ですが、相談できますか？</p>
+        <div class="desk-ops">
+          <span class="desk-op go">💬 返信する</span>
+          <span class="desk-op">⏸ Botを止める</span>
+          <span class="desk-op sel">未読 ▾</span>
+          <span class="desk-op">営業時間のご案内</span>
         </div>
       </div>
-      <div>
-        <div class="desk-thread-head">佐藤さま とのやりとり</div>
-        <div class="desk-thread">
-          <div class="desk-b in">営業時間は何時までですか？</div>
-          <div class="desk-b bot"><span class="by">Bot</span>平日は19時まで、土曜は17時までです。</div>
-          <div class="desk-b in">見積もりの件ですが、相談できますか？</div>
-          <div class="desk-b staff"><span class="by">担当者</span>お待たせしました。詳しくお伺いします。</div>
+
+      <div class="desk-card mine">
+        <div class="desk-head">
+          <span class="desk-tag mine">自分で返信</span>
+          <span class="desk-tag doing">対応中</span>
+          <span class="nm">鈴木さま</span>
+          <span class="when">13時間前</span>
         </div>
-        <div class="desk-bar">
-          <span class="desk-state"><span class="dot"></span>自動応答: 停止中</span>
-          <span class="desk-btn">Botに戻す</span>
+        <p class="desk-pv">ありがとうございました</p>
+        <div class="desk-ops">
+          <span class="desk-op go">💬 返信する</span>
+          <span class="desk-op warn">▶ Botに戻す</span>
+          <span class="desk-op sel">対応中 ▾</span>
+          <span class="desk-note">📝 見積もり送付済み</span>
+        </div>
+      </div>
+
+      <div class="desk-card">
+        <div class="desk-head">
+          <span class="desk-tag done">解決済</span>
+          <span class="nm">高橋さま</span>
+          <span class="when">14時間前</span>
+        </div>
+        <p class="desk-pv">明日の14時でお願いします</p>
+        <div class="desk-ops">
+          <span class="desk-op go">💬 返信する</span>
+          <span class="desk-op">⏸ Botを止める</span>
+          <span class="desk-op sel">解決済 ▾</span>
         </div>
       </div>
     </div>
-    <p class="desk-cap">金額の相談に入ったので、この方だけBotを止めて、担当者が続きを引き取った場面です。用が済んだらボタン一つでBotに戻せます。</p>
+    <p class="desk-cap">お一人ずつ、状態と次の操作が並びます。<b>会話を開かなくても</b>、その場でBotを止めたり、定型のお返事を送ったりできます。鈴木さまは、いま担当者が手で返している方です。</p>
 
     <div class="foundation-box">
       <p>LINE公式アカウントは、Botに任せるか・人が返すかを<strong>アカウントごとにしか切り替えられません</strong>。片方を選ぶと、もう片方が使えなくなります。</p>

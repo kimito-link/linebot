@@ -196,6 +196,30 @@
   .desk-b .by { display: block; font-size: 11px; font-weight: 700; margin-bottom: 3px;
                 color: var(--accent-strong); }
   .desk-b.staff .by { color: #fff; opacity: .7; }
+  /* 台帳（1人1カード）。実物が2026-09-05にこの形になったので合わせる。
+     ★要点は「カードを開かなくても操作できる」こと。 */
+  .desk-card { background: var(--panel); border: 1px solid var(--line);
+               border-left: 4px solid transparent; border-radius: 12px;
+               padding: 11px 13px; margin-bottom: 8px; }
+  .desk-card.urgent { border-left-color: #9A5B5B; }
+  .desk-card.mine   { border-left-color: var(--warn); }
+  .desk-crow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .desk-crow .nm { font-size: 13.5px; font-weight: 700; }
+  .desk-crow .when { font-size: 11.5px; color: var(--muted); margin-left: auto; }
+  .desk-tag { display: inline-block; font-size: 10.5px; font-weight: 700;
+              padding: 1px 7px; border-radius: 999px; }
+  .desk-tag.unrep { background: #9A5B5B; color: #fff; }
+  .desk-tag.mine  { background: var(--warn); color: #fff; }
+  .desk-tag.done  { background: var(--accent-soft); color: var(--accent-strong); }
+  .desk-cpv { font-size: 12.5px; color: var(--muted); margin: 5px 0 0; }
+  .desk-cpv.strong { color: var(--fg); font-weight: 600; }
+  .desk-cops { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
+  .desk-op { font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 7px;
+             border: 1px solid var(--line); background: var(--panel); color: var(--fg); }
+  .desk-op.go   { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
+  .desk-op.warn { background: var(--warn); color: #fff; border-color: var(--warn); }
+  .desk-op.sel  { color: var(--muted); }
+
   .desk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
               padding: 11px 14px; border-top: 1px solid var(--line); background: var(--panel-soft); }
   .desk-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
@@ -1099,17 +1123,66 @@
     <!-- ★実物の画面（オペレーターチャット）と同じ並びで描く。
          ここで独自の意匠を作ると「実際の画面です」と食い違う。
          会話は上の .talk-demo（りんくとファンの方）の続きにしてある。 -->
+    <div class="desk" style="margin-bottom:14px">
+      <div class="desk-head">事務所さまの画面 — お問い合わせの一覧</div>
+      <div style="padding:12px">
+        <div class="desk-card urgent">
+          <div class="desk-crow">
+            <span class="desk-tag unrep">未返信</span>
+            <span class="nm">〇〇さま</span>
+            <span class="when">11時間前</span>
+          </div>
+          <p class="desk-cpv strong">実は取材のご依頼でご連絡しました</p>
+          <div class="desk-cops">
+            <span class="desk-op go">💬 返信する</span>
+            <span class="desk-op">⏸ りんくを止める</span>
+            <span class="desk-op sel">未読 ▾</span>
+          </div>
+        </div>
+        <div class="desk-card mine">
+          <div class="desk-crow">
+            <span class="desk-tag mine">自分で返信</span>
+            <span class="nm">△△さま</span>
+            <span class="when">13時間前</span>
+          </div>
+          <p class="desk-cpv">グッズの再販はありますか？</p>
+          <div class="desk-cops">
+            <span class="desk-op go">💬 返信する</span>
+            <span class="desk-op warn">▶ りんくに戻す</span>
+            <span class="desk-op sel">対応中 ▾</span>
+          </div>
+        </div>
+        <div class="desk-card">
+          <div class="desk-crow">
+            <span class="desk-tag done">解決済</span>
+            <span class="nm">□□さま</span>
+            <span class="when">14時間前</span>
+          </div>
+          <p class="desk-cpv">ありがとうございました！</p>
+          <div class="desk-cops">
+            <span class="desk-op go">💬 返信する</span>
+            <span class="desk-op">⏸ りんくを止める</span>
+            <span class="desk-op sel">解決済 ▾</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <p class="note" style="text-align:center;margin-bottom:18px">
+      お一人ずつ、状態と次の操作が並びます。<b>会話を開かなくても</b>、その場で応答を止められます。
+    </p>
+
     <div class="desk">
-      <div class="desk-head">事務所さまの画面 — 〇〇さま とのやりとり</div>
+      <div class="desk-head">〇〇さま のカードを開いたところ</div>
       <div class="desk-thread">
         <div class="desk-b in">物販って何時からですか？</div>
         <div class="desk-b bot"><span class="by">りんく</span>開演前は17時から、終演後もやっています。</div>
         <div class="desk-b in">あの、実は取材のご依頼でご連絡しました。担当の方とお話しできますか？</div>
         <div class="desk-b staff"><span class="by">担当スタッフ</span>お待たせしました。〇〇事務所の△△と申します。詳しくお伺いします。</div>
       </div>
+      <!-- ★開いた中に切替ボタンは置かない。カード側にあるものと二重になるため
+           （実物でも二重になったので片方を消した）。状態だけ再掲する。 -->
       <div class="desk-bar">
         <span class="desk-state"><span class="dot"></span>自動応答: 停止中</span>
-        <span class="desk-btn">りんくに戻す</span>
       </div>
     </div>
     <p class="note" style="text-align:center">
