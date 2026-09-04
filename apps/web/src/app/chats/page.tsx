@@ -128,181 +128,10 @@ const ccPrompts = [
   },
 ]
 
-interface FriendItem {
-  id: string
-  displayName: string
-  pictureUrl: string | null
-  isFollowing: boolean
-}
-
-interface MessageLog {
-  id: string
-  direction: 'incoming' | 'outgoing'
-  messageType: string
-  content: string
-  createdAt: string
-}
-
-function DirectMessagePanel({ friendId, friend, onBack, onSent }: {
-  friendId: string
-  friend: FriendItem | null
-  onBack: () => void
-  onSent: () => void
-}) {
-  const [message, setMessage] = useState('')
-  const [sending, setSending] = useState(false)
-  const [messages, setMessages] = useState<MessageLog[]>([])
-  const [loadingMessages, setLoadingMessages] = useState(true)
-  const isComposingRef = useRef(false)
-  const sendLockRef = useRef(false)
-
-  useEffect(() => {
-    const loadMessages = async () => {
-      setLoadingMessages(true)
-      try {
-        const res = await fetchApi<{ success: boolean; data: MessageLog[] }>(
-          `/api/friends/${friendId}/messages`
-        )
-        if (res.success) setMessages(res.data)
-      } catch { /* silent */ }
-      setLoadingMessages(false)
-    }
-    loadMessages()
-  }, [friendId])
-
-  const handleSend = async () => {
-    if (!message.trim() || sending || sendLockRef.current) return
-    sendLockRef.current = true
-    setSending(true)
-    try {
-      await fetchApi(`/api/friends/${friendId}/messages`, {
-        method: 'POST',
-        body: JSON.stringify({ content: message, messageType: 'text' }),
-      })
-      setMessages((prev) => [...prev, {
-        id: crypto.randomUUID(),
-        direction: 'outgoing',
-        messageType: 'text',
-        content: message,
-        createdAt: new Date().toISOString(),
-      }])
-      setMessage('')
-    } catch { /* silent */ }
-    setSending(false)
-    sendLockRef.current = false
-  }
-
-  function renderContent(msg: MessageLog) {
-    if (msg.messageType === 'text') return msg.content
-    if (msg.messageType === 'flex') {
-      try {
-        const parsed = JSON.parse(msg.content)
-        // Extract ALL text from flex (up to 200 chars)
-        const texts: string[] = []
-        const collectText = (obj: Record<string, unknown>) => {
-          if (texts.join(' ').length > 200) return
-          if (obj.type === 'text' && typeof obj.text === 'string') {
-            const t = (obj.text as string).trim()
-            if (t && !t.startsWith('{{')) texts.push(t)
-          }
-          for (const key of ['header', 'body', 'footer']) {
-            if (obj[key]) collectText(obj[key] as Record<string, unknown>)
-          }
-          if (Array.isArray(obj.contents)) {
-            for (const c of obj.contents) collectText(c as Record<string, unknown>)
-          }
-        }
-        collectText(parsed)
-        return texts.slice(0, 4).join('\n') || '[Flex Message]'
-      } catch { return '[Flex Message]' }
-    }
-    if (msg.messageType === 'sticker') {
-      return <StickerMessageImage content={msg.content} />
-    }
-    return `[${msg.messageType}]`
-  }
-
-  return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-4 border-b border-gray-200 flex items-center gap-3">
-        <button onClick={onBack} className="lg:hidden text-gray-400 hover:text-gray-600">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        {friend?.pictureUrl ? (
-          <img src={friend.pictureUrl} alt="" className="w-8 h-8 rounded-full" />
-        ) : (
-          <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center">
-            <span className="text-gray-500 text-xs">{(friend?.displayName || '?').charAt(0)}</span>
-          </div>
-        )}
-        <div>
-          <p className="text-sm font-bold text-gray-900">{friend?.displayName || '不明'}</p>
-          <p className="text-xs text-gray-400">メッセージ履歴</p>
-        </div>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {loadingMessages ? (
-          <p className="text-center text-gray-400 text-sm">読み込み中...</p>
-        ) : messages.length === 0 ? (
-          <p className="text-center text-gray-400 text-sm">メッセージ履歴がありません</p>
-        ) : (
-          messages.map((msg) => (
-            <div key={msg.id} className={`flex ${msg.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[75%] rounded-2xl px-4 py-2 ${
-                msg.direction === 'outgoing'
-                  ? 'bg-green-500 text-white'
-                  : 'bg-gray-100 text-gray-900'
-              }`}>
-                <div className="text-sm whitespace-pre-wrap break-words">{renderContent(msg)}</div>
-                <p className={`text-xs mt-1 ${msg.direction === 'outgoing' ? 'text-green-200' : 'text-gray-400'}`}>
-                  {new Date(msg.createdAt).toLocaleString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-      <div className="px-4 py-3 border-t border-gray-200">
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            onCompositionStart={() => { isComposingRef.current = true }}
-            onCompositionEnd={() => { isComposingRef.current = false }}
-            onKeyDown={(e) => {
-              // IME変換確定のEnterでは送信しない
-              if (e.nativeEvent.isComposing || isComposingRef.current || e.keyCode === 229) return
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                handleSend()
-              }
-            }}
-            placeholder="メッセージを入力..."
-            className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
-          />
-          <button
-            onClick={handleSend}
-            disabled={!message.trim() || sending}
-            className="px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: '#06C755' }}
-          >
-            {sending ? '...' : '送信'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 export default function ChatsPage() {
   const { selectedAccountId } = useAccount()
   const [chats, setChats] = useState<Chat[]>([])
-  const [allFriends, setAllFriends] = useState<FriendItem[]>([])
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
-  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null)
   const [chatDetail, setChatDetail] = useState<ChatDetail | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const statusFilterRef = useRef<StatusFilter>('all')
@@ -436,19 +265,6 @@ export default function ChatsPage() {
       setLoadingMore(false)
     }
   }, [loadingMore, buildListParams])
-
-  // Friends list (for the "new direct message" modal) — loaded lazily in the background
-  // Previously fetched 800 friends in parallel with chats, which blocked the initial render.
-  const loadAllFriends = useCallback(async () => {
-    try {
-      const friendRes = await api.friends.list({ accountId: selectedAccountId || undefined, limit: '800' })
-      if (friendRes.success) {
-        setAllFriends((friendRes.data as unknown as { items: FriendItem[] }).items)
-      }
-    } catch { /* silent */ }
-  }, [selectedAccountId])
-
-  useEffect(() => { void loadAllFriends() }, [loadAllFriends])
 
   // Keep refs in sync so setChats updater can read the latest filter without stale closure
   useEffect(() => { statusFilterRef.current = statusFilter }, [statusFilter])
@@ -879,9 +695,9 @@ export default function ChatsPage() {
                   return (
                     <button
                       key={chat.id}
-                      onClick={() => { setSelectedFriendId(null); handleSelectChat(chat.id); }}
+                      onClick={() => handleSelectChat(chat.id)}
                       className={`w-full text-left px-4 py-3 border-b border-gray-100 transition-colors ${
-                        isSelected && !selectedFriendId ? 'bg-green-50' : 'hover:bg-gray-50'
+                        isSelected ? 'bg-green-50' : 'hover:bg-gray-50'
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -935,16 +751,8 @@ export default function ChatsPage() {
         </div>
 
         {/* Right Panel: Chat Detail */}
-        <div className={`flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex-col overflow-hidden ${selectedChatId || selectedFriendId ? 'flex' : 'hidden lg:flex'}`}>
-          {selectedFriendId && !selectedChatId ? (
-            /* Direct message to friend without existing chat */
-            <DirectMessagePanel
-              friendId={selectedFriendId}
-              friend={allFriends.find((f) => f.id === selectedFriendId) || null}
-              onBack={() => setSelectedFriendId(null)}
-              onSent={() => { setSelectedFriendId(null); loadChats(); }}
-            />
-          ) : !selectedChatId ? (
+        <div className={`flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex-col overflow-hidden ${selectedChatId ? 'flex' : 'hidden lg:flex'}`}>
+          {!selectedChatId ? (
             <div className="flex-1 flex items-center justify-center">
               <p className="text-gray-400 text-sm">チャットを選択してください</p>
             </div>
@@ -1265,12 +1073,12 @@ export default function ChatsPage() {
           表示し続けて pane 間の不整合になる。selection ID 自体が friend_id なので
           直接渡せる (chat list SQL が `id: f.id` で friend_id を返す)。
         */}
-        {(selectedChatId || selectedFriendId) && (
+        {selectedChatId && (
           <div className="hidden xl:flex">
             <FriendInfoSidebar
-              friendId={selectedFriendId || selectedChatId}
+              friendId={selectedChatId}
               chatStatus={
-                chatDetail && chatDetail.id === (selectedFriendId || selectedChatId)
+                chatDetail && chatDetail.id === selectedChatId
                   ? { status: chatDetail.status, notes: chatDetail.notes }
                   : undefined
               }
