@@ -39,6 +39,7 @@ export default function ChatCard({
   onToggleExpand,
   onStatusChange,
   onToggleAiReplyMode,
+  quickSend,
   children,
 }: {
   chat: ChatCardChat
@@ -49,6 +50,8 @@ export default function ChatCard({
   onToggleExpand: () => void
   onStatusChange: (status: ChatStatus) => void
   onToggleAiReplyMode: () => void
+  /** 操作行に並べる定型文ボタン（TemplateQuickSend）。 */
+  quickSend?: React.ReactNode
   /** 展開時の中身（会話・入力欄など）。折りたたみ時は呼び出し側が渡さない。 */
   children?: React.ReactNode
 }) {
@@ -135,6 +138,8 @@ export default function ChatCard({
             <option value="in_progress">対応中</option>
             <option value="resolved">解決済</option>
           </select>
+
+          {quickSend}
 
           {chat.notes && (
             <span className="text-[11px] text-gray-500 truncate max-w-[180px]" title={chat.notes}>

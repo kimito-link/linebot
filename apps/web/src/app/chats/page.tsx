@@ -12,6 +12,7 @@ import FriendInfoSidebar from '@/components/chats/friend-info-sidebar'
 import ImageUploader, { type ImageUploaderValue } from '@/components/shared/image-uploader'
 import ChatCard from '@/components/chats/chat-card'
 import { deriveCardFlags } from '@/components/chats/chat-card-flags'
+import TemplateQuickSend, { type QuickTemplate } from '@/components/chats/template-quick-send'
 
 interface Chat {
   id: string
@@ -71,6 +72,8 @@ const SHOW_LOADING_PREF_KEY = 'lh_chat_show_loading_indicator'
 const CHAT_PAGE_SIZE = 50
 // 未返信セットの取得上限。worker 側 unanswered-inbox の MAX_PAGE_SIZE と同じ。
 const UNANSWERED_PAGE_SIZE = 2000
+// カードに出す定型文のカテゴリ。既存の lh_chat_* と同じ流儀で保存する。
+const QUICK_CATEGORY_KEY = 'lh_chat_quick_category'
 const LOADING_SECONDS_PREF_KEY = 'lh_chat_loading_seconds'
 const LOADING_REFRESH_INTERVAL_MS = 4000
 
@@ -180,6 +183,12 @@ export default function ChatsPage() {
   const [unansweredIds, setUnansweredIds] = useState<ReadonlySet<string>>(new Set())
   const [unansweredTotal, setUnansweredTotal] = useState(0)
   const [unansweredCapped, setUnansweredCapped] = useState(false)
+  // カードに並べる定型文。ページ表示時に1回だけ取る（カードごとに取らない）。
+  const [templates, setTemplates] = useState<QuickTemplate[]>([])
+  const [quickCategory, setQuickCategory] = useState<string>(() => {
+    if (typeof window === 'undefined') return ''
+    try { return localStorage.getItem(QUICK_CATEGORY_KEY) ?? '' } catch { return '' }
+  })
   const [showLoadingIndicator, setShowLoadingIndicator] = useState(false)
   const [loadingSeconds, setLoadingSeconds] = useState(5)
   const lastLoadingTriggerAtRef = useRef<Record<string, number>>({})
@@ -292,6 +301,30 @@ export default function ChatsPage() {
       setLoadingMore(false)
     }
   }, [loadingMore, buildListParams])
+
+  // カテゴリの選択肢は、取得したテンプレの実データから作る（固定リストを持たない）。
+  const templateCategories = [...new Set(templates.map((t) => t.category))].sort()
+  // 空文字 = すべて。★初期値を「すべて」にしてあるのは、本番にどんな category が
+  //   入っているか分からないため（決め打ちすると何も出ない事故になる）。
+  const quickTemplates = quickCategory
+    ? templates.filter((t) => t.category === quickCategory)
+    : templates
+
+  // 定型文はページ表示時に1回だけ取る。失敗しても画面は動く（ボタンが出ないだけ）。
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const res = await api.templates.list()
+        if (!cancelled && res.success) setTemplates(res.data as unknown as QuickTemplate[])
+      } catch { /* 定型文が出ないだけで、返信そのものは手入力でできる */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    try { localStorage.setItem(QUICK_CATEGORY_KEY, quickCategory) } catch { /* ignore */ }
+  }, [quickCategory])
 
   // Keep refs in sync so setChats updater can read the latest filter without stale closure
   useEffect(() => { statusFilterRef.current = statusFilter }, [statusFilter])
@@ -568,6 +601,16 @@ export default function ChatsPage() {
       }
       // 手動返信で未対応が 1 件減るので、サイドバーのバッジを即時更新させる
       window.dispatchEvent(new Event(UNANSWERED_REFRESH_EVENT))
+      // ★カードの「未返信」バッジも同時に落とす。
+      //   サイドバーだけ減ってカードは赤いまま、という食い違いを作らない。
+      //   （サーバー側でも手動送信は未返信から外れるので、次の読み込みでも一致する）
+      setUnansweredIds((prev) => {
+        if (!prev.has(sendingChatId)) return prev
+        const next = new Set(prev)
+        next.delete(sendingChatId)
+        return next
+      })
+      setUnansweredTotal((n) => Math.max(0, n - 1))
     } catch {
       setError('メッセージの送信に失敗しました。')
     } finally {
@@ -633,6 +676,31 @@ export default function ChatsPage() {
       setError(`自動応答の切り替えに失敗しました: ${msg}`)
     } finally {
       setSwitchingMode(false)
+    }
+  }
+
+  // 定型文を1通送る。★新しいAPIは使わない。手入力の送信と同じ経路。
+  const handleSendTemplate = async (chatId: string, messageType: string, content: string) => {
+    setSending(true)
+    try {
+      const res = await api.chats.send(chatId, { messageType, content })
+      if (!res.success) {
+        setError('定型文の送信に失敗しました。')
+        return
+      }
+      // 手動送信と同じ後始末: 未返信を落とし、一覧と詳細を読み直す
+      setUnansweredIds((prev) => {
+        if (!prev.has(chatId)) return prev
+        const next = new Set(prev); next.delete(chatId); return next
+      })
+      setUnansweredTotal((n) => Math.max(0, n - 1))
+      window.dispatchEvent(new Event(UNANSWERED_REFRESH_EVENT))
+      if (selectedChatId === chatId) await loadChatDetail(chatId)
+      await loadChats()
+    } catch {
+      setError('定型文の送信に失敗しました。')
+    } finally {
+      setSending(false)
     }
   }
 
@@ -969,6 +1037,21 @@ export default function ChatsPage() {
               />
               🔥 未返信のみ
             </label>
+            {templateCategories.length > 0 && (
+              <label className="flex items-center gap-1 text-xs text-gray-500 whitespace-nowrap">
+                定型文:
+                <select
+                  value={quickCategory}
+                  onChange={(e) => setQuickCategory(e.target.value)}
+                  className="px-1.5 py-1 text-xs border border-gray-300 rounded bg-white text-gray-700"
+                >
+                  <option value="">すべて</option>
+                  {templateCategories.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             {unansweredTotal > 0 && (
               <span className="text-xs font-bold text-red-600 whitespace-nowrap">
                 未返信 {unansweredCapped ? `${unansweredTotal}+` : unansweredTotal}
@@ -1017,6 +1100,14 @@ export default function ChatsPage() {
                       onToggleAiReplyMode={() => {
                         void handleToggleAiReplyMode(chat.id, flags.humanMode ? 'human' : 'bot')
                       }}
+                      quickSend={
+                        <TemplateQuickSend
+                          templates={quickTemplates}
+                          friendName={chat.friendName}
+                          sending={sending}
+                          onSend={(t, c) => handleSendTemplate(chat.id, t, c)}
+                        />
+                      }
                     >
                       {detailPane}
                     </ChatCard>
