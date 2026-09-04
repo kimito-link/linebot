@@ -13,9 +13,15 @@ dist-mcp/
 *.toml.bak
 .env.production
 .env.staging
+# ★wrangler dev のローカル秘密（API_KEY 等）。コミットしない。
+.dev.vars
+.dev.vars.*
 apps/web/out/
 apps/worker/dist/
 .worktrees/
 .claude/worktrees/
 .line-harness-setup.json
 .line-harness-config.json
+
+# ローカル開発用の生成物（scripts/make-dev-config.mjs が作る）
+apps/worker/wrangler.dev.toml
