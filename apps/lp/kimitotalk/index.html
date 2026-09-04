@@ -165,6 +165,70 @@
   footer { padding: 32px 0; text-align: center; font-size: 12px; color: var(--muted); }
 
   .demo-video { width: 100%; max-width: 560px; display: block; margin: 0 auto; border-radius: var(--radius); border: 1px solid var(--line); }
+
+  /* ── 担当者側の画面（受信箱のモック）──
+     LINEの画面だけ見せても「担当者に届く」がどう届くのか分からない。
+     実物の画面と同じ並び（一覧 / 会話 / 状態）で見せる。 */
+  .desk {
+    display: grid; grid-template-columns: 190px 1fr; gap: 0;
+    max-width: 620px; margin: 0 auto 6px;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); overflow: hidden;
+  }
+  @media (max-width: 560px) { .desk { grid-template-columns: 1fr; } }
+  /* 左列は行が尽きても下まで地色を伸ばす。伸ばさないと途中で切れて未完成に見える。 */
+  .desk-list { border-right: 1px solid var(--line); background: var(--panel-soft); }
+  @media (max-width: 560px) { .desk-list { border-right: 0; border-bottom: 1px solid var(--line); } }
+  .desk-list-head, .desk-thread-head {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    padding: 9px 12px; border-bottom: 1px solid var(--line); letter-spacing: .03em;
+  }
+  .desk-row { padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  .desk-row:last-child { border-bottom: 0; }
+  .desk-row.on { background: var(--panel); }
+  .desk-row .nm { font-size: 12.5px; font-weight: 700; display: block; }
+  .desk-row .pv { font-size: 11px; color: var(--muted); display: block; margin-top: 1px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .desk-tag {
+    display: inline-block; font-size: 10px; font-weight: 700;
+    padding: 1px 6px; border-radius: 999px; margin-top: 4px;
+  }
+  .desk-tag.unread { background: #FBE9E7; color: #B3451F; }
+  .desk-tag.route  { background: var(--accent-soft); color: var(--accent-strong); }
+  .desk-thread { padding: 12px; display: flex; flex-direction: column; gap: 7px; }
+  .desk-b { max-width: 86%; padding: 7px 11px; border-radius: 13px; font-size: 12px; line-height: 1.6; }
+  .desk-b.in  { align-self: flex-start; background: var(--panel-soft); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .desk-b.bot { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
+  .desk-b .by { display: block; font-size: 10px; font-weight: 700; color: var(--accent-strong); margin-bottom: 2px; }
+  .desk-b.staff { align-self: flex-end; background: var(--fg); color: #fff; border-bottom-right-radius: 4px; }
+  .desk-b.staff .by { color: #fff; opacity: .75; }
+  .desk-bar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    padding: 9px 12px; border-top: 1px solid var(--line); background: var(--panel-soft);
+  }
+  .desk-state {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+    background: #F6EFDF; color: #8A6A22;
+  }
+  .desk-state .dot { width: 6px; height: 6px; border-radius: 50%; background: #C79A2E; }
+  .desk-btn {
+    margin-left: auto; font-size: 11px; font-weight: 700; color: var(--fg);
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 4px 10px; border-radius: 8px;
+  }
+  @media (max-width: 560px) { .desk-btn { margin-left: 0; } }
+  .desk-cap { text-align: center; font-size: 12px; color: var(--muted); margin: 0 auto 26px; max-width: 520px; }
+
+  /* 蓄積されるもの（3つ並び） */
+  .keeps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-top: 22px; }
+  @media (max-width: 640px) { .keeps { grid-template-columns: 1fr; max-width: 480px; margin-left: auto; margin-right: auto; } }
+  .keep {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 16px 16px 14px;
+  }
+  .keep h3 { font-size: 13.5px; margin: 0 0 6px; }
+  .keep p { font-size: 12.5px; color: var(--muted); margin: 0; line-height: 1.75; }
 </style>
 <!-- ★2026-09-03: site-chrome を新方式へ移行。
      読み込み順は core → theme → layout。**この順でないと壊れる。**
@@ -271,7 +335,77 @@
   </div>
 </section>
 
-<section id="case" class="soft">
+<section class="soft">
+  <div class="wrap">
+    <span class="eyebrow">担当者さまの側</span>
+    <h2>「担当者へ届く」の、届いた先です</h2>
+    <p class="section-lead">Botに任せる方と、ご自分で返す方を、お一人ずつ分けられます。切り替えても、会話はそのまま残ります。</p>
+
+    <!-- ★実物の画面（apps/web の オペレーターチャット）と同じ並びで描く。
+         ここで独自の意匠を作ると「実際の画面です」と食い違う。 -->
+    <div class="desk">
+      <div class="desk-list">
+        <div class="desk-list-head">お問い合わせ一覧</div>
+        <div class="desk-row on">
+          <span class="nm">佐藤さま</span>
+          <span class="pv">見積もりの件ですが…</span>
+          <span class="desk-tag unread">未読</span>
+        </div>
+        <div class="desk-row">
+          <span class="nm">鈴木さま</span>
+          <span class="pv">ありがとうございました</span>
+          <span class="desk-tag route">Instagramから</span>
+        </div>
+        <div class="desk-row">
+          <span class="nm">高橋さま</span>
+          <span class="pv">明日の14時でお願いします</span>
+          <span class="desk-tag route">チラシのQRから</span>
+        </div>
+      </div>
+      <div>
+        <div class="desk-thread-head">佐藤さま とのやりとり</div>
+        <div class="desk-thread">
+          <div class="desk-b in">営業時間は何時までですか？</div>
+          <div class="desk-b bot"><span class="by">Bot</span>平日は19時まで、土曜は17時までです。</div>
+          <div class="desk-b in">見積もりの件ですが、相談できますか？</div>
+          <div class="desk-b staff"><span class="by">担当者</span>お待たせしました。詳しくお伺いします。</div>
+        </div>
+        <div class="desk-bar">
+          <span class="desk-state"><span class="dot"></span>自動応答: 停止中</span>
+          <span class="desk-btn">Botに戻す</span>
+        </div>
+      </div>
+    </div>
+    <p class="desk-cap">金額の相談に入ったので、この方だけBotを止めて、担当者が続きを引き取った場面です。用が済んだらボタン一つでBotに戻せます。</p>
+
+    <div class="foundation-box">
+      <p>LINE公式アカウントは、Botに任せるか・人が返すかを<strong>アカウントごとにしか切り替えられません</strong>。片方を選ぶと、もう片方が使えなくなります。</p>
+      <p style="margin-top:10px;">この仕組みでは<strong>お一人ずつ</strong>決められます。よくある質問はBotが即答し、込み入った話に入った方だけ手元に引き取る、という分け方ができます。</p>
+      <ul>
+        <li>止めている間も、届いたメッセージは記録され続けます（止まるのはBotが喋ることだけです）</li>
+        <li>営業時間のご案内のような定型のお返事は、手で対応中でも止まりません</li>
+        <li>スマートフォンのLINE公式アカウントアプリからも、同じ会話が見えます</li>
+      </ul>
+    </div>
+
+    <div class="keeps">
+      <div class="keep">
+        <h3>会話が、丸ごと残ります</h3>
+        <p>Botのお返事も、担当者のお返事も、同じ場所に時系列で残ります。担当が代わっても、これまでの経緯を聞き直す必要がありません。</p>
+      </div>
+      <div class="keep">
+        <h3>どこから来た方か、分かります</h3>
+        <p>Instagramのプロフィール、チラシのQR、名刺。友だち追加の入口ごとに印を分けておくと、どの告知から来た方かが一覧に出ます。</p>
+      </div>
+      <div class="keep">
+        <h3>返事が途切れた方に、一度だけ</h3>
+        <p>最後のご連絡から24時間が過ぎた方へ、それまでの会話を踏まえた一言をお送りします。しつこくならないよう、お一人につき一度だけです。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="case">
   <div class="wrap">
     <span class="eyebrow">参考事例</span>
     <h2>実際に稼働している事例</h2>
