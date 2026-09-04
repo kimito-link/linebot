@@ -641,6 +641,15 @@ chats.post('/api/chats/:id/send', async (c) => {
         parsed.originalContentUrl,
         parsed.previewImageUrl,
       );
+    } else {
+      // ★知らない messageType を黙って受け取らない。
+      // 以前はここが素通りで、LINE へ何も送っていないのに messages_log には
+      // outgoing を記録し success:true を返していた（送ったように見えて届かない）。
+      // templates.message_type は 'carousel' も許すため、実際に踏み得る経路だった。
+      return c.json(
+        { success: false, error: `Unsupported messageType: ${messageType}` },
+        400,
+      );
     }
 
     // メッセージログに記録
