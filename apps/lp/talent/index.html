@@ -178,6 +178,32 @@
   .rank-n { margin: 0 0 6px; font-size: 13.5px; color: var(--muted); line-height: 1.7; }
   .rank-do { margin: 0; font-size: 13.5px; line-height: 1.75; }
   .talk-demo { max-width: 560px; margin: 22px auto 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
+
+  /* ── 事務所さま側の画面（受け取る側の受信箱）──
+     ファン側(.phone/.thread)は既にあるが、受け取った側で何ができるかは
+     一度も見せていなかった。実物の画面（オペレーターチャット）と同じ並びで描く。
+     色は上の :root（コントラスト調整済み）だけを使う。ここで新しい色を作らない。 */
+  .desk { max-width: 560px; margin: 22px auto 0; border: 1px solid var(--line);
+          border-radius: 14px; overflow: hidden; background: var(--panel); }
+  .desk-head { font-size: 12px; font-weight: 700; color: var(--muted);
+               padding: 10px 14px; border-bottom: 1px solid var(--line); background: var(--panel-soft); }
+  .desk-thread { padding: 14px; display: flex; flex-direction: column; gap: 9px; }
+  .desk-b { max-width: 84%; padding: 9px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.7; }
+  .desk-b.in { align-self: flex-start; background: var(--panel-soft);
+               border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .desk-b.bot { align-self: flex-end; background: var(--accent-soft); border-bottom-right-radius: 4px; }
+  .desk-b.staff { align-self: flex-end; background: var(--fg); color: #fff; border-bottom-right-radius: 4px; }
+  .desk-b .by { display: block; font-size: 11px; font-weight: 700; margin-bottom: 3px;
+                color: var(--accent-strong); }
+  .desk-b.staff .by { color: #fff; opacity: .7; }
+  .desk-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+              padding: 11px 14px; border-top: 1px solid var(--line); background: var(--panel-soft); }
+  .desk-state { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700;
+                padding: 4px 10px; border-radius: 999px; background: var(--warn-soft); color: var(--warn); }
+  .desk-state .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+  .desk-btn { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--fg);
+              background: var(--panel); border: 1px solid var(--line); padding: 5px 12px; border-radius: 9px; }
+  @media (max-width: 560px) { .desk-btn { margin-left: 0; } }
   .demo-video .cap { margin: 10px 0 0; font-size: 13px; color: var(--muted); text-align: center; line-height: 1.7; }
   .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
   .src { font-size: 11.5px; color: var(--muted); margin-top: 8px; }
@@ -1056,6 +1082,72 @@
       <div class="point">
         <h3>判断が要るものは、人へ渡します</h3>
         <p>お仕事のご依頼、クレーム、体調や気持ちに関わる相談。この種のものは無理に応対せず、担当の方にお繋ぎします。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 5.5 事務所さま側の画面（人へ渡した先） -->
+<section>
+  <div class="wrap">
+    <h2>人へ渡したあと、担当の方が続きを引き取れます</h2>
+    <p class="lead">
+      ひとつ前で「判断が要るものは人へ渡します」と書きました。渡した先がこの画面です。
+      その方だけ応答を止めて、担当の方が直接お返事できます。
+    </p>
+
+    <!-- ★実物の画面（オペレーターチャット）と同じ並びで描く。
+         ここで独自の意匠を作ると「実際の画面です」と食い違う。
+         会話は上の .talk-demo（りんくとファンの方）の続きにしてある。 -->
+    <div class="desk">
+      <div class="desk-head">事務所さまの画面 — 〇〇さま とのやりとり</div>
+      <div class="desk-thread">
+        <div class="desk-b in">物販って何時からですか？</div>
+        <div class="desk-b bot"><span class="by">りんく</span>開演前は17時から、終演後もやっています。</div>
+        <div class="desk-b in">あの、実は取材のご依頼でご連絡しました。担当の方とお話しできますか？</div>
+        <div class="desk-b staff"><span class="by">担当スタッフ</span>お待たせしました。〇〇事務所の△△と申します。詳しくお伺いします。</div>
+      </div>
+      <div class="desk-bar">
+        <span class="desk-state"><span class="dot"></span>自動応答: 停止中</span>
+        <span class="desk-btn">りんくに戻す</span>
+      </div>
+    </div>
+    <p class="note" style="text-align:center">
+      取材のご依頼だったので、この方だけ応答を止めて、担当の方が引き取った場面です。
+      用が済んだらボタン一つで、また、りんくが応対します。
+    </p>
+
+    <div class="versus" style="margin-top:26px">
+      <div class="vs-card no">
+        <div class="t">LINE公式アカウントの標準機能</div>
+        <div class="m">自動応答か、手動対応か。<br>アカウント全体でどちらかを選ぶ</div>
+      </div>
+      <div class="vs-card ok">
+        <div class="t">この仕組み</div>
+        <div class="m">ファンの方お一人ずつ、<br>どちらで応対するか決められる</div>
+      </div>
+    </div>
+    <p class="note">
+      標準機能では、手動対応に切り替えるとアカウント全体の自動応答が止まります。
+      ファンの方全員への応対が同時に止まる、ということです。
+    </p>
+
+    <div class="points two" style="margin-top:26px">
+      <div class="point">
+        <h3>止めても、会話は残ります</h3>
+        <p>止めている間に届いたメッセージも、そのまま記録されます。止まるのは<strong>りんくが話すことだけ</strong>です。後から読み返せます。</p>
+      </div>
+      <div class="point">
+        <h3>担当の方が代わっても、経緯が残ります</h3>
+        <p>りんくの応対も、担当の方のお返事も、同じ場所に時系列で並びます。引き継ぎのときに、これまでの経緯を聞き直す必要がありません。</p>
+      </div>
+      <div class="point">
+        <h3>どこから来た方かが分かります</h3>
+        <p>Xのプロフィール、物販での掲示、チラシ。友だち追加の入口ごとに印を分けておくと、どの告知で来てくださった方かが分かります。</p>
+      </div>
+      <div class="point">
+        <h3>返事が途切れた方に、一度だけ</h3>
+        <p>最後のご連絡から24時間が過ぎた方へ、それまでの会話を踏まえた一言をお送りします。しつこくならないよう、お一人につき一度だけです。</p>
       </div>
     </div>
   </div>
