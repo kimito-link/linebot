@@ -160,6 +160,23 @@
   /* 「LINEでは、こう届きます」の動画。横長（900x720）なので幅を抑える。 */
   .demo-video { max-width: 620px; margin: 22px auto 0; }
   /* 会話例を単体で置く（.thread は本来スマホ枠の中身なので、幅と角丸をここで与える）。 */
+  /* A/B/C ランク。★色で優劣を付けない（Cが悪いわけではない）。
+     左の帯だけ変えて、確度の違いを示す。 */
+  .rank-grid { display: grid; gap: 12px; margin: 22px 0 14px; }
+  @media (min-width: 720px) { .rank-grid { grid-template-columns: repeat(3, 1fr); } }
+  .rank { display: flex; gap: 13px; background: #fff; border: 1px solid var(--line);
+    border-radius: 12px; padding: 15px 16px; }
+  .rank-a { border-left: 5px solid #2f9e5e; }
+  .rank-b { border-left: 5px solid #d9a02b; }
+  .rank-c { border-left: 5px solid #a8b0b8; }
+  .rank-badge { font-size: 24px; font-weight: 800; line-height: 1; flex-shrink: 0;
+    width: 34px; text-align: center; padding-top: 2px; }
+  .rank-a .rank-badge { color: #2f9e5e; }
+  .rank-b .rank-badge { color: #d9a02b; }
+  .rank-c .rank-badge { color: #98a2ab; }
+  .rank-body h3 { margin: 0 0 5px; font-size: 15px; }
+  .rank-n { margin: 0 0 6px; font-size: 13.5px; color: var(--muted); line-height: 1.7; }
+  .rank-do { margin: 0; font-size: 13.5px; line-height: 1.75; }
   .talk-demo { max-width: 560px; margin: 22px auto 0; border-radius: 14px; overflow: hidden; border: 1px solid var(--line); }
   .demo-video .cap { margin: 10px 0 0; font-size: 13px; color: var(--muted); text-align: center; line-height: 1.7; }
   .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
@@ -614,6 +631,91 @@
 
 <!-- 5. 事前に分かると -->
 <section>
+  <div class="wrap">
+    <h2>「行きます」と「行けたら」を、分けて数えます</h2>
+    <p class="lead">
+      合計だけだと、読み違えます。<b>確実に来る人</b>と<b>まだ迷っている人</b>は、打つ手が違うからです。
+    </p>
+
+    <div class="rank-grid">
+      <div class="rank rank-a">
+        <div class="rank-badge">A</div>
+        <div class="rank-body">
+          <h3>行きます</h3>
+          <p class="rank-n">この人数は、ほぼそのまま当日来ます。</p>
+          <p class="rank-do">物販とスタッフの数は、ここを基準に決められます。</p>
+        </div>
+      </div>
+      <div class="rank rank-b">
+        <div class="rank-badge">B</div>
+        <div class="rank-body">
+          <h3>行けたら行きます</h3>
+          <p class="rank-n">来るかどうかは、まだ決まっていません。</p>
+          <p class="rank-do"><b>ここが動かせる人たちです。</b>前日に一声かけると、Aに変わることがあります。</p>
+        </div>
+      </div>
+      <div class="rank rank-c">
+        <div class="rank-badge">C</div>
+        <div class="rank-body">
+          <h3>今回は難しそう</h3>
+          <p class="rank-n">今回は見送りです。</p>
+          <p class="rank-do">追いかけません。次の公演のお知らせだけ届きます。</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="note">
+      ★<b>Cの方を追いかけないことが大事だと考えています。</b>
+      来られない人に何度も声をかけると、次に来てもらえなくなるからです。
+    </p>
+  </div>
+</section>
+
+<!-- 特別オファー（関係性の設計） -->
+<section>
+  <div class="wrap">
+    <h2>何度も来てくれる方に、気づけます</h2>
+    <p class="lead">
+      毎回「行きます」を押してくれる方がいます。ただ、<b>誰なのかは覚えていられません。</b>
+      公演のたびに人が入れ替わり、名前と顔が一致しないまま過ぎていきます。
+    </p>
+
+    <div class="talk-demo">
+      <div class="thread">
+        <div class="row">
+          <img class="ico" src="assets/talent-avatar-neutral.svg" alt="">
+          <div class="bub bot"><div class="nm">〇〇</div>
+            いつも来てくださって、ありがとうございます。<br>
+            今回で5回目ですね。<br><br>
+            次回、開場前の時間に少しだけお話しできる時間を作りました。よかったら。
+          </div>
+        </div>
+        <div class="row me"><div class="bub me">えっ、覚えててくれたんですか</div></div>
+      </div>
+    </div>
+
+    <div class="points" style="margin-top:26px">
+      <div class="point">
+        <h3>来た回数が、そのまま残ります</h3>
+        <p>何回「行きます」を押したか、いつが最後だったか。数えなくても記録に残ります。</p>
+      </div>
+      <div class="point">
+        <h3>しばらく来ていない方にも、届けられます</h3>
+        <p>前は毎回来てくれたのに、最近見かけない。そういう方にだけ、そっとお知らせを出せます。</p>
+      </div>
+      <div class="point">
+        <h3>★全員に同じものを配りません</h3>
+        <p>誰にでも配るオファーは、特別ではなくなります。<b>回数や間隔で分けて、渡す相手を絞ります。</b></p>
+      </div>
+      <div class="point">
+        <h3>やりすぎないようにします</h3>
+        <p>特別扱いが見えすぎると、他の方が居心地を悪くします。<b>本人にだけ届く形</b>にしています。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
   <div class="wrap">
     <h2>事前に見えると、決められることがあります</h2>
 
