@@ -61,7 +61,9 @@ jobs:
           WORKER_NAME: ${{ inputs.worker_name || vars.WORKER_NAME }}
           ACCESS_EMAILS: ${{ inputs.access_emails }}
           ZONE_NAME: kimitotalk.link
-        if: ${{ inputs.mode != 'seed-rules' }}
+        # ★このスクリプトが扱うのは check / email-routing / access だけ。
+        #   他の mode は下の専用ステップが処理する。
+        if: ${{ inputs.mode == 'check' || inputs.mode == 'email-routing' || inputs.mode == 'access' }}
         run: node scripts/cloudflare-setup.mjs
 
       # 届いたメールの記録を見る。★読むだけ。
