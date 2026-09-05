@@ -1,0 +1,58 @@
+# Cloudflare の設定を、GitHub Secrets のトークンで行う。
+#
+# 【なぜ workflow でやるか】
+# トークンは GitHub Secrets にあり、読み出せない（設計上そうなっている）。
+# だが workflow の中では使えるので、ここで実行すれば
+# **値を誰の目にも触れさせずに**設定できる。手元にトークンを持ってこなくてよい。
+#
+# 【★まず check から】
+# いきなり設定を変えない。check で「そのトークンに何ができるか」を確かめてから、
+# apply で実際に変更する。権限不足なら check がその旨を出して止まる。
+name: Cloudflare Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: '何をするか'
+        required: true
+        default: 'check'
+        type: choice
+        options:
+          - check              # 権限と現状を見るだけ（変更しない）
+          - email-routing      # メール受信を設定する
+          - access             # /line-root/ に鍵をかける
+      email_local_part:
+        description: 'メール受信アドレスの@より前（既定: notify）'
+        required: false
+        default: 'notify'
+        type: string
+      worker_name:
+        description: 'メールの宛先Worker名（空なら vars.WORKER_NAME）'
+        required: false
+        type: string
+      access_emails:
+        description: '配線図に入れるメールアドレス（カンマ区切り）'
+        required: false
+        type: string
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 実行
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          MODE: ${{ inputs.mode }}
+          EMAIL_LOCAL: ${{ inputs.email_local_part }}
+          WORKER_NAME: ${{ inputs.worker_name || vars.WORKER_NAME }}
+          ACCESS_EMAILS: ${{ inputs.access_emails }}
+          ZONE_NAME: kimitotalk.link
+        run: node scripts/cloudflare-setup.mjs
