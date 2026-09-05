@@ -161,3 +161,40 @@ npx wrangler d1 execute <本番のDB名> --remote \
   変えると、偽メール1通で通知先を乗っ取られます。
 - **Access の Path を空にしない。** サイト全体が鍵の内側に入り、
   お客様がLPを見られなくなります。
+
+---
+
+# ★実施記録（2026-09-05）
+
+## 完了したもの（AIが workflow から実施）
+
+| やったこと | 結果 |
+|---|---|
+| GitHub Secrets のトークン更新 | 完了（`line-harness-deploy` の値） |
+| 受信ルール作成 | `notify@kimitotalk.link` → Worker `kimitolink-line` |
+| **MXレコード追加** | route1-3.mx.cloudflare.net（★これが無いと届かない） |
+| 転送ルール18件を本番D1へ | 4937バイト・ランサーズ10/ココナラ8 |
+
+★**MXが無いと、ルールを作っても1通も届かない。**
+実測: ルール作成に成功した直後でも MX は0件だった。
+「ルールができた＝届く」ではない。
+
+## 残っているもの
+
+**1. 通知先を `notify@kimitotalk.link` に変える**（作者の操作）
+ランサーズ・ココナラ等の登録メールアドレスを変えるか、Gmailから転送する。
+★まず1つで試してから広げるのが安全。
+
+**2. Access（配線図の鍵）**
+トークンに `Account → Access: Apps and Policies → Edit` が要る。
+いま入っているのは `Access: Policies` で、これでは作成できない（実測: 1010 auth.forbidden）。
+足したら: Actions → Cloudflare Setup → mode=access → access_emails に自分のアドレス
+
+## 動いているか確かめる
+
+```bash
+# 届いたメールの記録（本番）
+npx wrangler d1 execute <D1名> --remote --json   --command "SELECT received_at, from_address, from_source, rule_site, status FROM email_events ORDER BY received_at DESC LIMIT 10"
+```
+
+1件も無ければ、メールが Worker まで届いていない（MXとルールを確認）。
