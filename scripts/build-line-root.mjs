@@ -312,6 +312,13 @@ const html = `<!doctype html>
     border-radius:9px;padding:11px;font-weight:800;font-size:14px;cursor:pointer}
   #gate .err{color:var(--ng);font-size:12.5px;min-height:18px;margin-top:8px}
 </style>
+<!-- ★共通ヘッダ/フッタ。読み込み順は core → theme → layout。
+     逆にすると狭い画面でハンバーガーが出ずナビが縦に全展開する（kimitotalk で実測）。
+     ★このページは body.locked の間 .wrap を隠すので、ヘッダも鍵の内側に置く
+       （鍵の外にナビを出すと、開ける前から他ページへの導線が見えてしまう）。 -->
+<link rel="stylesheet" href="/site-chrome.css">
+<link rel="stylesheet" href="/site-chrome.theme.css">
+<link rel="stylesheet" href="/site-chrome.layout.css">
 </head>
 <body class="locked">
 
@@ -353,6 +360,8 @@ var LINE_ROOT_DATA = ${JSON.stringify({
 </script>
 
 <div class="wrap">
+<div id="site-header"></div>
+
 
 <h1>LINE導線の地図</h1>
 <p class="sub">
@@ -697,7 +706,11 @@ ${d.scan.liffIds.length ? `
   外に出せない情報は載せていません。
 </p>
 
+<div id="site-footer"></div>
 </div>
+<!-- ★config を先に読む。core はそれを参照して描画する（順序が逆だと何も出ない） -->
+<script src="/site-chrome.config.js"></script>
+<script src="/site-chrome.js"></script>
 </body>
 </html>
 `;
