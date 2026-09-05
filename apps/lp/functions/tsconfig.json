@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    // ★pnpm なので apps/lp からは解決できない。worker 側の依存を直接指す。
+    // このディレクトリに package.json を足すと Pages のビルド対象と誤解されるので足さない。
+    "types": ["../../worker/node_modules/@cloudflare/workers-types"],
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true
+  },
+  "include": ["**/*.ts"]
+}

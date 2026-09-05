@@ -326,6 +326,12 @@ const html = `<!doctype html>
 </div>
 
 <script>
+// ★エクスポート用のデータ。画面に出ているものと同じ値をここから作る
+//   （表を DOM から掻き集めると、表示の都合で切った文字まで拾ってしまう）。
+var LINE_ROOT_DATA = ${JSON.stringify({
+    accounts: wiring.accounts.map((a) => ({ name: a.name, repos: [...a.repos] })),
+    edges: wiring.edges,
+  })};
 (function () {
   var PASS = ${JSON.stringify(PASS)};
   var KEY = "line_root_unlocked";
@@ -599,6 +605,90 @@ ${d.scan.liffIds.length ? `
   <div><b>LIFF ID</b>（テストの固定値とビルド成果物は除外）</div>
   <ul>${rows(d.scan.liffIds, (f) => `<li><code>${esc(f.id)}</code> — ${esc(f.hits[0].file)}</li>`)}</ul>
 </div>` : ''}
+
+<div class="card">
+  <div><b>持ち出す</b>（Excel・他のツールで使う）</div>
+  <p class="muted" style="margin:6px 0 10px">
+    いま画面に出ている導線を、そのまま書き出します。
+    CSVはExcelで開けます（日本語が化けないようにしてあります）。
+  </p>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <button type="button" class="btn" id="dl-csv">CSVで書き出す</button>
+    <button type="button" class="btn" id="dl-json">JSONで書き出す</button>
+  </div>
+
+  <div style="margin-top:16px;border-top:1px solid #e5e7eb;padding-top:14px">
+    <div><b>気づいたことを書き足す</b></div>
+    <p class="muted" style="margin:6px 0 10px">
+      ★保存には<b>編集用の鍵</b>が要ります（このページのパスワードとは別のものです）。
+      鍵はブラウザに保存しません。閲覧だけの方は保存できません。
+    </p>
+    <textarea id="note-body" rows="5" placeholder="例: このサイトの窓口は今月から新しいアカウントへ移す予定"
+      style="width:100%;box-sizing:border-box;font:13px/1.7 inherit;padding:8px;border:1px solid #d1d5db;border-radius:6px"></textarea>
+    <div style="display:flex;gap:8px;align-items:center;margin-top:8px;flex-wrap:wrap">
+      <input id="note-key" type="password" placeholder="編集用の鍵"
+        style="font:13px inherit;padding:6px 8px;border:1px solid #d1d5db;border-radius:6px">
+      <button type="button" class="btn" id="note-save">保存する</button>
+      <span id="note-msg" class="muted"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  function download(name, text, mime) {
+    var blob = new Blob([text], { type: mime + ";charset=utf-8" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+  function csvCell(v) {
+    var s = String(v == null ? "" : v);
+    // ★正規表現リテラルに改行を直接書かない（生成時のエスケープで壊れた実績あり）。
+    var q = s.indexOf(String.fromCharCode(34)) >= 0 || s.indexOf(",") >= 0
+      || s.indexOf(String.fromCharCode(10)) >= 0 || s.indexOf(String.fromCharCode(13)) >= 0;
+    return q ? '"' + s.replace(/"/g, '""') + '"' : s;
+  }
+  document.getElementById("dl-csv").addEventListener("click", function () {
+    var lines = [["サイト", "つながっている窓口", "見つかった箇所"].map(csvCell).join(",")];
+    LINE_ROOT_DATA.edges.forEach(function (e) {
+      lines.push([e.repo, e.acc, e.n].map(csvCell).join(","));
+    });
+    // ★先頭に BOM を付ける。付けないと Excel で日本語が化ける。
+    // ★先頭に BOM。付けないと Excel で日本語が化ける。
+    var CRLF = String.fromCharCode(13) + String.fromCharCode(10);
+    download("line-root.csv", String.fromCharCode(0xFEFF) + lines.join(CRLF), "text/csv");
+  });
+  document.getElementById("dl-json").addEventListener("click", function () {
+    download("line-root.json", JSON.stringify(LINE_ROOT_DATA, null, 2), "application/json");
+  });
+
+  var msg = document.getElementById("note-msg");
+  var body = document.getElementById("note-body");
+  // 既存の注記を読む（鍵は要らない。読むだけなら誰でもできる）
+  fetch("/api/line-root/data").then(function (r) { return r.json(); }).then(function (j) {
+    if (j && j.success && j.data && typeof j.data.note === "string") body.value = j.data.note;
+  }).catch(function () { /* 保存機能が未設定でも、図の閲覧は成立する */ });
+
+  document.getElementById("note-save").addEventListener("click", function () {
+    var key = document.getElementById("note-key").value;
+    if (!key) { msg.textContent = "編集用の鍵を入れてください"; return; }
+    msg.textContent = "保存中...";
+    fetch("/api/line-root/data", {
+      method: "PUT",
+      headers: { "content-type": "application/json", "X-Edit-Key": key },
+      body: JSON.stringify({ note: body.value, savedAt: new Date().toISOString() })
+    }).then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+      .then(function (res) {
+        // ★失敗を成功に見せない。理由をそのまま出す。
+        msg.textContent = res.j && res.j.success ? "保存しました" : ("保存できません: " + ((res.j && res.j.error) || res.s));
+      })
+      .catch(function (e) { msg.textContent = "保存できません: " + e.message; });
+  });
+})();
+</script>
 
 <p class="foot">
   このページは <code>scripts/collect-line-root.mjs</code> が集めたデータから自動生成しています。
