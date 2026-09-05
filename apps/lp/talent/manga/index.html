@@ -46,17 +46,18 @@
     background: var(--accent-strong); color: #fff; font-size: 13px; font-weight: 700;
     flex-shrink: 0;
   }
-  /* ★soushin-suggest.link の .comic-panel と同じ型にする。
+  /* ★soushin-suggest.link の .comic-grid / .comic-panel と同じ型。
      あちらにこう記録がある:
        「以前は3列×2段だったが1コマ263pxで、元画像600pxの44%しか使えておらず
          コマの中の文字が読みづらかった」
-     ここでも同じことを踏んだ（440pxで元22pxの文字が11px相当まで潰れた）。
-     ★width/height 属性 + height:auto をセットで使う。
-       属性だけ付けて height:auto を書かないと、幅だけ縮んで縦に伸びる（実際にそうなった）。 */
-  .ep img {
-    display: block; width: 100%; height: auto;
-    max-width: 620px; margin: 0 auto;
-    border: 1px solid var(--line); border-radius: 12px;
+     ここでも同じことを踏んだ。4コマを1枚にまとめていたので、
+     モバイル(335px幅)では1コマ167pxになって読めなかった。
+     → あちらと同じく**1コマ1枚に分割**し、狭い画面では1列に積む。 */
+  .comic-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; max-width: 620px; margin: 0 auto; }
+  .comic-panel { border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+  .comic-panel img { display: block; width: 100%; height: auto; }
+  @media (max-width: 560px) {
+    .comic-grid { grid-template-columns: 1fr; gap: 10px; }
   }
   .cap {
     max-width: 620px; margin: 10px auto 0;
@@ -105,8 +106,12 @@
     <!-- ① 掴み。相手の悩みそのものから入る -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">1</span><h2>告知が、届いていない</h2></div>
-      <img src="/talent/assets/manga/01-kokuchi.jpg" width="1122" height="1402" loading="lazy"
-        alt="1コマ目、ライブ会場の客席がまばら。りんく「Xで告知したのに、お客さん少ないのだ」こん太「投稿は3日前だよ。もう流れちゃってる」。2コマ目、Xのタイムラインで告知が下へ流れていく。たぬ姉「SNSはその時見てた人にしか届かないのよ」。3コマ目、LINEに11月23日の公演案内が届き、行きます・行けたら行きます・今回は難しそうの3つのボタンがある。たぬ姉「LINEなら、開くまで消えないわ」。4コマ目、事務所の画面に行きます42人、行けたら15人、今回は難しそう8人と表示。こん太「42人はほぼ来る人数だから、グッズもこれくらいで足りるね」">
+      <div class="comic-grid" role="img" aria-label="1コマ目、ライブ会場の客席がまばら。りんく「Xで告知したのに、お客さん少ないのだ」こん太「投稿は3日前だよ。もう流れちゃってる」。2コマ目、Xのタイムラインで告知が下へ流れていく。たぬ姉「SNSはその時見てた人にしか届かないのよ」。3コマ目、LINEに11月23日の公演案内が届き、行きます・行けたら行きます・今回は難しそうの3つのボタンがある。たぬ姉「LINEなら、開くまで消えないわ」。4コマ目、事務所の画面に行きます42人、行けたら15人、今回は難しそう8人と表示。こん太「42人はほぼ来る人数だから、グッズもこれくらいで足りるね」">
+        <div class="comic-panel"><img src="/talent/assets/manga/01-kokuchi-1.jpg" width="600" height="749" loading="lazy" alt="1コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/01-kokuchi-2.jpg" width="600" height="749" loading="lazy" alt="2コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/01-kokuchi-3.jpg" width="600" height="749" loading="lazy" alt="3コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/01-kokuchi-4.jpg" width="600" height="749" loading="lazy" alt="4コマ目"></div>
+      </div>
       <p class="cap">
         <b>「行きます」と「行けたら」を分けて数える</b>ところまでが、いま動いています。
         物販の数を決める材料になります。
@@ -117,8 +122,12 @@
     <!-- ② 現場で目に見えて困っていること。共感が最も速い -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">2</span><h2>物販の列が、止まる</h2></div>
-      <img src="/talent/assets/manga/04-bussan.jpg" width="1024" height="1536" loading="lazy"
-        alt="1コマ目、物販ブースに長い列。フォローでチェキ1枚の貼り紙。こん太「フォローしたか、画面を見せてもらうしかないんだ」たぬ姉「ひとりずつ確認していると、そこで止まるのよね」。2コマ目、よれた紙のポイントカード。30マスのうち3つだけスタンプ。りんく「これ、お財布に入れたまま忘れちゃうやつだ」こん太「なくすと最初からになるしね」。3コマ目、かざすとフォロー画面へ、と書かれた立て札。スマホをかざすとりんくのLINE公式アカウントの友だち追加画面が開く。4コマ目、数日後のLINEに次のライブが12月14日に決まりましたという告知が届く。">
+      <div class="comic-grid" role="img" aria-label="1コマ目、物販ブースに長い列。フォローでチェキ1枚の貼り紙。こん太「フォローしたか、画面を見せてもらうしかないんだ」たぬ姉「ひとりずつ確認していると、そこで止まるのよね」。2コマ目、よれた紙のポイントカード。30マスのうち3つだけスタンプ。りんく「これ、お財布に入れたまま忘れちゃうやつだ」こん太「なくすと最初からになるしね」。3コマ目、かざすとフォロー画面へ、と書かれた立て札。スマホをかざすとりんくのLINE公式アカウントの友だち追加画面が開く。4コマ目、数日後のLINEに次のライブが12月14日に決まりましたという告知が届く。">
+        <div class="comic-panel"><img src="/talent/assets/manga/04-bussan-1.jpg" width="600" height="225" loading="lazy" alt="1コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/04-bussan-2.jpg" width="600" height="225" loading="lazy" alt="2コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/04-bussan-3.jpg" width="600" height="225" loading="lazy" alt="3コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/04-bussan-4.jpg" width="600" height="225" loading="lazy" alt="4コマ目"></div>
+      </div>
       <p class="cap">
         <b>かざすとフォロー画面が開く</b>カードです。フォロー済みかどうかを判定するものではありません。
         カードの現物が要ります。
@@ -129,8 +138,12 @@
     <!-- ③ 時計が動くので漫画向き -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">3</span><h2>深夜の1通が、翌朝まで待たない</h2></div>
-      <img src="/talent/assets/manga/02-shinya.jpg" width="1254" height="1254" loading="lazy"
-        alt="1コマ目、深夜0時14分。ファンから今日のライブ最高でしたというメッセージ。こん太「ファンの人、こんな時間に送ってくれてるね」たぬ姉「スタッフはもう帰ってる時間よ」。2コマ目、翌朝9時30分。メッセージは未読のまま。9時間後の表示。たぬ姉「返事が翌日になると、熱は一度冷めるのよね」。3コマ目、0時15分に既読が付き返信が入っている。りんく「1分後に返せるのだ」。4コマ目、朝の事務所の画面に昨夜の対応12件と表示。">
+      <div class="comic-grid" role="img" aria-label="1コマ目、深夜0時14分。ファンから今日のライブ最高でしたというメッセージ。こん太「ファンの人、こんな時間に送ってくれてるね」たぬ姉「スタッフはもう帰ってる時間よ」。2コマ目、翌朝9時30分。メッセージは未読のまま。9時間後の表示。たぬ姉「返事が翌日になると、熱は一度冷めるのよね」。3コマ目、0時15分に既読が付き返信が入っている。りんく「1分後に返せるのだ」。4コマ目、朝の事務所の画面に昨夜の対応12件と表示。">
+        <div class="comic-panel"><img src="/talent/assets/manga/02-shinya-1.jpg" width="600" height="600" loading="lazy" alt="1コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/02-shinya-2.jpg" width="600" height="600" loading="lazy" alt="2コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/02-shinya-3.jpg" width="600" height="600" loading="lazy" alt="3コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/02-shinya-4.jpg" width="600" height="600" loading="lazy" alt="4コマ目"></div>
+      </div>
       <p class="cap">
         1分後に返しているのは<b>自動応答</b>です。演者本人のふりはしません。
         判断が要るものは人へ渡します。
@@ -141,8 +154,12 @@
     <!-- ④ 情緒のピーク。読後感がいい -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">4</span><h2>何度も来てくれる方に、気づける</h2></div>
-      <img src="/talent/assets/manga/03-gokaime.jpg" width="1254" height="1254" loading="lazy"
-        alt="1コマ目、ライブハウスの入口に列。りんく「今日もたくさん来てくれたのだ」こん太「あの人、前も見た気がする、けど自信ないな」。2コマ目、3月5月7月9月11月の公演ポスターが並ぶ。たぬ姉「公演のたびに、お客さんは入れ替わるものね」りんく「顔と名前が、一致しないのだ」。3コマ目、参加者リストに参加5回目と表示され、3月から11月まですべて行きますの履歴。たぬ姉「覚えていなくても、記録は残るのよ」。4コマ目、LINEでいつも来てくださって今回で5回目ですねと伝え、ファンからえっ、覚えててくれたんですかと返信。">
+      <div class="comic-grid" role="img" aria-label="1コマ目、ライブハウスの入口に列。りんく「今日もたくさん来てくれたのだ」こん太「あの人、前も見た気がする、けど自信ないな」。2コマ目、3月5月7月9月11月の公演ポスターが並ぶ。たぬ姉「公演のたびに、お客さんは入れ替わるものね」りんく「顔と名前が、一致しないのだ」。3コマ目、参加者リストに参加5回目と表示され、3月から11月まですべて行きますの履歴。たぬ姉「覚えていなくても、記録は残るのよ」。4コマ目、LINEでいつも来てくださって今回で5回目ですねと伝え、ファンからえっ、覚えててくれたんですかと返信。">
+        <div class="comic-panel"><img src="/talent/assets/manga/03-gokaime-1.jpg" width="600" height="600" loading="lazy" alt="1コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/03-gokaime-2.jpg" width="600" height="600" loading="lazy" alt="2コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/03-gokaime-3.jpg" width="600" height="600" loading="lazy" alt="3コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/03-gokaime-4.jpg" width="600" height="600" loading="lazy" alt="4コマ目"></div>
+      </div>
       <p class="cap">
         <b>公演のたびにお客さまは入れ替わります。</b>覚えていられないのは当たり前で、
         記録のほうが残ります。
@@ -153,8 +170,12 @@
     <!-- ⑤ 運用・体制の話。感情は動かないが決め手になる -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">5</span><h2>この方だけ、応答を止められる</h2></div>
-      <img src="/talent/assets/manga/05-shuzai.jpg" width="1122" height="1402" loading="lazy"
-        alt="1コマ目、LINEで物販は何時からですかという質問にりんくが答えている。2コマ目、実は取材のご依頼でご連絡しましたというメッセージが届く。こん太「これは僕らが出た方がいい」。3コマ目、事務所の問い合わせ一覧。3件のうち真ん中のメディアの方だけ自動応答停止中のバッジが付き、りんくに戻すボタンがある。上下のファンAさんとファンBさんはりんくが応対中のまま。4コマ目、担当スタッフが返信している。用が済んだらまたりんくに戻せます。">
+      <div class="comic-grid" role="img" aria-label="1コマ目、LINEで物販は何時からですかという質問にりんくが答えている。2コマ目、実は取材のご依頼でご連絡しましたというメッセージが届く。こん太「これは僕らが出た方がいい」。3コマ目、事務所の問い合わせ一覧。3件のうち真ん中のメディアの方だけ自動応答停止中のバッジが付き、りんくに戻すボタンがある。上下のファンAさんとファンBさんはりんくが応対中のまま。4コマ目、担当スタッフが返信している。用が済んだらまたりんくに戻せます。">
+        <div class="comic-panel"><img src="/talent/assets/manga/05-shuzai-1.jpg" width="600" height="749" loading="lazy" alt="1コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/05-shuzai-2.jpg" width="600" height="749" loading="lazy" alt="2コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/05-shuzai-3.jpg" width="600" height="749" loading="lazy" alt="3コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/05-shuzai-4.jpg" width="600" height="749" loading="lazy" alt="4コマ目"></div>
+      </div>
       <p class="cap">
         LINE公式アカウントの標準機能では<b>アカウント全体でしか</b>切り替えられません。
         止めている間も、他の方への応対は続きます。
@@ -167,8 +188,12 @@
          その不安に、最後に答える。 -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">6</span><h2>答えないことも、仕事</h2></div>
-      <img src="/talent/assets/manga/06-kotaenai.jpg" width="1254" height="1254" loading="lazy"
-        alt="1コマ目、深夜1時52分。ファンから、最近ずっとしんどくて眠れなくて、というメッセージが届く。りんく「これは、わたしが答えることじゃないのだ」。2コマ目、りんくは短く、お話ししてくださってありがとうございます、担当の者からあらためてご連絡しますね、とだけ返す。たぬ姉「元気出して、なんて言わせないの」こん太「知ったかぶりで返すのが、一番こわいからね」。3コマ目、問い合わせ管理の画面。自動応答が停止中になり、要対応の赤い印が付いて一番上に上がっている。たぬ姉「朝いちばんに、これが見えるようになってるわ」。4コマ目、朝9時5分にスタッフが返信する。りんく「答えないことも、仕事なのだ」">
+      <div class="comic-grid" role="img" aria-label="1コマ目、深夜1時52分。ファンから、最近ずっとしんどくて眠れなくて、というメッセージが届く。りんく「これは、わたしが答えることじゃないのだ」。2コマ目、りんくは短く、お話ししてくださってありがとうございます、担当の者からあらためてご連絡しますね、とだけ返す。たぬ姉「元気出して、なんて言わせないの」こん太「知ったかぶりで返すのが、一番こわいからね」。3コマ目、問い合わせ管理の画面。自動応答が停止中になり、要対応の赤い印が付いて一番上に上がっている。たぬ姉「朝いちばんに、これが見えるようになってるわ」。4コマ目、朝9時5分にスタッフが返信する。りんく「答えないことも、仕事なのだ」">
+        <div class="comic-panel"><img src="/talent/assets/manga/06-kotaenai-1.jpg" width="600" height="600" loading="lazy" alt="1コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/06-kotaenai-2.jpg" width="600" height="600" loading="lazy" alt="2コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/06-kotaenai-3.jpg" width="600" height="600" loading="lazy" alt="3コマ目"></div>
+        <div class="comic-panel"><img src="/talent/assets/manga/06-kotaenai-4.jpg" width="600" height="600" loading="lazy" alt="4コマ目"></div>
+      </div>
       <p class="cap">
         お仕事のご依頼・クレーム・体調や気持ちに関わるご相談は、<b>無理に応対せず人へ渡します</b>。
         知らないことを、知っているふりはしません。
