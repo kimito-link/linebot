@@ -190,6 +190,34 @@ npx wrangler d1 execute <本番のDB名> --remote \
 実測: ルール作成に成功した直後でも MX は0件だった。
 「ルールができた＝届く」ではない。
 
+## ★通しで動いた（2026-09-05 22:27・実機）
+
+`info@best-trust.biz` から `notify@kimitotalk.link` へ1通送り、
+**約3分でLINEに届いた**。記録:
+
+```
+received_at:  2026-09-05T22:27:39+09:00
+from_address: info@best-trust.biz
+from_source:  header-from
+rule_site:    null        ← 未登録の差出人（想定どおり）
+status:       unmatched
+detail:       1件に配信   ← ★LINEに届いた
+```
+
+LINEの表示:
+```
+未登録の通知メールが届きました
+差出人: info@best-trust.biz
+件名: テスト
+ルールを足すと、次から内容が届きます。
+```
+
+この1通で5段階すべての疎通が確認できた:
+①MXが解決 ②受信ルールが効く ③Workerが解析できる ④ルール照合が動く ⑤LINEへ送れる
+
+★`unmatched` は失敗ではない。登録していない差出人のメールを**捨てずに知らせた**
+という設計どおりの動作。黙って捨てる作りなら、届かなかったことに気づけない。
+
 ## 残っているもの
 
 **1. 通知先を `notify@kimitotalk.link` に変える**（作者の操作）
