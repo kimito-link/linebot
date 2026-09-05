@@ -12,9 +12,25 @@
     "line": "#eee"
   },
   "navItems": [
-    { "href": "/kimitotalk/", "label": "できること" },
-    { "href": "/talent/", "label": "タレント事務所さまへ" },
-    { "href": "/gpt-hikkoshi/", "label": "GPTお引越し" },
-    { "href": "/privacy/", "label": "プライバシーポリシー" }
+    {
+      "href": "/kimitotalk/",
+      "label": "できること"
+    },
+    {
+      "href": "/talent/",
+      "label": "タレント事務所さまへ"
+    },
+    {
+      "href": "/gpt-hikkoshi/",
+      "label": "GPTお引越し"
+    },
+    {
+      "href": "/privacy/",
+      "label": "プライバシーポリシー"
+    },
+    {
+      "href": "/dekirukoto/",
+      "label": "できること一覧（社内）"
+    }
   ]
 }

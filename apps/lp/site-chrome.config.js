@@ -1,4 +1,5 @@
 // site-chrome.config.js — generated from site-chrome.config.json. Do not edit by hand.
+// 生成: node scripts/build-site-chrome-config.mjs
 window.SITE_CHROME_CONFIG = {
   "brandName": "Kimito Talk",
   "brandCopyright": "株式会社ベストトラスト",
@@ -20,6 +21,10 @@ window.SITE_CHROME_CONFIG = {
     {
       "href": "/privacy/",
       "label": "プライバシーポリシー"
+    },
+    {
+      "href": "/dekirukoto/",
+      "label": "できること一覧（社内）"
     }
   ]
 };
