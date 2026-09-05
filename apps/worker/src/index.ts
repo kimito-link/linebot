@@ -1094,8 +1094,33 @@ async function scheduled(
   // `重複:` tag rows untouched until that replacement lands.
 }
 
+/**
+ * Cloudflare Email Routing から届くメールの入口。
+ *
+ * ★ここで throw すると Cloudflare が bounce を返し、送信元に「配送不能」が
+ *   届いてしまう。handleIncomingEmail は例外を投げない作りにしてある。
+ * ★宛先はサービス側で固定リストから取る。メールの中身からは決めない。
+ */
+async function email(
+  message: ForwardableEmailMessage,
+  env: Env['Bindings'],
+  ctx: ExecutionContext,
+): Promise<void> {
+  const { handleIncomingEmail } = await import('./services/email-forward.js');
+  // レスポンスを待たせず、処理は最後まで走らせる
+  ctx.waitUntil(
+    handleIncomingEmail(
+      { DB: env.DB, LINE_CHANNEL_ACCESS_TOKEN: env.LINE_CHANNEL_ACCESS_TOKEN },
+      { envelopeFrom: message.from, raw: message.raw },
+    ).then((r) => {
+      console.log(`[email-forward] ${r.status}${r.ruleSite ? ` / ${r.ruleSite}` : ''}`);
+    }),
+  );
+}
+
 export default {
   fetch: app.fetch,
   scheduled,
+  email,
 };
 // redeploy trigger
