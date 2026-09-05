@@ -213,6 +213,48 @@ async function setupEmailRouting() {
     console.log(`  受信ルール: ${address} → ${WORKER_NAME} を作りました`);
   }
 
+  // 3) ★MXレコードが無いとメールはそもそも届かない。
+  //    ルールを作っただけで安心しないよう、ここで必ず確かめて、無ければ足す。
+  //    （実測: ルール作成に成功した直後でも MX は 0件だった）
+  const dns = await cf(`/zones/${zone.id}/dns_records?type=MX&per_page=50`);
+  const mxCount = (dns.json?.result || []).length;
+  if (!dns.ok) {
+    report('DNSレコードの確認（Zone→DNS→Edit が要る）', dns);
+  } else if (mxCount > 0) {
+    console.log(`  MXレコード: ${mxCount}件（すでにあります）`);
+  } else {
+    console.log('  MXレコード: 0件 — メールが届かないので追加します');
+    // Cloudflare Email Routing の受信サーバー（固定値）
+    const MX = [
+      { priority: 1, content: 'route1.mx.cloudflare.net' },
+      { priority: 2, content: 'route2.mx.cloudflare.net' },
+      { priority: 3, content: 'route3.mx.cloudflare.net' },
+    ];
+    for (const m of MX) {
+      const r = await cf(`/zones/${zone.id}/dns_records`, {
+        method: 'POST',
+        body: JSON.stringify({
+          type: 'MX', name: ZONE_NAME, content: m.content,
+          priority: m.priority, ttl: 1, proxied: false,
+        }),
+      });
+      if (!report(`MX ${m.content} の追加`, r)) process.exit(1);
+    }
+    // なりすまし対策のSPF。★既存のSPFと衝突しうるので、失敗しても止めない
+    //   （受信そのものはMXだけで動く）。
+    const spf = await cf(`/zones/${zone.id}/dns_records`, {
+      method: 'POST',
+      body: JSON.stringify({
+        type: 'TXT', name: ZONE_NAME,
+        content: 'v=spf1 include:_spf.mx.cloudflare.net ~all', ttl: 1,
+      }),
+    });
+    if (!spf.ok) {
+      console.log('  （SPFは追加できませんでした。既に別のSPFがある可能性があります）');
+    }
+    console.log('  MXレコード: 3件を追加しました');
+  }
+
   console.log('\n✓ 完了。このアドレス宛のメールが Worker に届きます。');
   console.log(`  次: 各サービスの通知先を ${address} に変えてください。`);
 }
