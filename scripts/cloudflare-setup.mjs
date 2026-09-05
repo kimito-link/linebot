@@ -175,10 +175,17 @@ async function setupEmailRouting() {
 
   console.log(`■ ${EMAIL_LOCAL}@${ZONE_NAME} → Worker「${WORKER_NAME}」\n`);
 
-  // 1) Email Routing を有効化（MX等のDNSも Cloudflare 側が用意する）
+  // 1) Email Routing の状態を見る。
+  //    ★/email/routing（設定そのもの）は Email Routing Rules とは別権限で、
+  //      読めないことがある。読めなくても、ルール一覧が引けるなら有効とみなして進む
+  //      （実測: 状態は 10000 で弾かれるのに rules は 1件返った）。
   const st = await cf(`/zones/${zone.id}/email/routing`);
+  const existing = await cf(`/zones/${zone.id}/email/routing/rules`);
+
   if (st.ok && st.json.result?.enabled) {
     console.log('  Email Routing: すでに有効');
+  } else if (existing.ok) {
+    console.log('  Email Routing: 状態は読めないが、ルールは操作できるので続行します');
   } else {
     const en = await cf(`/zones/${zone.id}/email/routing/enable`, { method: 'POST', body: '{}' });
     if (!report('Email Routing の有効化', en)) process.exit(1);
@@ -186,7 +193,6 @@ async function setupEmailRouting() {
   }
 
   // 2) 受信ルールを作る（同じアドレスが既にあれば作らない）
-  const existing = await cf(`/zones/${zone.id}/email/routing/rules`);
   const address = `${EMAIL_LOCAL}@${ZONE_NAME}`;
   const already = (existing.json?.result || []).find((r) =>
     (r.matchers || []).some((m) => m.value === address));
