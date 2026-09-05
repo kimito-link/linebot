@@ -47,8 +47,14 @@ async function cf(path, init = {}) {
 
 function report(label, r) {
   if (r.ok) return true;
-  const msgs = (r.json?.errors || []).map((e) => `${e.code}: ${e.message}`).join(' / ');
+  const errs = r.json?.errors || [];
+  const msgs = errs.map((e) => `${e.code}: ${e.message ?? JSON.stringify(e)}`).join(' / ');
   console.log(`  ✗ ${label} — ${redact(msgs || r.status)}`);
+  // ★message が undefined で返ることがある（Access API）。原因を追えるよう全文も出す。
+  //   トークンは redact 済み。
+  if (!msgs || msgs.includes('undefined')) {
+    console.log(`    詳細: ${redact(JSON.stringify(r.json).slice(0, 600))}`);
+  }
   return false;
 }
 
