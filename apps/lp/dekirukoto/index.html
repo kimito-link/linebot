@@ -272,13 +272,82 @@
         <span class="where">followup-nudge.ts</span>
       </div>
 
-      <div class="card later">
-        <h3>メールが来たらLINEに通知<span class="tag later">これから</span></h3>
-        <p>ランサーズ・BASE・Stripeなどの通知メールを、自分のLINEに転送します。<b>設計は完了。実物のメールが無くても18件中10件は動きます。</b></p>
-        <span class="where">計画済み・未着手</span>
+      <div class="card ask">
+        <h3>メールが来たらLINEに通知<span class="tag ask">あと1手</span></h3>
+        <p>ランサーズ・ココナラ・BASE・Stripe・Googleフォームなど、<b>メールが来るものは何でも</b>自分のLINEに転送します。
+        中身は作り終わっていて、あとは<b>受信アドレスを1つ作るだけ</b>です。</p>
+        <span class="where">下の「あと1手で動くもの」を参照</span>
       </div>
     </div>
 
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <h2>あと1手で動くもの</h2>
+    <p class="lead">中身は完成してテストも通っています。設定だけが残っています。</p>
+
+    <div class="box">
+      <p><b>メール通知の転送</b></p>
+      <p style="margin-top:8px">
+        ランサーズから「コメントが届きました」というメールが来たら、その場でLINEに出ます。
+        メールを開いて確認する手間がなくなります。
+      </p>
+
+      <div class="flow" style="margin-top:16px">
+        <div class="step">
+          <span class="n">1</span>
+          <b>メールが届く</b>
+          <p>ランサーズ・BASE・Stripe…どこからでも。</p>
+        </div>
+        <div class="step">
+          <span class="n">2</span>
+          <b>どこからか判定</b>
+          <p>差出人と件名で、登録した18件のどれかに当てます。</p>
+        </div>
+        <div class="step">
+          <span class="n">3</span>
+          <b>LINEに出す</b>
+          <p>「【ランサーズ】振込報酬額確定のお知らせ」</p>
+        </div>
+        <div class="step">
+          <span class="n">4</span>
+          <b>記録が残る</b>
+          <p>届かなかったものも記録されます。</p>
+        </div>
+      </div>
+
+      <p style="margin-top:16px"><b>残っている作業（Cloudflareの画面で5分）</b></p>
+      <ul>
+        <li>受信用のアドレスを1つ作る（例: <code>notify@kimitotalk.link</code>）</li>
+        <li>その宛先を Worker に指定する</li>
+        <li>各サービスの通知先を、そのアドレスに変える（またはGmailから転送）</li>
+      </ul>
+      <p class="note">この3つが済むと動き出します。コードの追加はもう要りません。</p>
+    </div>
+
+    <div class="box warn">
+      <p><b>作るときに一番怖かったこと</b></p>
+      <p style="margin-top:8px">
+        <b>Gmailで転送すると、差出人が自分のアドレスに書き換わります。</b>
+        そのままだと「ランサーズから来たメール」だと分からず、<b>18件のルール全部が外れます</b>。
+      </p>
+      <p style="margin-top:8px">
+        本文の中に元の差出人が残っているので、そこから復元するようにしました。
+        実際にGmail転送の形でテストして、正しく判定できることを確認済みです。
+      </p>
+    </div>
+
+    <div class="box">
+      <p><b>安全のために決めたこと</b></p>
+      <ul>
+        <li><b>送り先はあなたのLINEに固定</b>。メールの中身に「ここへ送れ」と書かれていても無視します（偽メールで乗っ取られないため）</li>
+        <li><b>知らないメールも捨てません</b>。「未登録の通知が来ました」と件名だけ知らせるので、必要ならルールを足せます</li>
+        <li><b>同じメールを二度送りません</b></li>
+        <li>宣伝メールが大量に来ても、同じ件名は1日1回まで</li>
+      </ul>
+    </div>
   </div>
 </section>
 
