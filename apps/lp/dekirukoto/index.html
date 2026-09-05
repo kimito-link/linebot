@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>いま何ができるのか — 自分用の一覧</title>
+<meta name="description" content="この仕組みで今できることを、実際のコードから確認して並べたもの。">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon.png">
+<style>
+  :root {
+    --bg: #FAF7F2; --panel: #ffffff; --panel-soft: #F4EFEA;
+    --fg: #3A3532; --muted: #746C65; --line: #E4DACF;
+    --accent: #59786B; --accent-strong: #40614F; --accent-soft: #EAF2EE;
+    --warn: #85692D; --warn-soft: #F6EFDF;
+    --radius: 16px; color-scheme: light;
+  }
+  * { box-sizing: border-box; min-width: 0; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg); line-height: 1.85;
+    font-family: "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  section { padding: 40px 0; }
+  section.soft { background: var(--panel-soft); }
+  h1 { font-size: clamp(22px, 4.6vw, 30px); line-height: 1.5; margin: 0 0 14px; font-weight: 800; }
+  h2 { font-size: clamp(18px, 3.4vw, 23px); margin: 0 0 8px; }
+  h3 { font-size: 15px; margin: 0 0 5px; }
+  .lead { color: var(--muted); font-size: 14.5px; margin: 0 0 24px; }
+  .note { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+
+  .hero { padding: 44px 0 34px; }
+  .hero .kicker {
+    display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .04em;
+    color: var(--accent-strong); background: var(--accent-soft);
+    padding: 4px 12px; border-radius: 999px; margin-bottom: 14px;
+  }
+
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; margin: 0 0 20px; font-size: 12.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; display: inline-block; }
+  .dot.ok { background: var(--accent-strong); }
+  .dot.ask { background: var(--warn); }
+  .dot.later { background: #b9b1a8; }
+
+  .group { margin-bottom: 30px; }
+  .group .gh {
+    display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+    border-bottom: 2px solid var(--line); padding-bottom: 7px; margin-bottom: 14px;
+  }
+  .group .gh h2 { margin: 0; }
+  .group .gh .q { font-size: 13px; color: var(--muted); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-left: 4px solid var(--accent-strong);
+    border-radius: 12px; padding: 14px 16px; margin-bottom: 9px;
+  }
+  .card.ask { border-left-color: var(--warn); }
+  .card.later { border-left-color: #b9b1a8; background: #FBF9F6; }
+  .card p { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .card .tag {
+    display: inline-block; font-size: 10.5px; font-weight: 700;
+    padding: 1px 8px; border-radius: 999px; margin-left: 6px; vertical-align: 2px;
+  }
+  .tag.ok { background: var(--accent-soft); color: var(--accent-strong); }
+  .tag.ask { background: var(--warn-soft); color: var(--warn); }
+  .tag.later { background: #EFEBE6; color: #7a736c; }
+  .card .where { display: block; margin-top: 6px; font-size: 11.5px; color: #9a938c; }
+
+  .box {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 18px 20px; margin-top: 14px;
+  }
+  .box.warn { background: var(--warn-soft); border-color: #E8DCC0; }
+  .box ul { margin: 10px 0 0; padding-left: 20px; font-size: 13.5px; }
+  .box li { margin-bottom: 6px; }
+
+  .flow { display: grid; gap: 10px; margin-top: 14px; }
+  @media (min-width: 720px) { .flow { grid-template-columns: repeat(4, 1fr); } }
+  .step {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 13px 14px;
+  }
+  .step .n {
+    display: inline-block; width: 21px; height: 21px; line-height: 21px; text-align: center;
+    border-radius: 50%; background: var(--accent-strong); color: #fff;
+    font-size: 11.5px; font-weight: 700; margin-bottom: 6px;
+  }
+  .step b { display: block; font-size: 13.5px; margin-bottom: 3px; }
+  .step p { margin: 0; font-size: 12.5px; color: var(--muted); line-height: 1.7; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 12px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; color: var(--muted); font-weight: 700; }
+  .tbl-wrap { overflow-x: auto; }
+
+  footer { padding: 30px 0 44px; font-size: 12px; color: var(--muted); }
+  code { font-size: 12px; background: var(--panel-soft); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<section class="hero">
+  <div class="wrap">
+    <span class="kicker">自分用のまとめ・社外には出しません</span>
+    <h1>いま、何ができるのか</h1>
+    <p class="lead">
+      機能が増えて全体が見えにくくなったので、<b>実際のコードを確認して</b>並べ直しました。
+      「宣伝で言えること」ではなく、<b>今この瞬間に動くもの</b>だけを ● にしています。
+    </p>
+    <div class="legend">
+      <span><i class="dot ok"></i>今すぐ動く</span>
+      <span><i class="dot ask"></i>動くが、設定か判断が要る</span>
+      <span><i class="dot later"></i>まだ作っていない</span>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <h2>ぜんぶ、この4つのどれかです</h2>
+    <p class="lead">29画面ありますが、やっていることは4つに分けられます。</p>
+    <div class="flow">
+      <div class="step">
+        <span class="n">1</span>
+        <b>来てもらう</b>
+        <p>どこから来た人かを記録しながら、友だちになってもらう。</p>
+      </div>
+      <div class="step">
+        <span class="n">2</span>
+        <b>応対する</b>
+        <p>Botが答える。手に負えないものは自分に回ってくる。</p>
+      </div>
+      <div class="step">
+        <span class="n">3</span>
+        <b>覚えておく</b>
+        <p>会話・流入元・反応が残る。次に活かせる。</p>
+      </div>
+      <div class="step">
+        <span class="n">4</span>
+        <b>こちらから届ける</b>
+        <p>配信・リマインド・時間差のフォロー。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+
+    <div class="group">
+      <div class="gh"><h2>1. 来てもらう</h2><span class="q">— どこから来た人か分かる</span></div>
+
+      <div class="card">
+        <h3>流入経路ごとにリンクを分ける<span class="tag ok">今すぐ</span></h3>
+        <p>Instagram用・チラシ用・名刺用と分けておくと、誰がどこから来たか一覧に出ます。</p>
+        <span class="where">画面: 流入リンク / リファラルリンク</span>
+      </div>
+
+      <div class="card">
+        <h3>1つのリンクを複数アカウントへ振り分ける<span class="tag ok">今すぐ</span></h3>
+        <p>1アカウントの上限に近づいたとき、同じリンクのまま別アカウントへ流せます。</p>
+        <span class="where">画面: プール</span>
+      </div>
+
+      <div class="card">
+        <h3>友だち追加の直後に自動で送る<span class="tag ok">今すぐ</span></h3>
+        <p>追加された瞬間に挨拶や案内を送ります。経路ごとに内容を変えられます。</p>
+        <span class="where">画面: 友だち追加時設定</span>
+      </div>
+
+      <div class="card ask">
+        <h3>紹介してくれた人を追う（アフィリエイト）<span class="tag ask">要設定</span></h3>
+        <p>誰の紹介で来たかを記録し、成果を集計します。報酬の設計は個別に決める必要があります。</p>
+        <span class="where">画面: アフィリエイト / CV計測</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gh"><h2>2. 応対する</h2><span class="q">— 自分が寝ている間も止まらない</span></div>
+
+      <div class="card">
+        <h3>決まった質問に即答する<span class="tag ok">今すぐ</span></h3>
+        <p>「営業時間は？」のような定型の質問に、キーワードで即座に返します。</p>
+        <span class="where">画面: 自動返信ルール</span>
+      </div>
+
+      <div class="card">
+        <h3>決まっていない質問にも答える<span class="tag ok">今すぐ</span></h3>
+        <p>あらかじめ載せた知識をもとに文章で答えます。答えるべきでないものは人に回します。</p>
+        <span class="where">AI応答 + ナレッジパック</span>
+      </div>
+
+      <div class="card">
+        <h3>声で返す<span class="tag ok">今すぐ</span></h3>
+        <p>音声メッセージを聞き取り、キャラクターの声で返します。声が作れなければ文章で返します。</p>
+        <span class="where">voice-reply.ts</span>
+      </div>
+
+      <div class="card">
+        <h3>画像を受け取って反応する<span class="tag ok">今すぐ</span></h3>
+        <p>送られた画像を見て応答します。同じ画像の再送も見分けられます。</p>
+        <span class="where">incoming-image.ts / phash.ts</span>
+      </div>
+
+      <div class="card">
+        <h3>この人だけBotを止めて、自分で返す<span class="tag ok">今すぐ</span></h3>
+        <p>込み入った話に入った方だけ手元に引き取れます。<b>LINE標準ではアカウント全体でしか切り替えられません。</b></p>
+        <span class="where">画面: 個別チャット（先日作った台帳）</span>
+      </div>
+
+      <div class="card ask">
+        <h3>予約を受ける<span class="tag ask">要設定</span></h3>
+        <p>空き枠の案内から確定まで。メニュー・スタッフ・営業時間の登録が先に要ります。</p>
+        <span class="where">画面: 予約</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gh"><h2>3. 覚えておく</h2><span class="q">— 消えずに溜まっていく</span></div>
+
+      <div class="card">
+        <h3>会話がまるごと残る<span class="tag ok">今すぐ</span></h3>
+        <p>Botの返事も自分の返事も、同じ場所に時系列で。担当が代わっても聞き直さずに済みます。</p>
+        <span class="where">messages_log</span>
+      </div>
+
+      <div class="card ask">
+        <h3>反応でスコアを付ける<span class="tag ask">要設定</span></h3>
+        <p>クリックや返信に点数を付け、熱量の高い人を見つけます。何に何点かは決める必要があります。</p>
+        <span class="where">画面: スコアリング</span>
+      </div>
+
+      <div class="card ask">
+        <h3>同じ人が複数アカウントにいるのを見つける<span class="tag ask">要判断</span></h3>
+        <p>重複を検出して一覧に出します。<b>自動でのタグ付けは負荷の都合で止めてあります。</b></p>
+        <span class="where">画面: 重複検出</span>
+      </div>
+
+      <div class="card">
+        <h3>導線の全体像を見る<span class="tag ok">今すぐ</span></h3>
+        <p>どのサイトがどのアカウントへ繋がっているかを図にします。CSVでも出せます。</p>
+        <span class="where">/line-root/（パスワード保護）</span>
+      </div>
+    </div>
+
+    <div class="group">
+      <div class="gh"><h2>4. こちらから届ける</h2><span class="q">— 忘れても勝手に動く</span></div>
+
+      <div class="card">
+        <h3>一斉に送る<span class="tag ok">今すぐ</span></h3>
+        <p>タグや条件で絞って配信。同じ人への二重送信を避ける仕組みも入っています。</p>
+        <span class="where">画面: 一斉配信</span>
+      </div>
+
+      <div class="card">
+        <h3>順番に送る（ステップ配信）<span class="tag ok">今すぐ</span></h3>
+        <p>登録から1日後・3日後…と、あらかじめ組んだ順で自動的に送ります。</p>
+        <span class="where">画面: シナリオ配信</span>
+      </div>
+
+      <div class="card">
+        <h3>予定の前に思い出させる<span class="tag ok">今すぐ</span></h3>
+        <p>前日・数時間前に自動で通知。予約とイベントの両方に付いています。</p>
+        <span class="where">画面: リマインダ</span>
+      </div>
+
+      <div class="card">
+        <h3>返事が途切れた人に、一度だけ声をかける<span class="tag ok">今すぐ</span></h3>
+        <p>最後の連絡から24時間経った方へ、会話を踏まえた一言を自動で。しつこくないよう一人一回だけ。</p>
+        <span class="where">followup-nudge.ts</span>
+      </div>
+
+      <div class="card later">
+        <h3>メールが来たらLINEに通知<span class="tag later">これから</span></h3>
+        <p>ランサーズ・BASE・Stripeなどの通知メールを、自分のLINEに転送します。<b>設計は完了。実物のメールが無くても18件中10件は動きます。</b></p>
+        <span class="where">計画済み・未着手</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <h2>自動で動いているもの</h2>
+    <p class="lead">何もしなくても、裏でこれが回っています。</p>
+    <div class="tbl-wrap">
+      <table>
+        <tr><th>やっていること</th><th>いつ</th></tr>
+        <tr><td>リマインダの配信</td><td>毎分</td></tr>
+        <tr><td>イベントのリマインド</td><td>毎分</td></tr>
+        <tr><td>返事が途切れた人へのフォロー</td><td>毎分</td></tr>
+        <tr><td>期限切れの予約を閉じる</td><td>毎分</td></tr>
+        <tr><td>アカウントの健康チェック</td><td>5分ごと</td></tr>
+        <tr><td>アクセストークンの更新</td><td>定期</td></tr>
+        <tr><td>配信結果の集計</td><td>6時間ごと</td></tr>
+      </table>
+    </div>
+    <p class="note">「毎分」は Cloudflare の cron。止まっていないかは「接続状態」の画面で見られます。</p>
+  </div>
+</section>
+
+<section>
+  <div class="wrap">
+    <h2>できないこと・気をつけること</h2>
+    <p class="lead">ここを分かっておくのが一番大事です。</p>
+
+    <div class="box warn">
+      <p><b>LINEには無料枠があります</b></p>
+      <p style="margin-top:8px">こちらから送る（プッシュ）のは月200通まで無料。返信は無料です。
+      一斉配信を始めると、あっという間に超えます。<b>送る前に人数を確認する癖をつける</b>のが安全です。</p>
+    </div>
+
+    <div class="box warn">
+      <p><b>業種によっては、そもそもLINE公式アカウントを持てません</b></p>
+      <p style="margin-top:8px">審査で通らない業種があります。回避しようとすると<b>アカウントごと止まります</b>。
+      その場合はLINE以外（メール・SMS・自社アプリ）で解くのが正しい方向です。</p>
+    </div>
+
+    <div class="box">
+      <p><b>「なんでも自動で答える」ものではありません</b></p>
+      <ul>
+        <li>金額の最終判断・個別の契約交渉は、必ず人が確認します</li>
+        <li>医療・個人情報を扱う場面は、業種ごとの決まりに沿った設計が要ります</li>
+        <li>知らないことは「知らない」と答えます（作り話をしません）</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="soft">
+  <div class="wrap">
+    <h2>迷ったときの見方</h2>
+    <div class="box">
+      <p><b>「これはできる？」と思ったら、この順で考えると早いです。</b></p>
+      <ul>
+        <li><b>友だちに何かを送りたい</b> → 4番（届ける）。一斉か、順番か、時間差か</li>
+        <li><b>友だちから何かを受けたい</b> → 2番（応対）。定型か、AIか、人が出るか</li>
+        <li><b>誰が何をしたか知りたい</b> → 3番（覚えておく）</li>
+        <li><b>もっと人を集めたい</b> → 1番（来てもらう）</li>
+      </ul>
+      <p style="margin-top:12px">この4つのどれにも当てはまらないなら、<b>たぶん新しく作るもの</b>です。</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>この一覧は 2026-09-05 時点で、実際のコードを確認して作りました。<br>
+    「今すぐ」が付いているものは、今この瞬間に動きます。想像で書いたものはありません。</p>
+    <p style="margin-top:10px"><a href="/kimitotalk/">お客様向けのページ →</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
