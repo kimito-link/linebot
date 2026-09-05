@@ -22,7 +22,8 @@ on:
           - check              # 権限と現状を見るだけ（変更しない）
           - email-routing      # メール受信を設定する
           - access             # /line-root/ に鍵をかける
-          - seed-rules         # 転送ルール18件を本番D1へ入れる
+          - seed-rules         # 転送ルールを本番D1へ入れる
+          - mail-log           # 届いたメールの記録を見る（変更しない）
       email_local_part:
         description: 'メール受信アドレスの@より前（既定: notify）'
         required: false
@@ -62,6 +63,23 @@ jobs:
           ZONE_NAME: kimitotalk.link
         if: ${{ inputs.mode != 'seed-rules' }}
         run: node scripts/cloudflare-setup.mjs
+
+      # 届いたメールの記録を見る。★読むだけ。
+      #   「メールが届かない」ときに、どこで止まったかを調べるのに使う。
+      - name: メールの記録を見る
+        if: ${{ inputs.mode == 'mail-log' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_NAME: ${{ secrets.D1_DATABASE_NAME }}
+        run: |
+          set -e
+          echo "── 直近20件 ──"
+          npx wrangler d1 execute "$D1_DATABASE_NAME" --remote --json             --command "SELECT received_at, from_address, from_source, rule_site, status, substr(detail,1,60) AS detail FROM email_events ORDER BY received_at DESC LIMIT 20"
+          echo "── 状態ごとの件数 ──"
+          npx wrangler d1 execute "$D1_DATABASE_NAME" --remote --json             --command "SELECT status, COUNT(*) AS n FROM email_events GROUP BY status"
+          echo "── 登録されているルール数 ──"
+          npx wrangler d1 execute "$D1_DATABASE_NAME" --remote --json             --command "SELECT length(value) AS bytes FROM account_settings WHERE key='email_forward_rules'"
 
       # ★転送ルールを本番D1へ入れる。
       #   これが無いと、届いたメールが全部「未登録」になる。
