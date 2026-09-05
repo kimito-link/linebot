@@ -46,14 +46,16 @@
     background: var(--accent-strong); color: #fff; font-size: 13px; font-weight: 700;
     flex-shrink: 0;
   }
-  /* ★幅は talent LP の .demo-video (620px) に合わせる。
-     最初 .genba (420px) の感覚で440pxにしたが、**読めなかった**。
-     この漫画は4コマの中にスマホ画面や一覧表が入っていて情報密度が高く、
-     440pxだと元22pxの文字が11px相当まで潰れる（実測）。
-     .genba は小さな挿絵用の型で、これには合わない。
-     620px なら 15px 相当になり、LP本文(13.5px)より大きい。 */
+  /* ★soushin-suggest.link の .comic-panel と同じ型にする。
+     あちらにこう記録がある:
+       「以前は3列×2段だったが1コマ263pxで、元画像600pxの44%しか使えておらず
+         コマの中の文字が読みづらかった」
+     ここでも同じことを踏んだ（440pxで元22pxの文字が11px相当まで潰れた）。
+     ★width/height 属性 + height:auto をセットで使う。
+       属性だけ付けて height:auto を書かないと、幅だけ縮んで縦に伸びる（実際にそうなった）。 */
   .ep img {
-    display: block; width: 100%; max-width: 620px; margin: 0 auto;
+    display: block; width: 100%; height: auto;
+    max-width: 620px; margin: 0 auto;
     border: 1px solid var(--line); border-radius: 12px;
   }
   .cap {
@@ -103,7 +105,7 @@
     <!-- ① 掴み。相手の悩みそのものから入る -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">1</span><h2>告知が、届いていない</h2></div>
-      <img src="/talent/assets/manga/01-kokuchi.jpg" loading="lazy" width="1122" height="1402"
+      <img src="/talent/assets/manga/01-kokuchi.jpg" width="1122" height="1402" loading="lazy"
         alt="1コマ目、ライブ会場の客席がまばら。りんく「Xで告知したのに、お客さん少ないのだ」こん太「投稿は3日前だよ。もう流れちゃってる」。2コマ目、Xのタイムラインで告知が下へ流れていく。たぬ姉「SNSはその時見てた人にしか届かないのよ」。3コマ目、LINEに11月23日の公演案内が届き、行きます・行けたら行きます・今回は難しそうの3つのボタンがある。たぬ姉「LINEなら、開くまで消えないわ」。4コマ目、事務所の画面に行きます42人、行けたら15人、今回は難しそう8人と表示。こん太「42人はほぼ来る人数だから、グッズもこれくらいで足りるね」">
       <p class="cap">
         <b>「行きます」と「行けたら」を分けて数える</b>ところまでが、いま動いています。
@@ -115,7 +117,7 @@
     <!-- ② 現場で目に見えて困っていること。共感が最も速い -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">2</span><h2>物販の列が、止まる</h2></div>
-      <img src="/talent/assets/manga/04-bussan.jpg" loading="lazy" width="1024" height="1536"
+      <img src="/talent/assets/manga/04-bussan.jpg" width="1024" height="1536" loading="lazy"
         alt="1コマ目、物販ブースに長い列。フォローでチェキ1枚の貼り紙。こん太「フォローしたか、画面を見せてもらうしかないんだ」たぬ姉「ひとりずつ確認していると、そこで止まるのよね」。2コマ目、よれた紙のポイントカード。30マスのうち3つだけスタンプ。りんく「これ、お財布に入れたまま忘れちゃうやつだ」こん太「なくすと最初からになるしね」。3コマ目、かざすとフォロー画面へ、と書かれた立て札。スマホをかざすとりんくのLINE公式アカウントの友だち追加画面が開く。4コマ目、数日後のLINEに次のライブが12月14日に決まりましたという告知が届く。">
       <p class="cap">
         <b>かざすとフォロー画面が開く</b>カードです。フォロー済みかどうかを判定するものではありません。
@@ -127,7 +129,7 @@
     <!-- ③ 時計が動くので漫画向き -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">3</span><h2>深夜の1通が、翌朝まで待たない</h2></div>
-      <img src="/talent/assets/manga/02-shinya.jpg" loading="lazy" width="1254" height="1254"
+      <img src="/talent/assets/manga/02-shinya.jpg" width="1254" height="1254" loading="lazy"
         alt="1コマ目、深夜0時14分。ファンから今日のライブ最高でしたというメッセージ。こん太「ファンの人、こんな時間に送ってくれてるね」たぬ姉「スタッフはもう帰ってる時間よ」。2コマ目、翌朝9時30分。メッセージは未読のまま。9時間後の表示。たぬ姉「返事が翌日になると、熱は一度冷めるのよね」。3コマ目、0時15分に既読が付き返信が入っている。りんく「1分後に返せるのだ」。4コマ目、朝の事務所の画面に昨夜の対応12件と表示。">
       <p class="cap">
         1分後に返しているのは<b>自動応答</b>です。演者本人のふりはしません。
@@ -139,7 +141,7 @@
     <!-- ④ 情緒のピーク。読後感がいい -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">4</span><h2>何度も来てくれる方に、気づける</h2></div>
-      <img src="/talent/assets/manga/03-gokaime.jpg" loading="lazy" width="1254" height="1254"
+      <img src="/talent/assets/manga/03-gokaime.jpg" width="1254" height="1254" loading="lazy"
         alt="1コマ目、ライブハウスの入口に列。りんく「今日もたくさん来てくれたのだ」こん太「あの人、前も見た気がする、けど自信ないな」。2コマ目、3月5月7月9月11月の公演ポスターが並ぶ。たぬ姉「公演のたびに、お客さんは入れ替わるものね」りんく「顔と名前が、一致しないのだ」。3コマ目、参加者リストに参加5回目と表示され、3月から11月まですべて行きますの履歴。たぬ姉「覚えていなくても、記録は残るのよ」。4コマ目、LINEでいつも来てくださって今回で5回目ですねと伝え、ファンからえっ、覚えててくれたんですかと返信。">
       <p class="cap">
         <b>公演のたびにお客さまは入れ替わります。</b>覚えていられないのは当たり前で、
@@ -151,7 +153,7 @@
     <!-- ⑤ 運用・体制の話。感情は動かないが決め手になる -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">5</span><h2>この方だけ、応答を止められる</h2></div>
-      <img src="/talent/assets/manga/05-shuzai.jpg" loading="lazy" width="1122" height="1402"
+      <img src="/talent/assets/manga/05-shuzai.jpg" width="1122" height="1402" loading="lazy"
         alt="1コマ目、LINEで物販は何時からですかという質問にりんくが答えている。2コマ目、実は取材のご依頼でご連絡しましたというメッセージが届く。こん太「これは僕らが出た方がいい」。3コマ目、事務所の問い合わせ一覧。3件のうち真ん中のメディアの方だけ自動応答停止中のバッジが付き、りんくに戻すボタンがある。上下のファンAさんとファンBさんはりんくが応対中のまま。4コマ目、担当スタッフが返信している。用が済んだらまたりんくに戻せます。">
       <p class="cap">
         LINE公式アカウントの標準機能では<b>アカウント全体でしか</b>切り替えられません。
@@ -165,7 +167,7 @@
          その不安に、最後に答える。 -->
     <div class="ep">
       <div class="ep-head"><span class="ep-no">6</span><h2>答えないことも、仕事</h2></div>
-      <img src="/talent/assets/manga/06-kotaenai.jpg" loading="lazy" width="1254" height="1254"
+      <img src="/talent/assets/manga/06-kotaenai.jpg" width="1254" height="1254" loading="lazy"
         alt="1コマ目、深夜1時52分。ファンから、最近ずっとしんどくて眠れなくて、というメッセージが届く。りんく「これは、わたしが答えることじゃないのだ」。2コマ目、りんくは短く、お話ししてくださってありがとうございます、担当の者からあらためてご連絡しますね、とだけ返す。たぬ姉「元気出して、なんて言わせないの」こん太「知ったかぶりで返すのが、一番こわいからね」。3コマ目、問い合わせ管理の画面。自動応答が停止中になり、要対応の赤い印が付いて一番上に上がっている。たぬ姉「朝いちばんに、これが見えるようになってるわ」。4コマ目、朝9時5分にスタッフが返信する。りんく「答えないことも、仕事なのだ」">
       <p class="cap">
         お仕事のご依頼・クレーム・体調や気持ちに関わるご相談は、<b>無理に応対せず人へ渡します</b>。
