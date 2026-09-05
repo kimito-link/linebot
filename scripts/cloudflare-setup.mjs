@@ -122,14 +122,41 @@ async function check() {
   }
 
   // Access
+  // ★読めるだけでは足りない。作れるかどうかまで確かめる。
+  //   実測(2026-09-05): 一覧はGETできるのに POST は 1010 auth.forbidden だった。
+  //   「見えている＝編集できる、ではない」をここで検出する。
   if (ACCOUNT) {
     const a = await cf(`/accounts/${ACCOUNT}/access/apps`);
     if (a.ok) {
       const apps = a.json.result || [];
-      console.log(`  Access アプリ: ${apps.length}件`);
+      console.log(`  Access アプリ(読み取り): ${apps.length}件`);
       for (const app of apps.slice(0, 5)) console.log(`    - ${app.name} (${app.domain})`);
+
+      // 実際に作って消して、書き込めるかを確かめる
+      const probeDomain = `${ZONE_NAME}/__perm_probe_${Date.now()}`;
+      const made = await cf(`/accounts/${ACCOUNT}/access/apps`, {
+        method: 'POST',
+        body: JSON.stringify({
+          name: '権限確認用（すぐ消します）',
+          domain: probeDomain,
+          type: 'self_hosted',
+          session_duration: '1h',
+        }),
+      });
+      if (made.ok) {
+        console.log('  Access 書き込み: できる');
+        const id = made.json.result?.id;
+        if (id) {
+          const del = await cf(`/accounts/${ACCOUNT}/access/apps/${id}`, { method: 'DELETE' });
+          console.log(del.ok
+            ? '  （確認用に作ったものは削除しました）'
+            : `  ★確認用のものを削除できませんでした。手で消してください: ${probeDomain}`);
+        }
+      } else {
+        report('Access 書き込み（Account→Access: Apps and Policies→Edit が要る）', made);
+      }
     } else {
-      report('Access（Access: Apps and Policies→Edit が要る）', a);
+      report('Access 読み取り', a);
     }
   }
 
